@@ -31,6 +31,10 @@ app.use('/api/logs', require('./routes/logs'));
 app.use('/api/settings', require('./routes/settings'));
 app.use('/api/attachments', require('./routes/attachments'));
 
+app.get('/api/health', (req, res) => {
+  res.json({ status: 'ok' });
+});
+
 app.use('/api/*', (req, res) => {
   res.status(404).json({ error: 'Endpoint non trovato' });
 });
