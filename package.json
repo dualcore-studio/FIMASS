@@ -12,7 +12,6 @@
     "start": "cd backend && node src/server.js",
     "seed": "cd backend && node src/seed/seed.js",
     "dev:backend": "cd backend && npm run dev",
-    "dev:frontend": "cd frontend && npm run dev",
-    "postinstall": "npm run build"
+    "dev:frontend": "cd frontend && npm run dev"
   }
 }
