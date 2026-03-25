@@ -59,6 +59,7 @@ app.use((err, req, res, next) => {
 
 app.listen(PORT, '0.0.0.0', () => {
   console.log(`Fimass Sportello Amico API running on port ${PORT} [${isProduction ? 'production' : 'development'}]`);
+  console.log(`JWT_SECRET: ${process.env.JWT_SECRET ? 'set' : 'NOT SET (using auto-generated)'}`);
   if (fs.existsSync(frontendDist)) {
     console.log(`Serving frontend from ${frontendDist}`);
   }

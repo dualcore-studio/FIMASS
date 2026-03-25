@@ -1,14 +1,12 @@
 const jwt = require('jsonwebtoken');
+const crypto = require('crypto');
 const { db } = require('../config/database');
 
-const isProduction = process.env.NODE_ENV === 'production';
-
-if (isProduction && !process.env.JWT_SECRET) {
-  console.error('FATAL: JWT_SECRET environment variable is required in production');
-  process.exit(1);
+let JWT_SECRET = process.env.JWT_SECRET;
+if (!JWT_SECRET) {
+  JWT_SECRET = crypto.randomBytes(32).toString('hex');
+  console.warn('WARNING: JWT_SECRET not set. Using auto-generated secret (tokens will not survive restarts).');
 }
-
-const JWT_SECRET = process.env.JWT_SECRET || 'fimass-dev-only-secret-key';
 
 function generateToken(user) {
   return jwt.sign(
