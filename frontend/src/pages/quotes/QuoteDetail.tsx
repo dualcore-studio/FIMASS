@@ -67,6 +67,11 @@ export default function QuoteDetail() {
   const [standbyMotivo, setStandbyMotivo] = useState('');
   const [standbyError, setStandbyError] = useState<string | null>(null);
 
+  // Elaborata modal
+  const [showElaborataModal, setShowElaborataModal] = useState(false);
+  const [elaborataFile, setElaborataFile] = useState<File | null>(null);
+  const [elaborataError, setElaborataError] = useState<string | null>(null);
+
   // Assign modal
   const [showAssignModal, setShowAssignModal] = useState(false);
   const [operators, setOperators] = useState<User[]>([]);
@@ -133,6 +138,30 @@ export default function QuoteDetail() {
     await handleStatusChange('STANDBY', standbyMotivo.trim());
     setShowStandbyModal(false);
     setStandbyMotivo('');
+  };
+
+  const handleElaborataConfirm = async () => {
+    if (!elaborataFile) {
+      setElaborataError('Il file del preventivo è obbligatorio.');
+      return;
+    }
+    if (!id) return;
+    setElaborataError(null);
+    setStatusSubmitting(true);
+    try {
+      const formData = new FormData();
+      formData.append('file', elaborataFile);
+      formData.append('entity_type', 'quote');
+      formData.append('entity_id', id);
+      formData.append('tipo', 'preventivo_elaborato');
+      await api.upload('/attachments/upload', formData);
+      await handleStatusChange('ELABORATA');
+      setShowElaborataModal(false);
+      setElaborataFile(null);
+    } catch (e) {
+      setElaborataError(e instanceof ApiError ? e.message : 'Caricamento non riuscito.');
+      setStatusSubmitting(false);
+    }
   };
 
   const handleAssign = async () => {
@@ -258,7 +287,7 @@ export default function QuoteDetail() {
                 Metti in Standby
               </button>
               <button
-                onClick={() => handleStatusChange('ELABORATA')}
+                onClick={() => { setShowElaborataModal(true); setElaborataFile(null); setElaborataError(null); }}
                 disabled={statusSubmitting}
                 className="btn-success"
               >
@@ -393,6 +422,34 @@ export default function QuoteDetail() {
             <button type="button" onClick={() => setShowStandbyModal(false)} className="btn-secondary">Annulla</button>
             <button type="button" onClick={handleStandbyConfirm} disabled={statusSubmitting} className="btn-primary">
               {statusSubmitting ? 'Salvando…' : 'Conferma'}
+            </button>
+          </div>
+        </div>
+      </Modal>
+
+      {/* Elaborata Modal */}
+      <Modal isOpen={showElaborataModal} onClose={() => setShowElaborataModal(false)} title="Segna come Elaborata" size="sm">
+        <div className="space-y-4">
+          <p className="text-sm text-gray-600">
+            Per segnare il preventivo come elaborato è necessario caricare il file del preventivo.
+          </p>
+          <div>
+            <label htmlFor="elaborata-file" className="mb-1 block text-sm font-medium text-gray-700">
+              File preventivo *
+            </label>
+            <input
+              id="elaborata-file"
+              type="file"
+              accept=".pdf,.doc,.docx,.xls,.xlsx"
+              onChange={(e) => setElaborataFile(e.target.files?.[0] || null)}
+              className="input-field text-sm file:mr-3 file:rounded-md file:border-0 file:bg-blue-50 file:px-3 file:py-1 file:text-xs file:font-medium file:text-blue-700 hover:file:bg-blue-100"
+            />
+          </div>
+          {elaborataError && <p className="text-sm text-red-600">{elaborataError}</p>}
+          <div className="flex justify-end gap-2 pt-2">
+            <button type="button" onClick={() => setShowElaborataModal(false)} className="btn-secondary">Annulla</button>
+            <button type="button" onClick={handleElaborataConfirm} disabled={statusSubmitting} className="btn-success">
+              {statusSubmitting ? 'Caricamento…' : 'Conferma'}
             </button>
           </div>
         </div>
