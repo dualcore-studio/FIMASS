@@ -4,7 +4,7 @@
   "private": true,
   "description": "Portale gestione preventivi e polizze assicurative",
   "engines": {
-    "node": ">=20.0.0"
+    "node": ">=22.12.0"
   },
   "scripts": {
     "install:all": "cd backend && npm install && cd ../frontend && npm install",
