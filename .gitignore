@@ -1,0 +1,36 @@
+# Dependencies
+node_modules/
+
+# Build output
+frontend/dist/
+
+# Database (persistent on volume, not in repo)
+backend/data/
+*.db
+*.db-wal
+*.db-shm
+
+# Uploaded files (persistent on volume, not in repo)
+backend/uploads/
+
+# Environment
+.env
+.env.local
+.env.production
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Logs
+*.log
+npm-debug.log*
+
+# Misc
+*.local
