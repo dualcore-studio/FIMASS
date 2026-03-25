@@ -192,6 +192,7 @@ export default function SupervisorDashboard() {
                 <th className="px-5 py-3 text-left font-medium text-gray-600">Numero</th>
                 <th className="px-5 py-3 text-left font-medium text-gray-600">Assistito</th>
                 <th className="px-5 py-3 text-left font-medium text-gray-600">Tipo</th>
+                <th className="px-5 py-3 text-left font-medium text-gray-600">Struttura</th>
                 <th className="px-5 py-3 text-left font-medium text-gray-600">Data</th>
                 <th className="px-5 py-3 text-left font-medium text-gray-600">Stato</th>
                 <th className="px-5 py-3 text-right font-medium text-gray-600">Azioni</th>
@@ -200,7 +201,7 @@ export default function SupervisorDashboard() {
             <tbody className="divide-y divide-gray-100 bg-white">
               {presentate.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="px-5 py-8 text-center text-gray-500">
+                  <td colSpan={7} className="px-5 py-8 text-center text-gray-500">
                     Nessun preventivo in stato Presentata.
                   </td>
                 </tr>
@@ -212,6 +213,7 @@ export default function SupervisorDashboard() {
                       <td className="whitespace-nowrap px-5 py-3 font-medium text-gray-900">{q.numero}</td>
                       <td className="px-5 py-3 text-gray-700">{nomeAssistito}</td>
                       <td className="px-5 py-3 text-gray-600">{q.tipo_nome ?? '—'}</td>
+                      <td className="px-5 py-3 text-gray-600">{q.struttura_nome ?? '—'}</td>
                       <td className="whitespace-nowrap px-5 py-3 text-gray-600">
                         {formatDate(q.created_at)}
                       </td>

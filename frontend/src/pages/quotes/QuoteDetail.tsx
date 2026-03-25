@@ -359,7 +359,14 @@ export default function QuoteDetail() {
           />
         )}
         {activeTab === 'storico' && <TabStorico history={quote.history || []} />}
-        {activeTab === 'preventivo' && <TabPreventivo datiPreventivo={quote.dati_preventivo} />}
+        {activeTab === 'preventivo' && (
+          <TabPreventivo
+            quote={quote}
+            role={role}
+            isAssignedOperator={isAssignedOperator}
+            onRefresh={fetchQuote}
+          />
+        )}
       </div>
 
       {/* Standby Modal */}
@@ -587,7 +594,7 @@ function TabAllegati({ attachments, uploadFile, setUploadFile, uploadTipo, setUp
                     <td className="px-4 py-3 text-right">
                       <button
                         type="button"
-                        onClick={() => window.open(`/api/attachments/download/${a.id}`, '_blank')}
+                        onClick={() => api.download(`/attachments/download/${a.id}`, a.nome_originale)}
                         className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-gray-200 bg-white px-3 text-xs font-medium text-gray-600 transition hover:border-blue-300 hover:bg-blue-50 hover:text-blue-700"
                       >
                         <Download className="h-3.5 w-3.5" />
@@ -739,31 +746,134 @@ function TabStorico({ history }: { history: StatusHistory[] }) {
 
 /* ───────────── Tab: Preventivo ───────────── */
 
-function TabPreventivo({ datiPreventivo }: { datiPreventivo: Record<string, any> | null }) {
-  if (!datiPreventivo || Object.keys(datiPreventivo).length === 0) {
-    return (
-      <div className="card px-6 py-12 text-center">
-        <ClipboardList className="mx-auto h-12 w-12 text-gray-300" />
-        <p className="mt-3 text-sm text-gray-500">Preventivo non ancora elaborato.</p>
-        <p className="mt-1 text-xs text-gray-400">
-          I dati del preventivo saranno disponibili quando l&apos;operatore avrà completato l&apos;elaborazione.
-        </p>
-      </div>
-    );
-  }
+interface TabPreventivoProps {
+  quote: Quote;
+  role?: string;
+  isAssignedOperator: boolean;
+  onRefresh: () => void;
+}
+
+function TabPreventivo({ quote, role, isAssignedOperator, onRefresh }: TabPreventivoProps) {
+  const [file, setFile] = useState<File | null>(null);
+  const [uploading, setUploading] = useState(false);
+  const [uploadError, setUploadError] = useState<string | null>(null);
+
+  const preventivoAttachment = (quote.attachments || []).find(
+    (a) => a.tipo === 'preventivo_elaborato'
+  );
+
+  const canUpload =
+    (isAssignedOperator || role === 'admin') &&
+    ['IN LAVORAZIONE', 'ELABORATA'].includes(quote.stato);
+
+  const handleUploadPreventivo = async () => {
+    if (!file) return;
+    setUploadError(null);
+    setUploading(true);
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+      formData.append('entity_type', 'quote');
+      formData.append('entity_id', String(quote.id));
+      formData.append('tipo', 'preventivo_elaborato');
+      await api.upload('/attachments/upload', formData);
+      setFile(null);
+      onRefresh();
+    } catch (e) {
+      setUploadError(e instanceof ApiError ? e.message : 'Upload non riuscito.');
+    } finally {
+      setUploading(false);
+    }
+  };
 
   return (
-    <div className="card p-6">
-      <h3 className="mb-4 text-sm font-semibold uppercase tracking-wider text-gray-500">Dati Preventivo Elaborato</h3>
-      <dl className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 text-sm">
-        {Object.entries(datiPreventivo).map(([key, value]) => (
-          <InfoRow
-            key={key}
-            label={key.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase())}
-            value={typeof value === 'boolean' ? (value ? 'Sì' : 'No') : String(value ?? '-')}
-          />
-        ))}
-      </dl>
+    <div className="space-y-6">
+      {/* PDF del preventivo */}
+      {preventivoAttachment ? (
+        <div className="card p-6">
+          <h3 className="mb-4 text-sm font-semibold uppercase tracking-wider text-gray-500">
+            Documento Preventivo
+          </h3>
+          <div className="flex items-center justify-between rounded-lg border border-gray-200 bg-gray-50 p-4">
+            <div className="flex items-center gap-3">
+              <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-red-100">
+                <FileText className="h-5 w-5 text-red-600" />
+              </div>
+              <div>
+                <p className="text-sm font-medium text-gray-900">{preventivoAttachment.nome_originale}</p>
+                <p className="text-xs text-gray-500">{formatFileSize(preventivoAttachment.dimensione)}</p>
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={() => api.download(`/attachments/download/${preventivoAttachment.id}`, preventivoAttachment.nome_originale)}
+              className="btn-primary"
+            >
+              <Download className="h-4 w-4" />
+              Scarica PDF
+            </button>
+          </div>
+        </div>
+      ) : (
+        <div className="card px-6 py-12 text-center">
+          <ClipboardList className="mx-auto h-12 w-12 text-gray-300" />
+          <p className="mt-3 text-sm text-gray-500">Nessun documento preventivo caricato.</p>
+          <p className="mt-1 text-xs text-gray-400">
+            {canUpload
+              ? 'Carica il PDF del preventivo elaborato qui sotto.'
+              : 'Il documento sarà disponibile quando l\u2019operatore lo caricherà.'}
+          </p>
+        </div>
+      )}
+
+      {/* Upload form per operatore/admin */}
+      {canUpload && (
+        <div className="card p-6">
+          <h3 className="mb-4 text-sm font-semibold uppercase tracking-wider text-gray-500">
+            {preventivoAttachment ? 'Sostituisci documento' : 'Carica documento preventivo'}
+          </h3>
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
+            <div className="flex-1">
+              <label htmlFor="preventivo-file" className="mb-1 block text-sm font-medium text-gray-700">
+                File PDF
+              </label>
+              <input
+                id="preventivo-file"
+                type="file"
+                accept=".pdf"
+                onChange={(e) => setFile(e.target.files?.[0] || null)}
+                className="input-field text-sm file:mr-3 file:rounded-md file:border-0 file:bg-blue-50 file:px-3 file:py-1 file:text-xs file:font-medium file:text-blue-700 hover:file:bg-blue-100"
+              />
+            </div>
+            <button
+              type="button"
+              onClick={handleUploadPreventivo}
+              disabled={!file || uploading}
+              className="btn-primary shrink-0"
+            >
+              <Upload className="h-4 w-4" />
+              {uploading ? 'Caricamento…' : 'Carica Preventivo'}
+            </button>
+          </div>
+          {uploadError && <p className="mt-2 text-sm text-red-600">{uploadError}</p>}
+        </div>
+      )}
+
+      {/* Dati preventivo (se presenti) */}
+      {quote.dati_preventivo && Object.keys(quote.dati_preventivo).length > 0 && (
+        <div className="card p-6">
+          <h3 className="mb-4 text-sm font-semibold uppercase tracking-wider text-gray-500">Dati Preventivo Elaborato</h3>
+          <dl className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 text-sm">
+            {Object.entries(quote.dati_preventivo).map(([key, value]) => (
+              <InfoRow
+                key={key}
+                label={key.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase())}
+                value={typeof value === 'boolean' ? (value ? 'Sì' : 'No') : String(value ?? '-')}
+              />
+            ))}
+          </dl>
+        </div>
+      )}
     </div>
   );
 }
