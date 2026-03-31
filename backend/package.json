@@ -2,6 +2,9 @@
   "name": "fimass-sportello-amico-backend",
   "version": "1.0.0",
   "description": "Backend API for Fimass Sportello Amico",
+  "engines": {
+    "node": "22.x"
+  },
   "main": "src/server.js",
   "scripts": {
     "start": "node src/server.js",
