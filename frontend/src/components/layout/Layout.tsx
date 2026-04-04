@@ -9,10 +9,10 @@ export default function Layout() {
       <div className="pointer-events-none fixed inset-0 z-0" aria-hidden>
         <PortalBackgroundLayers />
       </div>
-      <div className="relative z-10 min-h-screen">
+      <div className="portal-shell relative z-10 min-h-screen text-slate-200">
         <Sidebar />
         <Topbar />
-        <main className="ml-60 mt-16 p-6">
+        <main className="ml-60 mt-[4.5rem] p-6">
           <Outlet />
         </main>
       </div>

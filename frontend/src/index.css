@@ -5,14 +5,17 @@
     --color-primary: #1e40af;
     --color-primary-light: #3b82f6;
     --color-primary-dark: #1e3a8a;
+    --portal-surface: #1a2030;
+    --portal-surface-raised: #222a3d;
+    --portal-border: rgba(255, 255, 255, 0.08);
   }
-  
+
   body {
-    @apply bg-gray-50 text-gray-900 antialiased;
+    @apply bg-[#12151C] text-slate-200 antialiased;
   }
 
   * {
-    @apply border-gray-200;
+    @apply border-white/[0.08];
   }
 }
 
@@ -20,9 +23,9 @@
   .btn-primary {
     @apply bg-blue-700 hover:bg-blue-800 text-white font-medium py-2 px-4 rounded-lg transition-colors duration-150 inline-flex items-center gap-2 text-sm disabled:opacity-50 disabled:cursor-not-allowed;
   }
-  
+
   .btn-secondary {
-    @apply bg-white hover:bg-gray-50 text-gray-700 font-medium py-2 px-4 rounded-lg border border-gray-300 transition-colors duration-150 inline-flex items-center gap-2 text-sm;
+    @apply bg-white/[0.06] hover:bg-white/[0.1] text-slate-200 font-medium py-2 px-4 rounded-lg border border-white/10 transition-colors duration-150 inline-flex items-center gap-2 text-sm;
   }
 
   .btn-danger {
@@ -34,16 +37,125 @@
   }
 
   .input-field {
-    @apply w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white placeholder:text-gray-400;
+    @apply w-full rounded-lg border border-white/10 bg-[#161d2e] px-3 py-2 text-sm text-slate-100 placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/60;
   }
 
   .card {
-    @apply bg-white rounded-xl border border-gray-200 shadow-sm;
+    @apply rounded-xl border border-white/[0.08] bg-[#1c2436]/90 shadow-none backdrop-blur-sm text-slate-200;
   }
 
   .badge {
     @apply inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium;
   }
+}
+
+/* Override utility colors inside authenticated shell (after Tailwind) */
+.portal-shell .text-gray-900 {
+  color: rgb(248 250 252);
+}
+.portal-shell .text-gray-800 {
+  color: rgb(241 245 249);
+}
+.portal-shell .text-gray-700 {
+  color: rgb(226 232 240);
+}
+.portal-shell .text-gray-600 {
+  color: rgb(203 213 225);
+}
+.portal-shell .text-gray-500 {
+  color: rgb(148 163 184);
+}
+.portal-shell .text-red-800 {
+  color: rgb(252 165 165);
+}
+.portal-shell .text-red-700 {
+  color: rgb(248 113 113);
+}
+.portal-shell .text-amber-800 {
+  color: rgb(253 230 138);
+}
+.portal-shell .text-violet-800 {
+  color: rgb(196 181 253);
+}
+
+.portal-shell .bg-white {
+  background-color: rgb(24 31 46 / 0.72);
+}
+
+.portal-shell .bg-gray-50 {
+  background-color: rgb(255 255 255 / 0.04);
+}
+
+.portal-shell .bg-gray-100 {
+  background-color: rgb(255 255 255 / 0.07);
+}
+
+.portal-shell .bg-gray-50\/80 {
+  background-color: rgb(255 255 255 / 0.055);
+}
+
+.portal-shell .border-gray-100 {
+  border-color: rgb(148 163 184 / 0.12);
+}
+
+.portal-shell .border-gray-200 {
+  border-color: rgb(148 163 184 / 0.14);
+}
+
+.portal-shell .border-gray-300 {
+  border-color: rgb(148 163 184 / 0.18);
+}
+
+.portal-shell .divide-gray-100 > :not([hidden]) ~ :not([hidden]) {
+  border-color: rgb(148 163 184 / 0.1);
+}
+
+.portal-shell .divide-gray-200 > :not([hidden]) ~ :not([hidden]) {
+  border-color: rgb(148 163 184 / 0.12);
+}
+
+.portal-shell tbody tr:hover {
+  background-color: rgb(255 255 255 / 0.04);
+}
+
+.portal-shell .hover\:bg-gray-50:hover {
+  background-color: rgb(255 255 255 / 0.06);
+}
+
+.portal-shell .hover\:bg-gray-50\/80:hover {
+  background-color: rgb(255 255 255 / 0.055);
+}
+
+.portal-shell .hover\:bg-blue-50:hover {
+  background-color: rgb(59 130 246 / 0.14);
+}
+
+.portal-shell .hover\:bg-amber-50:hover {
+  background-color: rgb(245 158 11 / 0.14);
+}
+
+.portal-shell .hover\:bg-violet-50:hover {
+  background-color: rgb(139 92 246 / 0.14);
+}
+
+.portal-shell .hover\:bg-red-50:hover {
+  background-color: rgb(239 68 68 / 0.12);
+}
+
+.portal-shell .hover\:text-blue-700:hover {
+  color: rgb(147 197 253);
+}
+
+.portal-shell .hover\:text-amber-800:hover {
+  color: rgb(253 230 138);
+}
+
+.portal-shell .hover\:text-violet-800:hover {
+  color: rgb(196 181 253);
+}
+
+.portal-shell .hover\:text-gray-700:hover {
+  color: rgb(226 232 240);
 }
 
 ::-webkit-scrollbar {
@@ -53,9 +165,9 @@
   background: transparent;
 }
 ::-webkit-scrollbar-thumb {
-  background: #cbd5e1;
+  background: rgb(71 85 105 / 0.5);
   border-radius: 3px;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: #94a3b8;
+  background: rgb(100 116 139 / 0.6);
 }

@@ -24,37 +24,39 @@ export default function Sidebar() {
   const filteredItems = menuItems.filter(item => user && item.roles.includes(user.role));
 
   return (
-    <aside className={`fixed left-0 top-0 h-full bg-white border-r border-gray-200 z-40 transition-all duration-200 ${collapsed ? 'w-16' : 'w-60'} flex flex-col`}>
-      <div className="relative flex min-h-16 shrink-0 items-center border-b border-white/10 bg-[#12151C]">
+    <aside
+      className={`fixed left-0 top-0 z-40 flex h-full flex-col border-r border-white/[0.06] bg-[#161B26] transition-all duration-200 ${collapsed ? 'w-16' : 'w-60'}`}
+    >
+      <div className="relative flex min-h-[4.5rem] shrink-0 items-center border-b border-white/[0.08] bg-[#0d1017] px-2">
         <Link
           to="/"
-          className={`relative z-10 flex w-full items-center justify-center outline-none transition-opacity hover:opacity-95 focus-visible:ring-2 focus-visible:ring-[#0B4EA2]/50 focus-visible:ring-offset-2 focus-visible:ring-offset-[#12151C] ${
-            collapsed ? 'px-2 py-2' : 'px-3 py-2'
+          className={`relative z-10 flex w-full min-w-0 items-center justify-center outline-none transition-opacity hover:opacity-90 focus-visible:ring-2 focus-visible:ring-blue-500/50 focus-visible:ring-offset-2 focus-visible:ring-offset-[#0d1017] ${
+            collapsed ? 'py-2' : 'py-2.5'
           }`}
           title="Torna alla dashboard"
         >
           <img
             src="/fimass-logo.png"
             alt="FIMASS — Sportello Amico"
-            className={`h-auto w-full max-w-full object-contain object-center drop-shadow-[0_6px_20px_rgba(0,0,0,0.4)] ${
-              collapsed ? 'max-h-8' : 'max-h-10'
+            className={`h-auto w-full max-w-full object-contain object-center drop-shadow-[0_4px_24px_rgba(0,0,0,0.5)] ${
+              collapsed ? 'max-h-9 px-0.5' : 'max-h-[3.35rem] sm:max-h-[3.65rem]'
             }`}
             decoding="async"
           />
         </Link>
       </div>
 
-      <nav className="flex-1 py-3 px-2 space-y-0.5 overflow-y-auto">
+      <nav className="flex-1 space-y-0.5 overflow-y-auto px-2 py-3">
         {filteredItems.map((item) => (
           <NavLink
             key={item.path}
             to={item.path}
             end={item.path === '/'}
             className={({ isActive }) =>
-              `flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
+              `flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors ${
                 isActive
-                  ? 'bg-blue-50 text-blue-700'
-                  : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
+                  ? 'bg-blue-500/15 text-blue-300'
+                  : 'text-slate-400 hover:bg-white/[0.05] hover:text-slate-100'
               } ${collapsed ? 'justify-center' : ''}`
             }
             title={collapsed ? item.label : undefined}
@@ -67,7 +69,7 @@ export default function Sidebar() {
 
       <button
         onClick={() => setCollapsed(!collapsed)}
-        className="p-3 border-t border-gray-200 text-gray-400 hover:text-gray-600 hover:bg-gray-50 flex items-center justify-center"
+        className="flex items-center justify-center border-t border-white/[0.06] p-3 text-slate-500 transition-colors hover:bg-white/[0.04] hover:text-slate-300"
       >
         {collapsed ? <ChevronRight size={18} /> : <ChevronLeft size={18} />}
       </button>

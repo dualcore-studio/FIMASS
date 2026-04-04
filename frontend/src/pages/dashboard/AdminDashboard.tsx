@@ -121,8 +121,8 @@ export default function AdminDashboard() {
     return (
       <div className="flex min-h-[40vh] items-center justify-center">
         <div className="flex flex-col items-center gap-3">
-          <div className="h-10 w-10 animate-spin rounded-full border-2 border-blue-700 border-t-transparent" />
-          <p className="text-sm text-gray-500">Caricamento panoramica…</p>
+          <div className="h-10 w-10 animate-spin rounded-full border-2 border-blue-400 border-t-transparent" />
+          <p className="text-sm text-slate-400">Caricamento panoramica…</p>
         </div>
       </div>
     );
@@ -143,18 +143,18 @@ export default function AdminDashboard() {
     <div className="space-y-8">
       <header className="flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight text-gray-900">
+          <h1 className="text-2xl font-bold tracking-tight text-slate-50">
             Bentornato{user ? `, ${getUserDisplayName(user)}` : ''}
           </h1>
-          <p className="mt-1 capitalize text-gray-500">{todayLabel}</p>
-          <p className="mt-2 max-w-2xl text-sm text-gray-600">
+          <p className="mt-1 capitalize text-slate-400">{todayLabel}</p>
+          <p className="mt-2 max-w-2xl text-sm text-slate-300">
             Panoramica globale di Sportello Amico: preventivi, polizze e segnalazioni operative.
           </p>
         </div>
       </header>
 
       <section aria-label="Indicatori chiave">
-        <h2 className="mb-4 text-sm font-semibold uppercase tracking-wide text-gray-500">
+        <h2 className="mb-4 text-sm font-semibold uppercase tracking-wide text-slate-400">
           Indicatori chiave
         </h2>
         <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
@@ -204,21 +204,18 @@ export default function AdminDashboard() {
       </section>
 
       <section aria-label="Avvisi operativi">
-        <h2 className="mb-4 text-sm font-semibold uppercase tracking-wide text-gray-500">
+        <h2 className="mb-4 text-sm font-semibold uppercase tracking-wide text-slate-400">
           Avvisi operativi
         </h2>
         <div className="grid gap-3 sm:grid-cols-2">
           {alertItems.map(({ key, label, borderClass, icon: Icon }) => (
-            <div
-              key={key}
-              className={`card flex items-center gap-4 border-l-4 p-4 ${borderClass} bg-white`}
-            >
-              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-gray-50 text-gray-600">
+            <div key={key} className={`card flex items-center gap-4 border-l-4 p-4 ${borderClass}`}>
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-white/[0.06] text-slate-300">
                 <Icon className="h-5 w-5" />
               </div>
               <div className="min-w-0 flex-1">
-                <p className="text-sm font-medium text-gray-900">{label}</p>
-                <p className="mt-0.5 text-2xl font-bold tabular-nums text-gray-900">{alerts[key]}</p>
+                <p className="text-sm font-medium text-slate-200">{label}</p>
+                <p className="mt-0.5 text-2xl font-bold tabular-nums text-slate-50">{alerts[key]}</p>
               </div>
             </div>
           ))}
