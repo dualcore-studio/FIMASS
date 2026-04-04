@@ -286,17 +286,17 @@ export default function Reports() {
                 </h3>
               </div>
               <div className="overflow-x-auto">
-                <table className="min-w-full divide-y divide-gray-200 text-left text-sm">
-                  <thead className="bg-gray-50">
+                <table className="portal-table min-w-full text-left text-sm">
+                  <thead>
                     <tr>
                       <th className="px-4 py-3 font-semibold text-gray-700">Tipologia</th>
                       <th className="px-4 py-3 font-semibold text-gray-700 text-right">Preventivi</th>
                       <th className="px-4 py-3 font-semibold text-gray-700 text-right">Polizze</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-gray-100 bg-white">
+                  <tbody>
                     {byType.map((r, i) => (
-                      <tr key={i} className="hover:bg-gray-50/80">
+                      <tr key={i}>
                         <td className="px-4 py-3 font-medium text-gray-900">{r.tipologia}</td>
                         <td className="px-4 py-3 text-right text-gray-700">{r.preventivi}</td>
                         <td className="px-4 py-3 text-right text-gray-700">{r.polizze}</td>
@@ -318,8 +318,8 @@ export default function Reports() {
                 </h3>
               </div>
               <div className="overflow-x-auto">
-                <table className="min-w-full divide-y divide-gray-200 text-left text-sm">
-                  <thead className="bg-gray-50">
+                <table className="portal-table min-w-full text-left text-sm">
+                  <thead>
                     <tr>
                       <th className="px-4 py-3 font-semibold text-gray-700">Struttura</th>
                       <th className="px-4 py-3 font-semibold text-gray-700 text-right">Preventivi</th>
@@ -327,9 +327,9 @@ export default function Reports() {
                       <th className="px-4 py-3 font-semibold text-gray-700 text-right">Polizze</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-gray-100 bg-white">
+                  <tbody>
                     {byStructure.map((r, i) => (
-                      <tr key={i} className="hover:bg-gray-50/80">
+                      <tr key={i}>
                         <td className="px-4 py-3 font-medium text-gray-900">{r.denominazione}</td>
                         <td className="px-4 py-3 text-right text-gray-700">{r.preventivi}</td>
                         <td className="px-4 py-3 text-right text-gray-700">{r.elaborati}</td>
@@ -352,8 +352,8 @@ export default function Reports() {
                 </h3>
               </div>
               <div className="overflow-x-auto">
-                <table className="min-w-full divide-y divide-gray-200 text-left text-sm">
-                  <thead className="bg-gray-50">
+                <table className="portal-table min-w-full text-left text-sm">
+                  <thead>
                     <tr>
                       <th className="px-4 py-3 font-semibold text-gray-700">Operatore</th>
                       <th className="px-4 py-3 font-semibold text-gray-700 text-right">Totali</th>
@@ -362,9 +362,9 @@ export default function Reports() {
                       <th className="px-4 py-3 font-semibold text-gray-700 text-right">Standby</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-gray-100 bg-white">
+                  <tbody>
                     {byOperator.map((r, i) => (
-                      <tr key={i} className="hover:bg-gray-50/80">
+                      <tr key={i}>
                         <td className="px-4 py-3 font-medium text-gray-900">{r.operatore}</td>
                         <td className="px-4 py-3 text-right text-gray-700">{r.totali}</td>
                         <td className="px-4 py-3 text-right text-gray-700">{r.in_lavorazione}</td>

@@ -44,31 +44,26 @@ export default function Topbar({ sidebarCollapsed }: TopbarProps) {
 
   return (
     <header className="fixed left-0 right-0 top-0 z-30 flex h-20 items-stretch border-b border-white/[0.06] bg-[#0d1118]/98 backdrop-blur-md">
-      {/* Wordmark: contenitore orizzontale dedicato (non box quadrato / non avatar) */}
-      <div
-        className={`box-border flex h-full min-w-0 shrink-0 items-center border-r border-white/[0.06] bg-[#0a0e14] ${sidebarWidthClass}`}
+      {/* Wordmark: un solo link a tutta area, hover uniforme (niente opacity su layer separati) */}
+      <Link
+        to="/"
+        title="Torna alla dashboard"
+        className={`box-border flex h-full min-w-0 shrink-0 cursor-pointer items-center border-r border-white/[0.06] bg-[#0a0e14] outline-none transition-colors duration-200 hover:bg-white/[0.05] focus-visible:ring-2 focus-visible:ring-blue-500/50 focus-visible:ring-inset ${sidebarWidthClass} ${
+          sidebarCollapsed ? 'justify-center px-2' : 'justify-start px-4'
+        }`}
       >
-        <Link
-          to="/"
-          className={`box-border flex h-full w-full items-center outline-none transition-opacity hover:opacity-90 focus-visible:ring-2 focus-visible:ring-blue-500/50 focus-visible:ring-offset-2 focus-visible:ring-offset-[#0a0e14] ${
-            sidebarCollapsed ? 'justify-center px-2' : 'justify-start px-4'
+        <img
+          src="/fimass-logo-wordmark.png"
+          alt="FIMASS — Sportello Amico"
+          width={922}
+          height={218}
+          draggable={false}
+          className={`pointer-events-none block max-h-full w-auto max-w-full select-none bg-transparent object-contain [image-rendering:auto] ${
+            sidebarCollapsed ? 'h-7 object-center' : 'h-8 object-left'
           }`}
-          title="Torna alla dashboard"
-        >
-          <img
-            src="/fimass-logo-wordmark.png"
-            alt="FIMASS — Sportello Amico"
-            width={922}
-            height={218}
-            className={`block bg-transparent object-contain [image-rendering:auto] ${
-              sidebarCollapsed
-                ? 'h-7 w-auto max-w-full object-center'
-                : 'h-8 w-auto max-w-full object-left'
-            }`}
-            decoding="async"
-          />
-        </Link>
-      </div>
+          decoding="async"
+        />
+      </Link>
 
       <div className="flex min-w-0 flex-1 items-center px-4 lg:px-6">
         <div className="flex min-w-0 flex-1 items-center">

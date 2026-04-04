@@ -148,13 +148,13 @@ export default function StructureDashboard() {
       </section>
 
       <section aria-label="Preventivi recenti" className="card overflow-hidden">
-        <div className="border-b border-gray-200 bg-gray-50/80 px-5 py-4">
+        <div className="portal-card-table-heading px-5 py-4">
           <h2 className="text-base font-semibold text-gray-900">Preventivi recenti</h2>
           <p className="mt-0.5 text-sm text-gray-500">Ultime cinque pratiche della struttura.</p>
         </div>
         <div className="overflow-x-auto">
-          <table className="min-w-full divide-y divide-gray-200 text-sm">
-            <thead className="bg-gray-50">
+          <table className="portal-table min-w-full text-sm">
+            <thead>
               <tr>
                 <th className="px-5 py-3 text-left font-medium text-gray-600">Numero</th>
                 <th className="px-5 py-3 text-left font-medium text-gray-600">Assistito</th>
@@ -164,7 +164,7 @@ export default function StructureDashboard() {
                 <th className="px-5 py-3 text-right font-medium text-gray-600">Azioni</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-gray-100 bg-white">
+            <tbody>
               {quotes.length === 0 ? (
                 <tr>
                   <td colSpan={6} className="px-5 py-8 text-center text-gray-500">
@@ -176,7 +176,7 @@ export default function StructureDashboard() {
                   const nomeAssistito = [q.assistito_nome, q.assistito_cognome].filter(Boolean).join(' ') || '—';
                   const showPolicyCta = q.stato === 'ELABORATA' && q.has_policy === 0;
                   return (
-                    <tr key={q.id} className="hover:bg-gray-50/80">
+                    <tr key={q.id}>
                       <td className="whitespace-nowrap px-5 py-3 font-medium text-gray-900">{q.numero}</td>
                       <td className="px-5 py-3 text-gray-700">{nomeAssistito}</td>
                       <td className="px-5 py-3 text-gray-600">{q.tipo_nome ?? '—'}</td>

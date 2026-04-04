@@ -217,8 +217,8 @@ export default function UsersList() {
           <div className="p-8 text-center text-sm text-red-700">{listError}</div>
         ) : (
           <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-gray-200 text-left text-sm">
-              <thead className="bg-gray-50">
+            <table className="portal-table min-w-full text-left text-sm">
+              <thead>
                 <tr>
                   <th className="px-4 py-3 font-semibold text-gray-700">Nome / Denominazione</th>
                   <th className="px-4 py-3 font-semibold text-gray-700">Ruolo</th>
@@ -229,7 +229,7 @@ export default function UsersList() {
                   <th className="px-4 py-3 text-right font-semibold text-gray-700">Azioni</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-gray-100 bg-white">
+              <tbody>
                 {rows.length === 0 ? (
                   <tr>
                     <td colSpan={7} className="px-4 py-12 text-center text-gray-500">
@@ -240,7 +240,7 @@ export default function UsersList() {
                   rows.map((u) => {
                     const isSelf = currentUser?.id === u.id;
                     return (
-                      <tr key={u.id} className="hover:bg-gray-50/80">
+                      <tr key={u.id}>
                         <td className="px-4 py-3 font-medium text-gray-900">
                           {getUserDisplayName(u)}
                         </td>

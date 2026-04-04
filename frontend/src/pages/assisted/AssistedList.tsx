@@ -91,8 +91,8 @@ export default function AssistedList() {
           <div className="p-8 text-center text-sm text-red-700">{listError}</div>
         ) : (
           <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-gray-200 text-left text-sm">
-              <thead className="bg-gray-50">
+            <table className="portal-table min-w-full text-left text-sm">
+              <thead>
                 <tr>
                   <th className="px-4 py-3 font-semibold text-gray-700">Nome e Cognome</th>
                   <th className="px-4 py-3 font-semibold text-gray-700">Codice Fiscale</th>
@@ -103,7 +103,7 @@ export default function AssistedList() {
                   <th className="px-4 py-3 text-right font-semibold text-gray-700">Azioni</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-gray-100 bg-white">
+              <tbody>
                 {rows.length === 0 ? (
                   <tr>
                     <td colSpan={7} className="px-4 py-12 text-center text-gray-500">
@@ -113,7 +113,7 @@ export default function AssistedList() {
                   </tr>
                 ) : (
                   rows.map((a) => (
-                    <tr key={a.id} className="hover:bg-gray-50/80">
+                    <tr key={a.id}>
                       <td className="px-4 py-3 font-medium text-gray-900">
                         {a.nome} {a.cognome}
                       </td>

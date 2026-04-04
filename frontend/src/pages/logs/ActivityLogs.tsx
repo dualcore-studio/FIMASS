@@ -165,8 +165,8 @@ export default function ActivityLogs() {
           <div className="p-8 text-center text-sm text-red-700">{listError}</div>
         ) : (
           <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-gray-200 text-left text-sm">
-              <thead className="bg-gray-50">
+            <table className="portal-table min-w-full text-left text-sm">
+              <thead>
                 <tr>
                   <th className="px-4 py-3 font-semibold text-gray-700">Data/Ora</th>
                   <th className="px-4 py-3 font-semibold text-gray-700">Utente</th>
@@ -176,7 +176,7 @@ export default function ActivityLogs() {
                   <th className="px-4 py-3 font-semibold text-gray-700">Dettaglio</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-gray-100 bg-white">
+              <tbody>
                 {rows.length === 0 ? (
                   <tr>
                     <td colSpan={6} className="px-4 py-12 text-center text-gray-500">
@@ -186,7 +186,7 @@ export default function ActivityLogs() {
                   </tr>
                 ) : (
                   rows.map((log) => (
-                    <tr key={log.id} className="hover:bg-gray-50/80">
+                    <tr key={log.id}>
                       <td className="px-4 py-3 whitespace-nowrap text-gray-600 text-xs">
                         {formatDateTime(log.created_at)}
                       </td>

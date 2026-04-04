@@ -261,8 +261,8 @@ export default function QuotesList() {
           <div className="p-8 text-center text-sm text-red-700">{listError}</div>
         ) : (
           <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-gray-200 text-left text-sm">
-              <thead className="bg-gray-50">
+            <table className="portal-table min-w-full text-left text-sm">
+              <thead>
                 <tr>
                   <th className="px-4 py-3 font-semibold text-gray-700">ID Preventivo</th>
                   <th className="px-4 py-3 font-semibold text-gray-700">Assistito</th>
@@ -274,7 +274,7 @@ export default function QuotesList() {
                   <th className="px-4 py-3 text-right font-semibold text-gray-700">Azioni</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-gray-100 bg-white">
+              <tbody>
                 {rows.length === 0 ? (
                   <tr>
                     <td colSpan={8} className="px-4 py-12 text-center text-gray-500">
@@ -283,7 +283,7 @@ export default function QuotesList() {
                   </tr>
                 ) : (
                   rows.map((q) => (
-                    <tr key={q.id} className="hover:bg-gray-50/80">
+                    <tr key={q.id}>
                       <td className="px-4 py-3">
                         <Link
                           to={`/preventivi/${q.id}`}

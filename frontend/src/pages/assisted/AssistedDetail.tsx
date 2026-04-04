@@ -293,8 +293,8 @@ function TabPreventivi({ quotes }: { quotes: Quote[] }) {
   return (
     <div className="card overflow-hidden">
       <div className="overflow-x-auto">
-        <table className="min-w-full divide-y divide-gray-200 text-left text-sm">
-          <thead className="bg-gray-50">
+        <table className="portal-table min-w-full text-left text-sm">
+          <thead>
             <tr>
               <th className="px-4 py-3 font-semibold text-gray-700">Numero</th>
               <th className="px-4 py-3 font-semibold text-gray-700">Tipologia</th>
@@ -303,9 +303,9 @@ function TabPreventivi({ quotes }: { quotes: Quote[] }) {
               <th className="px-4 py-3 text-right font-semibold text-gray-700">Azioni</th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-gray-100 bg-white">
+          <tbody>
             {quotes.map((q) => (
-              <tr key={q.id} className="hover:bg-gray-50/80">
+              <tr key={q.id}>
                 <td className="px-4 py-3">
                   <Link to={`/preventivi/${q.id}`} className="font-medium text-blue-700 hover:text-blue-800 hover:underline">
                     {q.numero}
@@ -346,8 +346,8 @@ function TabPolizze({ policies }: { policies: Policy[] }) {
   return (
     <div className="card overflow-hidden">
       <div className="overflow-x-auto">
-        <table className="min-w-full divide-y divide-gray-200 text-left text-sm">
-          <thead className="bg-gray-50">
+        <table className="portal-table min-w-full text-left text-sm">
+          <thead>
             <tr>
               <th className="px-4 py-3 font-semibold text-gray-700">Numero</th>
               <th className="px-4 py-3 font-semibold text-gray-700">Tipologia</th>
@@ -356,9 +356,9 @@ function TabPolizze({ policies }: { policies: Policy[] }) {
               <th className="px-4 py-3 text-right font-semibold text-gray-700">Azioni</th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-gray-100 bg-white">
+          <tbody>
             {policies.map((p) => (
-              <tr key={p.id} className="hover:bg-gray-50/80">
+              <tr key={p.id}>
                 <td className="px-4 py-3">
                   <Link to={`/polizze/${p.id}`} className="font-medium text-blue-700 hover:text-blue-800 hover:underline">
                     {p.numero}
@@ -399,8 +399,8 @@ function TabAllegati({ attachments }: { attachments: Attachment[] }) {
   return (
     <div className="card overflow-hidden">
       <div className="overflow-x-auto">
-        <table className="min-w-full divide-y divide-gray-200 text-left text-sm">
-          <thead className="bg-gray-50">
+        <table className="portal-table min-w-full text-left text-sm">
+          <thead>
             <tr>
               <th className="px-4 py-3 font-semibold text-gray-700">Nome file</th>
               <th className="px-4 py-3 font-semibold text-gray-700">Tipo</th>
@@ -409,9 +409,9 @@ function TabAllegati({ attachments }: { attachments: Attachment[] }) {
               <th className="px-4 py-3 text-right font-semibold text-gray-700">Azioni</th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-gray-100 bg-white">
+          <tbody>
             {attachments.map((a) => (
-              <tr key={a.id} className="hover:bg-gray-50/80">
+              <tr key={a.id}>
                 <td className="px-4 py-3 font-medium text-gray-900">{a.nome_originale}</td>
                 <td className="px-4 py-3 text-gray-600 capitalize">{a.tipo.replace(/_/g, ' ')}</td>
                 <td className="px-4 py-3 text-gray-600">{formatFileSize(a.dimensione)}</td>

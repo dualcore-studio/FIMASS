@@ -627,8 +627,8 @@ function TabAllegati({ attachments, uploadFile, setUploadFile, uploadTipo, setUp
           <div className="px-6 py-12 text-center text-sm text-gray-500">Nessun allegato presente.</div>
         ) : (
           <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-gray-200 text-left text-sm">
-              <thead className="bg-gray-50">
+            <table className="portal-table min-w-full text-left text-sm">
+              <thead>
                 <tr>
                   <th className="px-4 py-3 font-semibold text-gray-700">Nome file</th>
                   <th className="px-4 py-3 font-semibold text-gray-700">Tipo</th>
@@ -638,9 +638,9 @@ function TabAllegati({ attachments, uploadFile, setUploadFile, uploadTipo, setUp
                   <th className="px-4 py-3 text-right font-semibold text-gray-700">Azioni</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-gray-100 bg-white">
+              <tbody>
                 {attachments.map((a) => (
-                  <tr key={a.id} className="hover:bg-gray-50/80">
+                  <tr key={a.id}>
                     <td className="px-4 py-3 font-medium text-gray-900">{a.nome_originale}</td>
                     <td className="px-4 py-3 text-gray-600 capitalize">{a.tipo.replace(/_/g, ' ')}</td>
                     <td className="px-4 py-3 text-gray-600">{formatFileSize(a.dimensione)}</td>

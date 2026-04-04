@@ -249,8 +249,8 @@ function TabTipologie() {
   return (
     <div className="card overflow-hidden">
       <div className="overflow-x-auto">
-        <table className="min-w-full divide-y divide-gray-200 text-left text-sm">
-          <thead className="bg-gray-50">
+        <table className="portal-table min-w-full text-left text-sm">
+          <thead>
             <tr>
               <th className="px-4 py-3 font-semibold text-gray-700">Nome</th>
               <th className="px-4 py-3 font-semibold text-gray-700">Codice</th>
@@ -259,7 +259,7 @@ function TabTipologie() {
               <th className="px-4 py-3 text-right font-semibold text-gray-700">Azioni</th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-gray-100 bg-white">
+          <tbody>
             {types.length === 0 ? (
               <tr>
                 <td colSpan={5} className="px-4 py-12 text-center text-gray-500">
@@ -268,7 +268,7 @@ function TabTipologie() {
               </tr>
             ) : (
               types.map((t) => (
-                <tr key={t.id} className="hover:bg-gray-50/80">
+                <tr key={t.id}>
                   <td className="px-4 py-3 font-medium text-gray-900">{t.nome}</td>
                   <td className="px-4 py-3 font-mono text-xs text-gray-700">{t.codice}</td>
                   <td className="px-4 py-3">
@@ -348,8 +348,8 @@ function TabCampiForm() {
       {selectedType && selectedType.campi_specifici.length > 0 ? (
         <div className="card overflow-hidden">
           <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-gray-200 text-left text-sm">
-              <thead className="bg-gray-50">
+            <table className="portal-table min-w-full text-left text-sm">
+              <thead>
                 <tr>
                   <th className="px-4 py-3 font-semibold text-gray-700">Nome Campo</th>
                   <th className="px-4 py-3 font-semibold text-gray-700">Label</th>
@@ -358,9 +358,9 @@ function TabCampiForm() {
                   <th className="px-4 py-3 font-semibold text-gray-700">Opzioni</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-gray-100 bg-white">
+              <tbody>
                 {selectedType.campi_specifici.map((campo, i) => (
-                  <tr key={i} className="hover:bg-gray-50/80">
+                  <tr key={i}>
                     <td className="px-4 py-3 font-mono text-xs text-gray-700">{campo.nome}</td>
                     <td className="px-4 py-3 font-medium text-gray-900">{campo.label}</td>
                     <td className="px-4 py-3">
@@ -439,17 +439,17 @@ function TabChecklist() {
       {selectedType && selectedType.checklist_allegati.length > 0 ? (
         <div className="card overflow-hidden">
           <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-gray-200 text-left text-sm">
-              <thead className="bg-gray-50">
+            <table className="portal-table min-w-full text-left text-sm">
+              <thead>
                 <tr>
                   <th className="px-4 py-3 font-semibold text-gray-700">Documento</th>
                   <th className="px-4 py-3 font-semibold text-gray-700 text-center">Obbligatorio</th>
                   <th className="px-4 py-3 font-semibold text-gray-700">Condizione</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-gray-100 bg-white">
+              <tbody>
                 {selectedType.checklist_allegati.map((item, i) => (
-                  <tr key={i} className="hover:bg-gray-50/80">
+                  <tr key={i}>
                     <td className="px-4 py-3 font-medium text-gray-900">{item.nome}</td>
                     <td className="px-4 py-3 text-center">
                       {item.obbligatorio ? (
