@@ -27,46 +27,46 @@ export default function Login() {
   };
 
   return (
-    <div className="relative min-h-screen overflow-hidden bg-[#0F1115] flex flex-col items-center justify-center px-4 py-10 sm:px-6 sm:py-12">
-      {/* Soft vertical gradient */}
+    <div className="relative min-h-screen overflow-hidden bg-[#DDE3EC] flex flex-col items-center justify-center px-4 py-10 sm:px-6 sm:py-12">
+      {/* Soft vertical gradient — chiaro, corporate */}
       <div
-        className="pointer-events-none absolute inset-0 bg-gradient-to-b from-[#0F1115] via-[#151922] to-[#1A1F2B]"
+        className="pointer-events-none absolute inset-0 bg-gradient-to-b from-[#E8ECF3] via-[#DFE5EE] to-[#D4DCE8]"
         aria-hidden
       />
-      {/* Very subtle cool lift behind hero (corporate, not saturated) */}
+      {/* Alone blu molto leggero in alto */}
       <div
-        className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_90%_55%_at_50%_8%,rgba(11,78,162,0.06),transparent_58%)]"
+        className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_95%_60%_at_50%_0%,rgba(11,78,162,0.07),transparent_55%)]"
         aria-hidden
       />
-      {/* Edge vignette */}
+      {/* Vignetta soft (non scura) per profondità */}
       <div
-        className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_center,transparent_0%,rgba(0,0,0,0.42)_100%)]"
+        className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_center,transparent_45%,rgba(90,107,132,0.08)_100%)]"
         aria-hidden
       />
-      {/* Imperceptible grid texture */}
+      {/* Griglia sottile su sfondo chiaro */}
       <div
-        className="pointer-events-none absolute inset-0 opacity-[0.025] bg-[linear-gradient(rgba(255,255,255,0.5)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.5)_1px,transparent_1px)] bg-[length:56px_56px]"
+        className="pointer-events-none absolute inset-0 opacity-[0.35] bg-[linear-gradient(rgba(15,17,21,0.06)_1px,transparent_1px),linear-gradient(90deg,rgba(15,17,21,0.06)_1px,transparent_1px)] bg-[length:56px_56px]"
         aria-hidden
       />
 
-      <div className="relative z-10 w-full max-w-md flex flex-col items-center">
+      <div className="relative z-10 w-full max-w-xl flex flex-col items-center">
         {/* Logo — visual hero */}
-        <div className="mb-9 sm:mb-10 w-full flex justify-center px-1">
-          <div className="relative max-w-[min(100%,440px)] w-full flex justify-center">
+        <div className="mb-8 sm:mb-9 w-full flex justify-center px-2">
+          <div className="relative w-full max-w-[min(100%,92vw,580px)] flex justify-center">
             <div
-              className="pointer-events-none absolute left-1/2 top-1/2 h-[min(120%,380px)] w-[min(140%,520px)] -translate-x-1/2 -translate-y-1/2 rounded-full bg-[radial-gradient(circle,rgba(253,200,48,0.07)_0%,rgba(11,78,162,0.05)_35%,transparent_68%)] blur-2xl"
+              className="pointer-events-none absolute left-1/2 top-1/2 h-[min(130%,440px)] w-[min(150%,640px)] -translate-x-1/2 -translate-y-1/2 rounded-full bg-[radial-gradient(circle,rgba(253,200,48,0.12)_0%,rgba(11,78,162,0.06)_38%,transparent_70%)] blur-2xl"
               aria-hidden
             />
             <img
               src="/fimass-logo.png"
               alt="FIMASS — Sportello Amico"
-              className="relative z-[1] h-auto w-full max-h-[min(30vh,210px)] sm:max-h-[240px] object-contain object-center bg-transparent drop-shadow-[0_12px_40px_rgba(0,0,0,0.55)] transition-transform duration-300 ease-out motion-safe:hover:scale-[1.01]"
+              className="relative z-[1] h-auto w-full max-h-[min(44vh,300px)] sm:max-h-[min(46vh,360px)] object-contain object-center bg-transparent drop-shadow-[0_16px_48px_rgba(15,17,21,0.14)] transition-transform duration-300 ease-out motion-safe:hover:scale-[1.01]"
               decoding="async"
             />
           </div>
         </div>
 
-        <div className="w-full max-w-md rounded-2xl border border-gray-200/90 bg-[#F8F9FB] px-8 py-8 sm:px-9 sm:py-9 shadow-[0_32px_64px_-16px_rgba(0,0,0,0.55),0_0_0_1px_rgba(255,255,255,0.06)_inset]">
+        <div className="w-full max-w-md rounded-2xl border border-gray-200/95 bg-white px-8 py-8 sm:px-9 sm:py-9 shadow-[0_24px_48px_-12px_rgba(15,17,21,0.12),0_0_0_1px_rgba(255,255,255,0.8)_inset]">
           <div className="mb-7 text-center sm:text-left">
             <h1 className="text-lg sm:text-xl font-semibold tracking-tight text-gray-900">
               Accesso al portale
