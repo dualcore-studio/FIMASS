@@ -46,21 +46,25 @@ export default function Topbar({ sidebarCollapsed }: TopbarProps) {
     <header className="fixed left-0 right-0 top-0 z-30 flex h-20 items-stretch border-b border-white/[0.06] bg-[#0d1118]/98 backdrop-blur-md">
       {/* Wordmark: contenitore orizzontale dedicato (non box quadrato / non avatar) */}
       <div
-        className={`box-border flex h-full min-w-0 shrink-0 items-stretch border-r border-white/[0.06] bg-[#0a0e14] ${sidebarWidthClass}`}
+        className={`box-border flex h-full min-w-0 shrink-0 items-center border-r border-white/[0.06] bg-[#0a0e14] ${sidebarWidthClass}`}
       >
         <Link
           to="/"
-          className={`box-border flex h-full min-h-0 w-full min-w-0 max-w-full items-center py-2 outline-none transition-opacity hover:opacity-90 focus-visible:ring-2 focus-visible:ring-blue-500/50 focus-visible:ring-offset-2 focus-visible:ring-offset-[#0a0e14] ${
-            sidebarCollapsed ? 'justify-center px-1.5' : 'justify-start px-4'
+          className={`box-border flex h-full w-full items-center outline-none transition-opacity hover:opacity-90 focus-visible:ring-2 focus-visible:ring-blue-500/50 focus-visible:ring-offset-2 focus-visible:ring-offset-[#0a0e14] ${
+            sidebarCollapsed ? 'justify-center px-2' : 'justify-start px-5'
           }`}
           title="Torna alla dashboard"
         >
           <img
-            src="/fimass-logo.png"
+            src="/fimass-logo-wordmark.png"
             alt="FIMASS — Sportello Amico"
-            width={720}
-            height={180}
-            className="block h-auto max-h-full w-full min-w-0 max-w-full bg-transparent object-contain object-left [image-rendering:auto]"
+            width={922}
+            height={218}
+            className={`block bg-transparent object-contain [image-rendering:auto] ${
+              sidebarCollapsed
+                ? 'h-7 w-auto max-w-full object-center'
+                : 'h-10 w-auto max-w-full object-left'
+            }`}
             decoding="async"
           />
         </Link>

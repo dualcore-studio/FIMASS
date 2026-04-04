@@ -43,9 +43,9 @@ export default function Login() {
                 aria-hidden
               />
               <img
-                src="/fimass-logo.png"
+                src="/fimass-logo-wordmark.png"
                 alt="FIMASS — Sportello Amico"
-                className="relative z-[1] h-auto w-full max-h-[min(32dvh,260px)] sm:max-h-[min(36dvh,320px)] object-contain object-center bg-transparent [image-rendering:auto] drop-shadow-[0_12px_40px_rgba(0,0,0,0.45)] transition-transform duration-300 ease-out motion-safe:hover:scale-[1.01]"
+                className="relative z-[1] h-auto w-full max-h-[min(28dvh,180px)] sm:max-h-[min(32dvh,220px)] object-contain object-center bg-transparent [image-rendering:auto] drop-shadow-[0_12px_40px_rgba(0,0,0,0.45)] transition-transform duration-300 ease-out motion-safe:hover:scale-[1.01]"
                 decoding="async"
               />
             </div>
