@@ -41,7 +41,7 @@ export default function Sidebar({ collapsed, onCollapsedChange }: SidebarProps) 
   const filteredItems = menuItems.filter((item) => user && item.roles.includes(user.role));
   const showSettings = user && settingsItem.roles.includes(user.role);
 
-  const widthClass = collapsed ? 'w-16' : 'w-72';
+  const widthClass = collapsed ? 'w-16' : 'w-52';
 
   return (
     <aside

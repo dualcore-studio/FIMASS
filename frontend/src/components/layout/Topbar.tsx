@@ -15,7 +15,7 @@ export default function Topbar({ sidebarCollapsed }: TopbarProps) {
   const [searchQuery, setSearchQuery] = useState('');
   const profileRef = useRef<HTMLDivElement>(null);
 
-  const sidebarWidthClass = sidebarCollapsed ? 'w-16' : 'w-72';
+  const sidebarWidthClass = sidebarCollapsed ? 'w-16' : 'w-52';
 
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
@@ -51,7 +51,7 @@ export default function Topbar({ sidebarCollapsed }: TopbarProps) {
         <Link
           to="/"
           className={`box-border flex h-full w-full items-center outline-none transition-opacity hover:opacity-90 focus-visible:ring-2 focus-visible:ring-blue-500/50 focus-visible:ring-offset-2 focus-visible:ring-offset-[#0a0e14] ${
-            sidebarCollapsed ? 'justify-center px-2' : 'justify-start px-5'
+            sidebarCollapsed ? 'justify-center px-2' : 'justify-start px-4'
           }`}
           title="Torna alla dashboard"
         >
@@ -63,7 +63,7 @@ export default function Topbar({ sidebarCollapsed }: TopbarProps) {
             className={`block bg-transparent object-contain [image-rendering:auto] ${
               sidebarCollapsed
                 ? 'h-7 w-auto max-w-full object-center'
-                : 'h-10 w-auto max-w-full object-left'
+                : 'h-8 w-auto max-w-full object-left'
             }`}
             decoding="async"
           />
