@@ -60,7 +60,7 @@ export default function Login() {
             <img
               src="/fimass-logo.png"
               alt="FIMASS — Sportello Amico"
-              className="relative z-[1] h-auto w-full max-h-[min(30vh,210px)] sm:max-h-[240px] object-contain object-center drop-shadow-[0_12px_40px_rgba(0,0,0,0.55)] transition-transform duration-300 ease-out motion-safe:hover:scale-[1.01]"
+              className="relative z-[1] h-auto w-full max-h-[min(30vh,210px)] sm:max-h-[240px] object-contain object-center bg-transparent drop-shadow-[0_12px_40px_rgba(0,0,0,0.55)] transition-transform duration-300 ease-out motion-safe:hover:scale-[1.01]"
               decoding="async"
             />
           </div>
