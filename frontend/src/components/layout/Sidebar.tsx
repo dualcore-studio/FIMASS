@@ -41,11 +41,11 @@ export default function Sidebar({ collapsed, onCollapsedChange }: SidebarProps) 
   const filteredItems = menuItems.filter((item) => user && item.roles.includes(user.role));
   const showSettings = user && settingsItem.roles.includes(user.role);
 
-  const widthClass = collapsed ? 'w-16' : 'w-60';
+  const widthClass = collapsed ? 'w-16' : 'w-72';
 
   return (
     <aside
-      className={`fixed left-0 top-[4.5rem] z-40 flex h-[calc(100vh-4.5rem)] flex-col border-r border-white/[0.06] bg-[#0a0e14] transition-all duration-200 ${widthClass}`}
+      className={`fixed left-0 top-20 z-40 flex h-[calc(100vh-5rem)] flex-col border-r border-white/[0.06] bg-[#0a0e14] transition-all duration-200 ${widthClass}`}
     >
       <nav className="flex flex-1 flex-col overflow-hidden px-2 py-3">
         <div className="min-h-0 flex-1 space-y-0.5 overflow-y-auto">
