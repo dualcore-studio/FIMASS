@@ -27,62 +27,60 @@ export default function Login() {
   };
 
   return (
-    <div className="relative min-h-screen overflow-hidden bg-[#DDE3EC] flex flex-col items-center justify-center px-4 py-10 sm:px-6 sm:py-12">
-      {/* Soft vertical gradient — chiaro, corporate */}
+    <div className="fixed inset-0 z-50 flex flex-col overflow-hidden bg-[#12151C]">
+      {/* Antracite: leggermente più chiaro rispetto al primo (#0F1115 …), non grigio chiaro */}
       <div
-        className="pointer-events-none absolute inset-0 bg-gradient-to-b from-[#E8ECF3] via-[#DFE5EE] to-[#D4DCE8]"
+        className="pointer-events-none absolute inset-0 bg-gradient-to-b from-[#12151C] via-[#181C26] to-[#1E2430]"
         aria-hidden
       />
-      {/* Alone blu molto leggero in alto */}
       <div
-        className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_95%_60%_at_50%_0%,rgba(11,78,162,0.07),transparent_55%)]"
+        className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_90%_55%_at_50%_8%,rgba(11,78,162,0.06),transparent_58%)]"
         aria-hidden
       />
-      {/* Vignetta soft (non scura) per profondità */}
       <div
-        className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_center,transparent_45%,rgba(90,107,132,0.08)_100%)]"
+        className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_center,transparent_0%,rgba(0,0,0,0.3)_100%)]"
         aria-hidden
       />
-      {/* Griglia sottile su sfondo chiaro */}
       <div
-        className="pointer-events-none absolute inset-0 opacity-[0.35] bg-[linear-gradient(rgba(15,17,21,0.06)_1px,transparent_1px),linear-gradient(90deg,rgba(15,17,21,0.06)_1px,transparent_1px)] bg-[length:56px_56px]"
+        className="pointer-events-none absolute inset-0 opacity-[0.025] bg-[linear-gradient(rgba(255,255,255,0.5)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.5)_1px,transparent_1px)] bg-[length:56px_56px]"
         aria-hidden
       />
 
-      <div className="relative z-10 w-full max-w-xl flex flex-col items-center">
-        {/* Logo — visual hero */}
-        <div className="mb-8 sm:mb-9 w-full flex justify-center px-2">
-          <div className="relative w-full max-w-[min(100%,92vw,580px)] flex justify-center">
-            <div
-              className="pointer-events-none absolute left-1/2 top-1/2 h-[min(130%,440px)] w-[min(150%,640px)] -translate-x-1/2 -translate-y-1/2 rounded-full bg-[radial-gradient(circle,rgba(253,200,48,0.12)_0%,rgba(11,78,162,0.06)_38%,transparent_70%)] blur-2xl"
-              aria-hidden
-            />
-            <img
-              src="/fimass-logo.png"
-              alt="FIMASS — Sportello Amico"
-              className="relative z-[1] h-auto w-full max-h-[min(44vh,300px)] sm:max-h-[min(46vh,360px)] object-contain object-center bg-transparent drop-shadow-[0_16px_48px_rgba(15,17,21,0.14)] transition-transform duration-300 ease-out motion-safe:hover:scale-[1.01]"
-              decoding="async"
-            />
-          </div>
-        </div>
-
-        <div className="w-full max-w-md rounded-2xl border border-gray-200/95 bg-white px-8 py-8 sm:px-9 sm:py-9 shadow-[0_24px_48px_-12px_rgba(15,17,21,0.12),0_0_0_1px_rgba(255,255,255,0.8)_inset]">
-          <div className="mb-7 text-center sm:text-left">
-            <h1 className="text-lg sm:text-xl font-semibold tracking-tight text-gray-900">
-              Accesso al portale
-            </h1>
-            <p className="mt-1 text-sm text-gray-500">
-              Inserisci le tue credenziali per continuare
-            </p>
-          </div>
-
-          {error && (
-            <div className="mb-5 rounded-xl border border-red-200/90 bg-red-50/90 px-3.5 py-3 text-sm text-red-800">
-              {error}
+      <div className="relative z-10 flex min-h-0 w-full flex-1 flex-col items-center justify-start overflow-hidden px-4 pb-3 pt-[max(0.75rem,3.5dvh)] sm:px-6 sm:pt-[max(1rem,5dvh)]">
+        <div className="flex min-h-0 w-full max-w-xl flex-col items-center overflow-hidden">
+          {/* Logo — stessa scala percepita, limiti in dvh per stare in viewport senza scroll */}
+          <div className="mb-4 w-full shrink-0 flex justify-center px-2 sm:mb-5">
+            <div className="relative flex w-full max-w-[min(100%,92vw,580px)] justify-center">
+              <div
+                className="pointer-events-none absolute left-1/2 top-1/2 h-[min(130%,440px)] w-[min(150%,640px)] -translate-x-1/2 -translate-y-1/2 rounded-full bg-[radial-gradient(circle,rgba(253,200,48,0.07)_0%,rgba(11,78,162,0.05)_35%,transparent_68%)] blur-2xl"
+                aria-hidden
+              />
+              <img
+                src="/fimass-logo.png"
+                alt="FIMASS — Sportello Amico"
+                className="relative z-[1] h-auto w-full max-h-[min(32dvh,260px)] sm:max-h-[min(36dvh,320px)] object-contain object-center bg-transparent [image-rendering:auto] drop-shadow-[0_12px_40px_rgba(0,0,0,0.45)] transition-transform duration-300 ease-out motion-safe:hover:scale-[1.01]"
+                decoding="async"
+              />
             </div>
-          )}
+          </div>
 
-          <form onSubmit={handleSubmit} className="space-y-5">
+          <div className="w-full max-w-md min-h-0 shrink overflow-y-hidden rounded-2xl border border-gray-200/90 bg-[#F8F9FB] px-7 py-6 shadow-[0_32px_64px_-16px_rgba(0,0,0,0.5),0_0_0_1px_rgba(255,255,255,0.06)_inset] sm:px-8 sm:py-7">
+            <div className="mb-5 text-center sm:mb-6 sm:text-left">
+              <h1 className="text-lg sm:text-xl font-semibold tracking-tight text-gray-900">
+                Accesso al portale
+              </h1>
+              <p className="mt-1 text-sm text-gray-500">
+                Inserisci le tue credenziali per continuare
+              </p>
+            </div>
+
+            {error && (
+              <div className="mb-4 rounded-xl border border-red-200/90 bg-red-50/90 px-3.5 py-3 text-sm text-red-800">
+                {error}
+              </div>
+            )}
+
+            <form onSubmit={handleSubmit} className="space-y-4">
             <div>
               <label htmlFor="login-username" className="mb-1.5 block text-xs font-medium uppercase tracking-wide text-gray-500">
                 Username
@@ -137,11 +135,12 @@ export default function Login() {
                 'Accedi'
               )}
             </button>
-          </form>
+            </form>
 
-          <p className="mt-8 text-center text-[11px] leading-relaxed text-gray-400/90">
-            &copy; {new Date().getFullYear()} FIMASS Sportello Amico
-          </p>
+            <p className="mt-6 text-center text-[11px] leading-relaxed text-gray-400/90">
+              &copy; {new Date().getFullYear()} FIMASS Sportello Amico
+            </p>
+          </div>
         </div>
       </div>
     </div>
