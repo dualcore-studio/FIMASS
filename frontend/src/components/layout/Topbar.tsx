@@ -37,7 +37,7 @@ export default function Topbar() {
   if (!user) return null;
 
   return (
-    <header className="fixed left-60 right-0 top-0 z-30 flex h-[4.5rem] items-center justify-between border-b border-white/[0.08] bg-[#161B26]/95 px-6 backdrop-blur-md">
+    <header className="fixed left-60 right-0 top-0 z-30 flex h-[4.5rem] items-center justify-between border-b border-white/[0.06] bg-[#111827]/95 px-6 backdrop-blur-md">
       <form onSubmit={handleSearch} className="max-w-md flex-1">
         <div className="relative">
           <Search size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" />
@@ -46,7 +46,7 @@ export default function Topbar() {
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             placeholder="Cerca preventivi, polizze, assistiti..."
-            className="input-field border-white/10 bg-[#121a2a] pl-10 placeholder:text-slate-500"
+            className="input-field border-white/10 bg-[#0f172a] pl-10 placeholder:text-slate-500"
           />
         </div>
       </form>
@@ -77,7 +77,7 @@ export default function Topbar() {
           </button>
 
           {showProfile && (
-            <div className="absolute right-0 z-50 mt-1 w-56 rounded-xl border border-white/10 bg-[#1c2436] py-1 shadow-xl shadow-black/40">
+            <div className="absolute right-0 z-50 mt-1 w-56 rounded-xl border border-white/10 bg-[#1e293b] py-1 shadow-xl shadow-black/40">
               <div className="border-b border-white/[0.06] px-4 py-3">
                 <p className="text-sm font-medium text-slate-100">{getUserDisplayName(user)}</p>
                 <p className="text-xs text-slate-400">{user.email}</p>

@@ -25,21 +25,19 @@ export default function Sidebar() {
 
   return (
     <aside
-      className={`fixed left-0 top-0 z-40 flex h-full flex-col border-r border-white/[0.06] bg-[#161B26] transition-all duration-200 ${collapsed ? 'w-16' : 'w-60'}`}
+      className={`fixed left-0 top-0 z-40 flex h-full flex-col border-r border-white/[0.06] bg-[#111827] transition-all duration-200 ${collapsed ? 'w-16' : 'w-60'}`}
     >
-      <div className="flex h-[4.5rem] w-full shrink-0 items-center border-b border-white/[0.08] bg-[#161B26] px-3">
+      <div className="flex h-[4.5rem] w-full shrink-0 items-center border-b border-white/[0.06] px-4">
         <Link
           to="/"
-          className="flex h-full w-full min-w-0 items-center outline-none transition-opacity hover:opacity-90 focus-visible:ring-2 focus-visible:ring-blue-500/50 focus-visible:ring-offset-2 focus-visible:ring-offset-[#161B26]"
+          className="flex h-full w-full min-w-0 items-center outline-none transition-opacity hover:opacity-90 focus-visible:ring-2 focus-visible:ring-blue-500/50 focus-visible:ring-offset-2 focus-visible:ring-offset-[#111827]"
           title="Torna alla dashboard"
         >
           <img
             src="/fimass-logo.png"
             alt="FIMASS — Sportello Amico"
-            className={`block w-full max-w-none object-contain mix-blend-lighten ${
-              collapsed
-                ? 'max-h-10 object-center'
-                : 'max-h-[calc(4.5rem-1.25rem)] min-h-0 w-full object-center'
+            className={`block h-auto w-full max-w-full object-contain object-center ${
+              collapsed ? 'max-h-9' : 'max-h-[2.875rem] sm:max-h-[3.125rem]'
             }`}
             decoding="async"
           />
@@ -53,11 +51,11 @@ export default function Sidebar() {
             to={item.path}
             end={item.path === '/'}
             className={({ isActive }) =>
-              `flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors ${
+              `flex items-center gap-3 rounded-lg border-l-2 py-2.5 pl-[10px] pr-3 text-sm font-medium transition-colors ${
                 isActive
-                  ? 'bg-blue-500/15 text-blue-300'
-                  : 'text-slate-400 hover:bg-white/[0.05] hover:text-slate-100'
-              } ${collapsed ? 'justify-center' : ''}`
+                  ? 'border-blue-500 bg-blue-500/15 text-blue-200'
+                  : 'border-transparent text-slate-400 hover:bg-white/[0.05] hover:text-slate-100'
+              } ${collapsed ? 'justify-center border-l-0 pl-0 pr-0' : ''}`
             }
             title={collapsed ? item.label : undefined}
           >
