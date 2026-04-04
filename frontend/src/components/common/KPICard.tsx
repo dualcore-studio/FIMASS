@@ -21,16 +21,18 @@ export default function KPICard({ title, value, icon, color = 'blue', subtitle, 
 
   return (
     <div
-      className={`card p-5 ${onClick ? 'cursor-pointer transition-colors hover:border-white/15 hover:bg-[#232c42]/90' : ''}`}
+      className={`card rounded-[12px] p-5 ${onClick ? 'cursor-pointer transition-colors hover:border-white/15 hover:bg-[#232c42]/90' : ''}`}
       onClick={onClick}
     >
-      <div className="flex items-center justify-between gap-3">
-        <div className="min-w-0">
-          <p className="text-sm font-medium text-slate-400">{title}</p>
-          <p className="mt-1 text-2xl font-bold tabular-nums text-slate-50">{value}</p>
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0 flex-1">
+          <p className="text-xs font-medium leading-snug text-slate-500">{title}</p>
+          <p className="mt-2 text-3xl font-bold tabular-nums leading-none text-slate-50">{value}</p>
           {subtitle && <p className="mt-1 text-xs text-slate-500">{subtitle}</p>}
         </div>
-        {icon && <div className={`shrink-0 rounded-xl p-3 ${colors[color]}`}>{icon}</div>}
+        {icon && (
+          <div className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-[10px] ${colors[color]}`}>{icon}</div>
+        )}
       </div>
     </div>
   );

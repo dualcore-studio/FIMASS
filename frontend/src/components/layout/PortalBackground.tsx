@@ -16,7 +16,7 @@ export function PortalBackgroundLayers() {
         aria-hidden
       />
       <div
-        className="absolute inset-0 opacity-[0.025] bg-[linear-gradient(rgba(255,255,255,0.5)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.5)_1px,transparent_1px)] bg-[length:56px_56px]"
+        className="absolute inset-0 opacity-[0.04] bg-[linear-gradient(rgba(255,255,255,0.45)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.45)_1px,transparent_1px)] bg-[length:48px_48px]"
         aria-hidden
       />
     </>
