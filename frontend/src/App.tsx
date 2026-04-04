@@ -18,14 +18,18 @@ import Reports from './pages/reports/Reports';
 import ActivityLogs from './pages/logs/ActivityLogs';
 import Settings from './pages/settings/Settings';
 import type { ReactNode } from 'react';
+import { PortalBackgroundLayers } from './components/layout/PortalBackground';
 
 function ProtectedRoute({ children, roles }: { children: ReactNode; roles?: string[] }) {
   const { user, isLoading } = useAuth();
 
   if (isLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
-        <div className="w-8 h-8 border-3 border-blue-200 border-t-blue-700 rounded-full animate-spin" />
+      <div className="relative min-h-screen flex items-center justify-center bg-[#12151C]">
+        <div className="pointer-events-none absolute inset-0" aria-hidden>
+          <PortalBackgroundLayers />
+        </div>
+        <div className="relative z-10 w-8 h-8 border-3 border-blue-200 border-t-blue-700 rounded-full animate-spin" />
       </div>
     );
   }

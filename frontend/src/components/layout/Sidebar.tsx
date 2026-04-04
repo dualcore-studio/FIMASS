@@ -1,4 +1,4 @@
-import { NavLink } from 'react-router-dom';
+import { Link, NavLink } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import {
   LayoutDashboard, Users, FileText, Shield, UserCheck,
@@ -25,23 +25,23 @@ export default function Sidebar() {
 
   return (
     <aside className={`fixed left-0 top-0 h-full bg-white border-r border-gray-200 z-40 transition-all duration-200 ${collapsed ? 'w-16' : 'w-60'} flex flex-col`}>
-      <div className={`h-16 flex items-center border-b border-gray-200 ${collapsed ? 'justify-center px-2' : 'px-5'}`}>
-        {!collapsed && (
-          <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-lg bg-blue-700 flex items-center justify-center">
-              <Shield className="w-4.5 h-4.5 text-white" />
-            </div>
-            <div>
-              <span className="font-bold text-gray-900 text-sm leading-tight block">Fimass</span>
-              <span className="text-[10px] text-gray-400 leading-tight block">Sportello Amico</span>
-            </div>
-          </div>
-        )}
-        {collapsed && (
-          <div className="w-8 h-8 rounded-lg bg-blue-700 flex items-center justify-center">
-            <Shield className="w-4.5 h-4.5 text-white" />
-          </div>
-        )}
+      <div className="relative flex min-h-16 shrink-0 items-center border-b border-white/10 bg-[#12151C]">
+        <Link
+          to="/"
+          className={`relative z-10 flex w-full items-center justify-center outline-none transition-opacity hover:opacity-95 focus-visible:ring-2 focus-visible:ring-[#0B4EA2]/50 focus-visible:ring-offset-2 focus-visible:ring-offset-[#12151C] ${
+            collapsed ? 'px-2 py-2' : 'px-3 py-2'
+          }`}
+          title="Torna alla dashboard"
+        >
+          <img
+            src="/fimass-logo.png"
+            alt="FIMASS — Sportello Amico"
+            className={`h-auto w-full max-w-full object-contain object-center drop-shadow-[0_6px_20px_rgba(0,0,0,0.4)] ${
+              collapsed ? 'max-h-8' : 'max-h-10'
+            }`}
+            decoding="async"
+          />
+        </Link>
       </div>
 
       <nav className="flex-1 py-3 px-2 space-y-0.5 overflow-y-auto">

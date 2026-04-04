@@ -1,6 +1,7 @@
 import { useState, type FormEvent } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { Eye, EyeOff } from 'lucide-react';
+import { PortalBackgroundLayers } from '../../components/layout/PortalBackground';
 
 const inputClass =
   'w-full rounded-xl border border-gray-200/95 bg-white px-3.5 py-2.5 text-sm text-gray-900 shadow-[0_1px_2px_rgba(15,17,21,0.04)] placeholder:text-gray-400/75 transition-[border-color,box-shadow] duration-200 focus:outline-none focus:border-[#0B4EA2] focus:ring-[3px] focus:ring-[#0B4EA2]/18';
@@ -28,23 +29,9 @@ export default function Login() {
 
   return (
     <div className="fixed inset-0 z-50 flex flex-col overflow-hidden bg-[#12151C]">
-      {/* Antracite: leggermente più chiaro rispetto al primo (#0F1115 …), non grigio chiaro */}
-      <div
-        className="pointer-events-none absolute inset-0 bg-gradient-to-b from-[#12151C] via-[#181C26] to-[#1E2430]"
-        aria-hidden
-      />
-      <div
-        className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_90%_55%_at_50%_8%,rgba(11,78,162,0.06),transparent_58%)]"
-        aria-hidden
-      />
-      <div
-        className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_center,transparent_0%,rgba(0,0,0,0.3)_100%)]"
-        aria-hidden
-      />
-      <div
-        className="pointer-events-none absolute inset-0 opacity-[0.025] bg-[linear-gradient(rgba(255,255,255,0.5)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.5)_1px,transparent_1px)] bg-[length:56px_56px]"
-        aria-hidden
-      />
+      <div className="pointer-events-none absolute inset-0" aria-hidden>
+        <PortalBackgroundLayers />
+      </div>
 
       <div className="relative z-10 flex min-h-0 w-full flex-1 flex-col items-center justify-start overflow-hidden px-4 pb-3 pt-[max(0.75rem,3.5dvh)] sm:px-6 sm:pt-[max(1rem,5dvh)]">
         <div className="flex min-h-0 w-full max-w-xl flex-col items-center overflow-hidden">
