@@ -27,19 +27,19 @@ export default function Sidebar() {
     <aside
       className={`fixed left-0 top-0 z-40 flex h-full flex-col border-r border-white/[0.06] bg-[#161B26] transition-all duration-200 ${collapsed ? 'w-16' : 'w-60'}`}
     >
-      <div className="relative flex min-h-[4.5rem] shrink-0 items-center border-b border-white/[0.08] bg-[#0d1017] px-2">
+      <div className="flex h-[4.5rem] w-full shrink-0 items-center border-b border-white/[0.08] bg-[#161B26] px-3">
         <Link
           to="/"
-          className={`relative z-10 flex w-full min-w-0 items-center justify-center outline-none transition-opacity hover:opacity-90 focus-visible:ring-2 focus-visible:ring-blue-500/50 focus-visible:ring-offset-2 focus-visible:ring-offset-[#0d1017] ${
-            collapsed ? 'py-2' : 'py-2.5'
-          }`}
+          className="flex h-full w-full min-w-0 items-center outline-none transition-opacity hover:opacity-90 focus-visible:ring-2 focus-visible:ring-blue-500/50 focus-visible:ring-offset-2 focus-visible:ring-offset-[#161B26]"
           title="Torna alla dashboard"
         >
           <img
             src="/fimass-logo.png"
             alt="FIMASS — Sportello Amico"
-            className={`h-auto w-full max-w-full object-contain object-center drop-shadow-[0_4px_24px_rgba(0,0,0,0.5)] ${
-              collapsed ? 'max-h-9 px-0.5' : 'max-h-[3.35rem] sm:max-h-[3.65rem]'
+            className={`block w-full max-w-none object-contain mix-blend-lighten ${
+              collapsed
+                ? 'max-h-10 object-center'
+                : 'max-h-[calc(4.5rem-1.25rem)] min-h-0 w-full object-center'
             }`}
             decoding="async"
           />
