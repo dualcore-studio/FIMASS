@@ -55,8 +55,8 @@ export default function Topbar({ sidebarCollapsed }: TopbarProps) {
         <img
           src="/fimass-logo-wordmark.png"
           alt="FIMASS — Sportello Amico"
-          width={922}
-          height={218}
+          width={1800}
+          height={420}
           draggable={false}
           className={`pointer-events-none block w-auto max-w-full select-none object-contain object-center [image-rendering:auto] ${
             sidebarCollapsed ? 'h-7' : 'h-9'
