@@ -5,8 +5,6 @@ import {
   Pencil,
   ToggleLeft,
   KeyRound,
-  ChevronLeft,
-  ChevronRight,
   Plus,
 } from 'lucide-react';
 import { api, ApiError } from '../../utils/api';
@@ -18,9 +16,10 @@ import {
   getRoleBadgeColor,
 } from '../../utils/helpers';
 import { useAuth } from '../../context/AuthContext';
+import TablePagination from '../../components/common/TablePagination';
 import Modal from '../../components/ui/Modal';
-
-const LIMIT = 25;
+import { TABLE_PAGE_SIZE } from '../../constants/tablePagination';
+import { useSyncPageToTotalPages } from '../../hooks/useSyncPageToTotalPages';
 
 type RoleFilter = '' | User['role'];
 type StatoFilter = '' | User['stato'];
@@ -28,7 +27,7 @@ type StatoFilter = '' | User['stato'];
 function buildUsersQuery(page: number, role: RoleFilter, stato: StatoFilter, search: string): string {
   const params = new URLSearchParams();
   params.set('page', String(page));
-  params.set('limit', String(LIMIT));
+  params.set('limit', String(TABLE_PAGE_SIZE));
   if (role) params.set('role', role);
   if (stato) params.set('stato', stato);
   if (search.trim()) params.set('search', search.trim());
@@ -86,6 +85,9 @@ export default function UsersList() {
     fetchUsers();
   }, [fetchUsers]);
 
+  const totalPages = result?.totalPages ?? 1;
+  useSyncPageToTotalPages(page, result?.totalPages, setPage);
+
   const closeResetModal = () => {
     setResetUserId(null);
     setResetPassword('');
@@ -123,7 +125,6 @@ export default function UsersList() {
     }
   };
 
-  const totalPages = result?.totalPages ?? 1;
   const rows = result?.data ?? [];
 
   return (
@@ -308,38 +309,13 @@ export default function UsersList() {
         )}
 
         {!loading && !listError && result && result.total > 0 ? (
-          <div className="flex flex-col gap-3 border-t border-gray-100 bg-gray-50/80 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
-            <p className="text-sm text-gray-600">
-              Mostrando{' '}
-              <span className="font-medium text-gray-900">
-                {(page - 1) * LIMIT + 1}–{Math.min(page * LIMIT, result.total)}
-              </span>{' '}
-              di <span className="font-medium text-gray-900">{result.total}</span> utenti
-            </p>
-            <div className="flex items-center gap-2">
-              <button
-                type="button"
-                disabled={page <= 1}
-                onClick={() => setPage((p) => Math.max(1, p - 1))}
-                className="btn-secondary py-1.5 pl-2 pr-3 text-xs disabled:opacity-40"
-              >
-                <ChevronLeft className="h-4 w-4" />
-                Precedente
-              </button>
-              <span className="text-sm text-gray-600">
-                Pagina <span className="font-semibold text-gray-900">{page}</span> di {totalPages}
-              </span>
-              <button
-                type="button"
-                disabled={page >= totalPages}
-                onClick={() => setPage((p) => p + 1)}
-                className="btn-secondary py-1.5 pl-3 pr-2 text-xs disabled:opacity-40"
-              >
-                Successiva
-                <ChevronRight className="h-4 w-4" />
-              </button>
-            </div>
-          </div>
+          <TablePagination
+            page={page}
+            totalPages={totalPages}
+            total={result.total}
+            onPageChange={setPage}
+            entityLabel="utenti"
+          />
         ) : null}
       </div>
 

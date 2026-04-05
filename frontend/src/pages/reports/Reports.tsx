@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   BarChart3,
   Calendar,
@@ -20,6 +20,9 @@ import {
 } from 'recharts';
 import { api, ApiError } from '../../utils/api';
 import KPICard from '../../components/common/KPICard';
+import TablePagination from '../../components/common/TablePagination';
+import { TABLE_PAGE_SIZE } from '../../constants/tablePagination';
+import { useSyncPageToTotalPages } from '../../hooks/useSyncPageToTotalPages';
 
 type PeriodPreset = 'oggi' | 'settimana' | 'mese' | 'trimestre' | 'anno' | 'personalizzato';
 
@@ -96,6 +99,56 @@ export default function Reports() {
   const [byOperator, setByOperator] = useState<ByOperatorRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  const [pageByType, setPageByType] = useState(1);
+  const [pageByStructure, setPageByStructure] = useState(1);
+  const [pageByOperator, setPageByOperator] = useState(1);
+
+  useEffect(() => {
+    setPageByType(1);
+    setPageByStructure(1);
+    setPageByOperator(1);
+  }, [byType, byStructure, byOperator]);
+
+  const typeTotalPages = useMemo(
+    () => (byType.length === 0 ? 1 : Math.ceil(byType.length / TABLE_PAGE_SIZE)),
+    [byType.length],
+  );
+  const structureTotalPages = useMemo(
+    () => (byStructure.length === 0 ? 1 : Math.ceil(byStructure.length / TABLE_PAGE_SIZE)),
+    [byStructure.length],
+  );
+  const operatorTotalPages = useMemo(
+    () => (byOperator.length === 0 ? 1 : Math.ceil(byOperator.length / TABLE_PAGE_SIZE)),
+    [byOperator.length],
+  );
+
+  useSyncPageToTotalPages(pageByType, byType.length ? typeTotalPages : undefined, setPageByType);
+  useSyncPageToTotalPages(
+    pageByStructure,
+    byStructure.length ? structureTotalPages : undefined,
+    setPageByStructure,
+  );
+  useSyncPageToTotalPages(
+    pageByOperator,
+    byOperator.length ? operatorTotalPages : undefined,
+    setPageByOperator,
+  );
+
+  const byTypePage = useMemo(() => {
+    const start = (pageByType - 1) * TABLE_PAGE_SIZE;
+    return byType.slice(start, start + TABLE_PAGE_SIZE);
+  }, [byType, pageByType]);
+
+  const byStructurePage = useMemo(() => {
+    const start = (pageByStructure - 1) * TABLE_PAGE_SIZE;
+    return byStructure.slice(start, start + TABLE_PAGE_SIZE);
+  }, [byStructure, pageByStructure]);
+
+  const byOperatorPage = useMemo(() => {
+    const start = (pageByOperator - 1) * TABLE_PAGE_SIZE;
+    return byOperator.slice(start, start + TABLE_PAGE_SIZE);
+  }, [byOperator, pageByOperator]);
 
   const getEffectiveDates = useCallback(() => {
     if (preset === 'personalizzato') {
@@ -295,8 +348,8 @@ export default function Reports() {
                     </tr>
                   </thead>
                   <tbody>
-                    {byType.map((r, i) => (
-                      <tr key={i}>
+                    {byTypePage.map((r, i) => (
+                      <tr key={`${r.tipologia}-${i}`}>
                         <td className="px-4 py-3 font-medium text-gray-900">{r.tipologia}</td>
                         <td className="px-4 py-3 text-right text-gray-700">{r.preventivi}</td>
                         <td className="px-4 py-3 text-right text-gray-700">{r.polizze}</td>
@@ -305,6 +358,13 @@ export default function Reports() {
                   </tbody>
                 </table>
               </div>
+              <TablePagination
+                page={pageByType}
+                totalPages={typeTotalPages}
+                total={byType.length}
+                onPageChange={setPageByType}
+                entityLabel="tipologie"
+              />
             </div>
           )}
 
@@ -328,8 +388,8 @@ export default function Reports() {
                     </tr>
                   </thead>
                   <tbody>
-                    {byStructure.map((r, i) => (
-                      <tr key={i}>
+                    {byStructurePage.map((r, i) => (
+                      <tr key={`${r.denominazione}-${i}`}>
                         <td className="px-4 py-3 font-medium text-gray-900">{r.denominazione}</td>
                         <td className="px-4 py-3 text-right text-gray-700">{r.preventivi}</td>
                         <td className="px-4 py-3 text-right text-gray-700">{r.elaborati}</td>
@@ -339,6 +399,13 @@ export default function Reports() {
                   </tbody>
                 </table>
               </div>
+              <TablePagination
+                page={pageByStructure}
+                totalPages={structureTotalPages}
+                total={byStructure.length}
+                onPageChange={setPageByStructure}
+                entityLabel="strutture"
+              />
             </div>
           )}
 
@@ -363,8 +430,8 @@ export default function Reports() {
                     </tr>
                   </thead>
                   <tbody>
-                    {byOperator.map((r, i) => (
-                      <tr key={i}>
+                    {byOperatorPage.map((r, i) => (
+                      <tr key={`${r.operatore}-${i}`}>
                         <td className="px-4 py-3 font-medium text-gray-900">{r.operatore}</td>
                         <td className="px-4 py-3 text-right text-gray-700">{r.totali}</td>
                         <td className="px-4 py-3 text-right text-gray-700">{r.in_lavorazione}</td>
@@ -375,6 +442,13 @@ export default function Reports() {
                   </tbody>
                 </table>
               </div>
+              <TablePagination
+                page={pageByOperator}
+                totalPages={operatorTotalPages}
+                total={byOperator.length}
+                onPageChange={setPageByOperator}
+                entityLabel="operatori"
+              />
             </div>
           )}
         </>

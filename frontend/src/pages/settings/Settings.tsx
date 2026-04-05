@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   Settings as SettingsIcon,
   Save,
@@ -11,6 +11,9 @@ import {
 } from 'lucide-react';
 import { api, ApiError } from '../../utils/api';
 import type { InsuranceType } from '../../types';
+import TablePagination from '../../components/common/TablePagination';
+import { TABLE_PAGE_SIZE } from '../../constants/tablePagination';
+import { useSyncPageToTotalPages } from '../../hooks/useSyncPageToTotalPages';
 
 type SettingsTab = 'generali' | 'tipologie' | 'campi' | 'checklist';
 
@@ -204,6 +207,7 @@ function TabTipologie() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [togglingId, setTogglingId] = useState<number | null>(null);
+  const [page, setPage] = useState(1);
 
   const fetchTypes = useCallback(async () => {
     setError(null);
@@ -233,6 +237,18 @@ function TabTipologie() {
       setTogglingId(null);
     }
   };
+
+  useEffect(() => {
+    setPage(1);
+  }, [types]);
+
+  const tipologieTotalPages = types.length === 0 ? 1 : Math.ceil(types.length / TABLE_PAGE_SIZE);
+  useSyncPageToTotalPages(page, types.length ? tipologieTotalPages : undefined, setPage);
+
+  const typesPage = useMemo(() => {
+    const start = (page - 1) * TABLE_PAGE_SIZE;
+    return types.slice(start, start + TABLE_PAGE_SIZE);
+  }, [types, page]);
 
   if (loading) {
     return (
@@ -267,7 +283,7 @@ function TabTipologie() {
                 </td>
               </tr>
             ) : (
-              types.map((t) => (
+              typesPage.map((t) => (
                 <tr key={t.id}>
                   <td className="px-4 py-3 font-medium text-gray-900">{t.nome}</td>
                   <td className="px-4 py-3 font-mono text-xs text-gray-700">{t.codice}</td>
@@ -296,6 +312,15 @@ function TabTipologie() {
           </tbody>
         </table>
       </div>
+      {types.length > 0 && (
+        <TablePagination
+          page={page}
+          totalPages={tipologieTotalPages}
+          total={types.length}
+          onPageChange={setPage}
+          entityLabel="tipologie"
+        />
+      )}
     </div>
   );
 }
@@ -306,6 +331,7 @@ function TabCampiForm() {
   const [types, setTypes] = useState<InsuranceType[]>([]);
   const [selectedTypeId, setSelectedTypeId] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
+  const [pageCampi, setPageCampi] = useState(1);
 
   useEffect(() => {
     api.get<InsuranceType[]>('/settings/insurance-types')
@@ -318,6 +344,20 @@ function TabCampiForm() {
   }, []);
 
   const selectedType = types.find((t) => t.id === selectedTypeId);
+
+  const campi = selectedType?.campi_specifici ?? [];
+  const campiTotalPages = campi.length === 0 ? 1 : Math.ceil(campi.length / TABLE_PAGE_SIZE);
+
+  useEffect(() => {
+    setPageCampi(1);
+  }, [selectedTypeId]);
+
+  useSyncPageToTotalPages(pageCampi, campi.length ? campiTotalPages : undefined, setPageCampi);
+
+  const campiPage = useMemo(() => {
+    const start = (pageCampi - 1) * TABLE_PAGE_SIZE;
+    return campi.slice(start, start + TABLE_PAGE_SIZE);
+  }, [campi, pageCampi]);
 
   if (loading) {
     return (
@@ -359,8 +399,8 @@ function TabCampiForm() {
                 </tr>
               </thead>
               <tbody>
-                {selectedType.campi_specifici.map((campo, i) => (
-                  <tr key={i}>
+                {campiPage.map((campo, i) => (
+                  <tr key={`${campo.nome}-${i}`}>
                     <td className="px-4 py-3 font-mono text-xs text-gray-700">{campo.nome}</td>
                     <td className="px-4 py-3 font-medium text-gray-900">{campo.label}</td>
                     <td className="px-4 py-3">
@@ -381,6 +421,13 @@ function TabCampiForm() {
               </tbody>
             </table>
           </div>
+          <TablePagination
+            page={pageCampi}
+            totalPages={campiTotalPages}
+            total={campi.length}
+            onPageChange={setPageCampi}
+            entityLabel="campi"
+          />
         </div>
       ) : (
         <div className="card px-6 py-12 text-center text-sm text-gray-500">
@@ -397,6 +444,7 @@ function TabChecklist() {
   const [types, setTypes] = useState<InsuranceType[]>([]);
   const [selectedTypeId, setSelectedTypeId] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
+  const [pageChecklist, setPageChecklist] = useState(1);
 
   useEffect(() => {
     api.get<InsuranceType[]>('/settings/insurance-types')
@@ -409,6 +457,25 @@ function TabChecklist() {
   }, []);
 
   const selectedType = types.find((t) => t.id === selectedTypeId);
+
+  const checklistItems = selectedType?.checklist_allegati ?? [];
+  const checklistTotalPages =
+    checklistItems.length === 0 ? 1 : Math.ceil(checklistItems.length / TABLE_PAGE_SIZE);
+
+  useEffect(() => {
+    setPageChecklist(1);
+  }, [selectedTypeId]);
+
+  useSyncPageToTotalPages(
+    pageChecklist,
+    checklistItems.length ? checklistTotalPages : undefined,
+    setPageChecklist,
+  );
+
+  const checklistPage = useMemo(() => {
+    const start = (pageChecklist - 1) * TABLE_PAGE_SIZE;
+    return checklistItems.slice(start, start + TABLE_PAGE_SIZE);
+  }, [checklistItems, pageChecklist]);
 
   if (loading) {
     return (
@@ -448,8 +515,8 @@ function TabChecklist() {
                 </tr>
               </thead>
               <tbody>
-                {selectedType.checklist_allegati.map((item, i) => (
-                  <tr key={i}>
+                {checklistPage.map((item, i) => (
+                  <tr key={`${item.nome}-${i}`}>
                     <td className="px-4 py-3 font-medium text-gray-900">{item.nome}</td>
                     <td className="px-4 py-3 text-center">
                       {item.obbligatorio ? (
@@ -466,6 +533,13 @@ function TabChecklist() {
               </tbody>
             </table>
           </div>
+          <TablePagination
+            page={pageChecklist}
+            totalPages={checklistTotalPages}
+            total={checklistItems.length}
+            onPageChange={setPageChecklist}
+            entityLabel="voci"
+          />
         </div>
       ) : (
         <div className="card px-6 py-12 text-center text-sm text-gray-500">
