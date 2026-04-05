@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import {
   Search,
@@ -18,29 +18,24 @@ import {
 import { useAuth } from '../../context/AuthContext';
 import TablePagination from '../../components/common/TablePagination';
 import Modal from '../../components/ui/Modal';
-import { TABLE_PAGE_SIZE } from '../../constants/tablePagination';
 import { useSyncPageToTotalPages } from '../../hooks/useSyncPageToTotalPages';
-
-type RoleFilter = '' | User['role'];
-type StatoFilter = '' | User['stato'];
-
-function buildUsersQuery(page: number, role: RoleFilter, stato: StatoFilter, search: string): string {
-  const params = new URLSearchParams();
-  params.set('page', String(page));
-  params.set('limit', String(TABLE_PAGE_SIZE));
-  if (role) params.set('role', role);
-  if (stato) params.set('stato', stato);
-  if (search.trim()) params.set('search', search.trim());
-  return `/users?${params.toString()}`;
-}
+import {
+  buildUsersListQueryString,
+  emptyRoleTabCounts,
+  USERS_ROLE_TAB_KEYS,
+  type RoleTabCounts,
+  type UsersListRoleFilter,
+  type UsersListStatoFilter,
+} from '../../utils/usersListQuery';
+import UsersRoleFilterTabs from '../../components/users/UsersRoleFilterTabs';
 
 export default function UsersList() {
   const navigate = useNavigate();
   const { user: currentUser } = useAuth();
 
   const [page, setPage] = useState(1);
-  const [roleFilter, setRoleFilter] = useState<RoleFilter>('');
-  const [statoFilter, setStatoFilter] = useState<StatoFilter>('');
+  const [roleFilter, setRoleFilter] = useState<UsersListRoleFilter>('');
+  const [statoFilter, setStatoFilter] = useState<UsersListStatoFilter>('');
   const [searchInput, setSearchInput] = useState('');
   const [debouncedSearch, setDebouncedSearch] = useState('');
 
@@ -56,6 +51,10 @@ export default function UsersList() {
 
   const [togglingId, setTogglingId] = useState<number | null>(null);
 
+  const [roleTabCounts, setRoleTabCounts] = useState<RoleTabCounts>(() => emptyRoleTabCounts());
+  const roleCountsSeq = useRef(0);
+  const [roleCountsBump, setRoleCountsBump] = useState(0);
+
   useEffect(() => {
     const t = window.setTimeout(() => setDebouncedSearch(searchInput), 350);
     return () => window.clearTimeout(t);
@@ -65,12 +64,51 @@ export default function UsersList() {
     setPage(1);
   }, [roleFilter, statoFilter, debouncedSearch]);
 
+  useEffect(() => {
+    const seq = ++roleCountsSeq.current;
+    let cancelled = false;
+
+    async function fetchCounts() {
+      try {
+        const base = { page: 1, limit: 1, stato: statoFilter, search: debouncedSearch };
+        const allPromise = api.get<PaginatedResponse<User>>(
+          buildUsersListQueryString({ ...base, role: '' }),
+        );
+        const byRolePromises = USERS_ROLE_TAB_KEYS.map((role) =>
+          api.get<PaginatedResponse<User>>(buildUsersListQueryString({ ...base, role })),
+        );
+        const [allRes, ...roleResponses] = await Promise.all([allPromise, ...byRolePromises]);
+        if (cancelled || seq !== roleCountsSeq.current) return;
+        setRoleTabCounts({
+          tutti: allRes.total,
+          admin: roleResponses[0].total,
+          supervisore: roleResponses[1].total,
+          struttura: roleResponses[2].total,
+          operatore: roleResponses[3].total,
+        });
+      } catch {
+        if (cancelled || seq !== roleCountsSeq.current) return;
+        setRoleTabCounts(emptyRoleTabCounts());
+      }
+    }
+
+    fetchCounts();
+    return () => {
+      cancelled = true;
+    };
+  }, [debouncedSearch, statoFilter, roleCountsBump]);
+
   const fetchUsers = useCallback(async () => {
     setListError(null);
     setLoading(true);
     try {
       const data = await api.get<PaginatedResponse<User>>(
-        buildUsersQuery(page, roleFilter, statoFilter, debouncedSearch)
+        buildUsersListQueryString({
+          page,
+          role: roleFilter,
+          stato: statoFilter,
+          search: debouncedSearch,
+        }),
       );
       setResult(data);
     } catch (e) {
@@ -100,6 +138,7 @@ export default function UsersList() {
     try {
       await api.post(`/users/${id}/toggle-status`);
       await fetchUsers();
+      setRoleCountsBump((n) => n + 1);
     } catch (e) {
       setActionError(e instanceof ApiError ? e.message : 'Operazione non riuscita.');
     } finally {
@@ -169,44 +208,32 @@ export default function UsersList() {
               aria-label="Cerca utenti"
             />
           </div>
-          <div className="flex flex-wrap gap-3">
-            <div className="min-w-[160px] flex-1 sm:flex-none">
-              <label htmlFor="filter-role" className="mb-1 block text-xs font-medium text-gray-500">
-                Ruolo
-              </label>
-              <select
-                id="filter-role"
-                value={roleFilter}
-                onChange={(e) => setRoleFilter(e.target.value as RoleFilter)}
-                className="input-field"
-              >
-                <option value="">Tutti i ruoli</option>
-                <option value="admin">Admin</option>
-                <option value="supervisore">Supervisore</option>
-                <option value="operatore">Operatore</option>
-                <option value="struttura">Struttura</option>
-              </select>
-            </div>
-            <div className="min-w-[160px] flex-1 sm:flex-none">
-              <label htmlFor="filter-stato" className="mb-1 block text-xs font-medium text-gray-500">
-                Stato
-              </label>
-              <select
-                id="filter-stato"
-                value={statoFilter}
-                onChange={(e) => setStatoFilter(e.target.value as StatoFilter)}
-                className="input-field"
-              >
-                <option value="">Tutti gli stati</option>
-                <option value="attivo">Attivo</option>
-                <option value="disattivo">Disattivo</option>
-              </select>
-            </div>
+          <div className="min-w-[160px] flex-1 sm:max-w-[200px]">
+            <label htmlFor="filter-stato" className="mb-1 block text-xs font-medium text-gray-500">
+              Stato
+            </label>
+            <select
+              id="filter-stato"
+              value={statoFilter}
+              onChange={(e) => setStatoFilter(e.target.value as UsersListStatoFilter)}
+              className="input-field"
+            >
+              <option value="">Tutti gli stati</option>
+              <option value="attivo">Attivo</option>
+              <option value="disattivo">Disattivo</option>
+            </select>
           </div>
         </div>
       </div>
 
       <div className="card overflow-hidden">
+        <div className="portal-card-table-heading border-b border-slate-200/90 px-4 py-3 sm:px-5">
+          <UsersRoleFilterTabs
+            activeRole={roleFilter}
+            onRoleChange={setRoleFilter}
+            counts={roleTabCounts}
+          />
+        </div>
         {loading ? (
           <div className="flex min-h-[280px] items-center justify-center py-12">
             <div className="flex flex-col items-center gap-3">
