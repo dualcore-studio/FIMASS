@@ -48,24 +48,22 @@ export default function Topbar({ sidebarCollapsed }: TopbarProps) {
       <Link
         to="/"
         title="Torna alla dashboard"
-        className={`box-border flex h-full min-w-0 shrink-0 cursor-pointer items-center justify-center border-r border-[var(--portal-nav-border)] bg-[var(--portal-nav-surface-logo)] outline-none transition-colors duration-200 hover:bg-[var(--portal-nav-surface-logo-hover)] focus-visible:ring-2 focus-visible:ring-blue-500/50 focus-visible:ring-inset ${sidebarWidthClass} ${
-          sidebarCollapsed ? 'px-2' : 'px-4'
+        className={`box-border flex h-full min-w-0 shrink-0 cursor-pointer items-center justify-center border-r border-[#0a1428] bg-[#0F1B36] outline-none transition-colors duration-200 hover:bg-[#142244] focus-visible:ring-2 focus-visible:ring-blue-400/50 focus-visible:ring-inset ${sidebarWidthClass} ${
+          sidebarCollapsed ? 'px-3' : 'px-5'
         }`}
       >
-        <div className={`flex items-center justify-center rounded-lg bg-[#F3F6FB] border border-[#D8E2EE] ${sidebarCollapsed ? 'px-1.5 py-1' : 'px-3 py-1.5'}`}>
-          <img
-            src="/fimass-logo-wordmark.png"
-            alt="FIMASS — Sportello Amico"
-            width={922}
-            height={218}
-            draggable={false}
-            className={`pointer-events-none block w-auto max-w-full select-none bg-transparent object-contain object-center [image-rendering:auto] ${
-              sidebarCollapsed ? 'h-6' : 'h-7'
-            }`}
-            style={{ opacity: 1, filter: 'none', mixBlendMode: 'normal' }}
-            decoding="async"
-          />
-        </div>
+        <img
+          src="/fimass-logo-wordmark.png"
+          alt="FIMASS — Sportello Amico"
+          width={922}
+          height={218}
+          draggable={false}
+          className={`pointer-events-none block w-auto max-w-full select-none object-contain object-center [image-rendering:auto] ${
+            sidebarCollapsed ? 'h-7' : 'h-9'
+          }`}
+          style={{ opacity: 1, filter: 'none', mixBlendMode: 'normal' }}
+          decoding="async"
+        />
       </Link>
 
       <div className="flex min-w-0 flex-1 items-center px-4 lg:px-6">
