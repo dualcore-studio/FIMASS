@@ -43,12 +43,12 @@ export default function Topbar({ sidebarCollapsed }: TopbarProps) {
   if (!user) return null;
 
   return (
-    <header className="fixed left-0 right-0 top-0 z-30 flex h-20 items-stretch border-b border-white/[0.06] bg-[#0a0e14]">
+    <header className="fixed left-0 right-0 top-0 z-30 flex h-20 items-stretch border-b border-[var(--portal-nav-border)] bg-[var(--portal-nav-surface)]">
       {/* Wordmark: un solo link a tutta area, hover uniforme (niente opacity su layer separati) */}
       <Link
         to="/"
         title="Torna alla dashboard"
-        className={`box-border flex h-full min-w-0 shrink-0 cursor-pointer items-center justify-center border-r border-white/[0.06] bg-[#0a0e14] outline-none transition-colors duration-200 hover:bg-white/[0.05] focus-visible:ring-2 focus-visible:ring-blue-500/50 focus-visible:ring-inset ${sidebarWidthClass} ${
+        className={`box-border flex h-full min-w-0 shrink-0 cursor-pointer items-center justify-center border-r border-[var(--portal-nav-border)] bg-[var(--portal-nav-surface-logo)] outline-none transition-colors duration-200 hover:bg-[var(--portal-nav-surface-logo-hover)] focus-visible:ring-2 focus-visible:ring-blue-500/50 focus-visible:ring-inset ${sidebarWidthClass} ${
           sidebarCollapsed ? 'px-2' : 'px-4'
         }`}
       >
@@ -76,7 +76,7 @@ export default function Topbar({ sidebarCollapsed }: TopbarProps) {
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 placeholder="Cerca preventivi, polizze, assistiti..."
-                className="input-field border-white/10 bg-[#0f172a] py-2.5 pl-10 placeholder:text-slate-500"
+                className="input-field border-[var(--portal-nav-border)] bg-[#0f172a] py-2.5 pl-10 placeholder:text-slate-500"
               />
             </div>
           </form>
@@ -84,18 +84,18 @@ export default function Topbar({ sidebarCollapsed }: TopbarProps) {
             <div className="flex items-center gap-2 sm:gap-3">
               <button
                 type="button"
-                className="relative rounded-lg p-2 text-slate-400 transition-colors hover:bg-white/[0.06] hover:text-slate-200"
+                className="relative rounded-lg p-2 text-slate-400 transition-colors hover:bg-[var(--portal-nav-hover)] hover:text-slate-200"
                 aria-label="Notifiche"
               >
                 <Bell size={20} />
-                <span className="absolute right-1.5 top-1.5 h-2 w-2 rounded-full bg-red-500 ring-2 ring-[#0a0e14]" />
+                <span className="absolute right-1.5 top-1.5 h-2 w-2 rounded-full bg-red-500 ring-2 ring-[var(--portal-nav-surface)]" />
               </button>
 
               <div ref={profileRef} className="relative">
                 <button
                   type="button"
                   onClick={() => setShowProfile(!showProfile)}
-                  className="flex items-center gap-2 rounded-lg px-2 py-1.5 transition-colors hover:bg-white/[0.06] sm:px-3"
+                  className="flex items-center gap-2 rounded-lg px-2 py-1.5 transition-colors hover:bg-[var(--portal-nav-hover)] sm:px-3"
                 >
                   <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-blue-500/20 text-blue-300">
                     <User size={16} />

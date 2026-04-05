@@ -8,6 +8,16 @@
     --portal-surface: #1a2030;
     --portal-surface-raised: #222a3d;
     --portal-border: rgba(255, 255, 255, 0.08);
+
+    /* Authenticated shell: page stays darkest (PortalBackground); nav chrome one step up */
+    --portal-app-bg: #12151c;
+    --portal-nav-surface: #101c36;
+    --portal-nav-surface-logo: #11203c;
+    --portal-nav-surface-logo-hover: #152948;
+    --portal-nav-border: rgba(120, 160, 255, 0.1);
+    --portal-nav-hover: rgba(100, 150, 230, 0.12);
+    --portal-nav-active-bg: rgba(59, 130, 246, 0.26);
+    --portal-nav-active-shadow: rgba(30, 58, 138, 0.35);
   }
 
   body {

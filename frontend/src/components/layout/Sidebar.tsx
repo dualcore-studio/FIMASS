@@ -45,7 +45,7 @@ export default function Sidebar({ collapsed, onCollapsedChange }: SidebarProps) 
 
   return (
     <aside
-      className={`fixed left-0 top-20 z-40 flex h-[calc(100vh-5rem)] flex-col border-r border-white/[0.06] bg-[#0a0e14] transition-all duration-200 ${widthClass}`}
+      className={`fixed left-0 top-20 z-40 flex h-[calc(100vh-5rem)] flex-col border-r border-[var(--portal-nav-border)] bg-[var(--portal-nav-surface)] transition-all duration-200 ${widthClass}`}
     >
       <nav className="flex flex-1 flex-col overflow-hidden px-2 py-3">
         <div className="min-h-0 flex-1 space-y-0.5 overflow-y-auto">
@@ -57,8 +57,8 @@ export default function Sidebar({ collapsed, onCollapsedChange }: SidebarProps) 
               className={({ isActive }) =>
                 `flex items-center gap-3 rounded-[10px] py-2.5 pl-[10px] pr-3 text-sm font-medium transition-colors ${
                   isActive
-                    ? 'bg-blue-500/20 text-blue-100 shadow-sm shadow-blue-900/20'
-                    : 'text-slate-400 hover:bg-white/[0.05] hover:text-slate-100'
+                    ? 'bg-[var(--portal-nav-active-bg)] text-blue-100 shadow-sm shadow-[var(--portal-nav-active-shadow)]'
+                    : 'text-slate-400 hover:bg-[var(--portal-nav-hover)] hover:text-slate-100'
                 } ${collapsed ? 'justify-center px-0' : ''}`
               }
               title={collapsed ? item.label : undefined}
@@ -70,14 +70,14 @@ export default function Sidebar({ collapsed, onCollapsedChange }: SidebarProps) 
         </div>
 
         {showSettings && (
-          <div className="mt-auto shrink-0 border-t border-white/[0.06] pt-2">
+          <div className="mt-auto shrink-0 border-t border-[var(--portal-nav-border)] pt-2">
             <NavLink
               to={settingsItem.path}
               className={({ isActive }) =>
                 `flex items-center gap-3 rounded-[10px] py-2.5 pl-[10px] pr-3 text-sm font-medium transition-colors ${
                   isActive
-                    ? 'bg-blue-500/20 text-blue-100 shadow-sm shadow-blue-900/20'
-                    : 'text-slate-400 hover:bg-white/[0.05] hover:text-slate-100'
+                    ? 'bg-[var(--portal-nav-active-bg)] text-blue-100 shadow-sm shadow-[var(--portal-nav-active-shadow)]'
+                    : 'text-slate-400 hover:bg-[var(--portal-nav-hover)] hover:text-slate-100'
                 } ${collapsed ? 'justify-center px-0' : ''}`
               }
               title={collapsed ? settingsItem.label : undefined}
@@ -92,7 +92,7 @@ export default function Sidebar({ collapsed, onCollapsedChange }: SidebarProps) 
       <button
         type="button"
         onClick={() => onCollapsedChange(!collapsed)}
-        className="flex items-center justify-center border-t border-white/[0.06] p-3 text-slate-500 transition-colors hover:bg-white/[0.04] hover:text-slate-300"
+        className="flex items-center justify-center border-t border-[var(--portal-nav-border)] p-3 text-slate-500 transition-colors hover:bg-[var(--portal-nav-hover)] hover:text-slate-300"
         aria-label={collapsed ? 'Espandi menu' : 'Comprimi menu'}
       >
         {collapsed ? <ChevronRight size={18} /> : <ChevronLeft size={18} />}
