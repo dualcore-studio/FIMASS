@@ -10,6 +10,8 @@ import type { AssistedPerson, PaginatedResponse } from '../../types';
 import TablePagination from '../../components/common/TablePagination';
 import { TABLE_PAGE_SIZE } from '../../constants/tablePagination';
 import { useSyncPageToTotalPages } from '../../hooks/useSyncPageToTotalPages';
+import { useListTableSort } from '../../hooks/useListTableSort';
+import SortableTh from '../../components/common/SortableTh';
 
 export default function AssistedList() {
   const [page, setPage] = useState(1);
@@ -20,6 +22,8 @@ export default function AssistedList() {
   const [loading, setLoading] = useState(true);
   const [listError, setListError] = useState<string | null>(null);
 
+  const tableSort = useListTableSort();
+
   useEffect(() => {
     const t = window.setTimeout(() => setDebouncedSearch(searchInput), 350);
     return () => window.clearTimeout(t);
@@ -27,7 +31,7 @@ export default function AssistedList() {
 
   useEffect(() => {
     setPage(1);
-  }, [debouncedSearch]);
+  }, [debouncedSearch, tableSort.sortBy, tableSort.sortDir]);
 
   const fetchAssisted = useCallback(async () => {
     setListError(null);
@@ -37,6 +41,10 @@ export default function AssistedList() {
       qs.set('page', String(page));
       qs.set('limit', String(TABLE_PAGE_SIZE));
       if (debouncedSearch.trim()) qs.set('search', debouncedSearch.trim());
+      if (tableSort.sortBy) {
+        qs.set('sort_by', tableSort.sortBy);
+        qs.set('sort_dir', tableSort.sortDir);
+      }
       const data = await api.get<PaginatedResponse<AssistedPerson>>(`/assisted?${qs.toString()}`);
       setResult(data);
     } catch (e) {
@@ -45,7 +53,7 @@ export default function AssistedList() {
     } finally {
       setLoading(false);
     }
-  }, [page, debouncedSearch]);
+  }, [page, debouncedSearch, tableSort.sortBy, tableSort.sortDir]);
 
   useEffect(() => {
     fetchAssisted();
@@ -95,12 +103,56 @@ export default function AssistedList() {
             <table className="portal-table min-w-full text-left text-sm">
               <thead>
                 <tr>
-                  <th className="px-4 py-3 font-semibold text-gray-700">Nome e Cognome</th>
-                  <th className="px-4 py-3 font-semibold text-gray-700">Codice Fiscale</th>
-                  <th className="px-4 py-3 font-semibold text-gray-700">Telefono</th>
-                  <th className="px-4 py-3 font-semibold text-gray-700">Email</th>
-                  <th className="px-4 py-3 font-semibold text-gray-700 text-center">N. Preventivi</th>
-                  <th className="px-4 py-3 font-semibold text-gray-700 text-center">N. Polizze</th>
+                  <SortableTh
+                    sortKey="nome_cognome"
+                    activeKey={tableSort.sortBy}
+                    direction={tableSort.sortDir}
+                    onRequestSort={tableSort.requestSort}
+                  >
+                    Nome e Cognome
+                  </SortableTh>
+                  <SortableTh
+                    sortKey="codice_fiscale"
+                    activeKey={tableSort.sortBy}
+                    direction={tableSort.sortDir}
+                    onRequestSort={tableSort.requestSort}
+                  >
+                    Codice Fiscale
+                  </SortableTh>
+                  <SortableTh
+                    sortKey="cellulare"
+                    activeKey={tableSort.sortBy}
+                    direction={tableSort.sortDir}
+                    onRequestSort={tableSort.requestSort}
+                  >
+                    Telefono
+                  </SortableTh>
+                  <SortableTh
+                    sortKey="email"
+                    activeKey={tableSort.sortBy}
+                    direction={tableSort.sortDir}
+                    onRequestSort={tableSort.requestSort}
+                  >
+                    Email
+                  </SortableTh>
+                  <SortableTh
+                    sortKey="num_preventivi"
+                    activeKey={tableSort.sortBy}
+                    direction={tableSort.sortDir}
+                    onRequestSort={tableSort.requestSort}
+                    align="center"
+                  >
+                    N. Preventivi
+                  </SortableTh>
+                  <SortableTh
+                    sortKey="num_polizze"
+                    activeKey={tableSort.sortBy}
+                    direction={tableSort.sortDir}
+                    onRequestSort={tableSort.requestSort}
+                    align="center"
+                  >
+                    N. Polizze
+                  </SortableTh>
                   <th className="px-4 py-3 text-right font-semibold text-gray-700">Azioni</th>
                 </tr>
               </thead>

@@ -14,6 +14,8 @@ import StatusBadge from '../../components/common/StatusBadge';
 import TablePagination from '../../components/common/TablePagination';
 import { TABLE_PAGE_SIZE } from '../../constants/tablePagination';
 import { useSyncPageToTotalPages } from '../../hooks/useSyncPageToTotalPages';
+import { useListTableSort } from '../../hooks/useListTableSort';
+import SortableTh from '../../components/common/SortableTh';
 const STATI = [
   'RICHIESTA PRESENTATA',
   'IN VERIFICA',
@@ -29,6 +31,8 @@ function buildQuery(params: {
   struttura: string;
   operatore: string;
   search: string;
+  sortBy: string | null;
+  sortDir: 'asc' | 'desc';
 }): string {
   const qs = new URLSearchParams();
   qs.set('page', String(params.page));
@@ -38,6 +42,10 @@ function buildQuery(params: {
   if (params.struttura) qs.set('struttura_id', params.struttura);
   if (params.operatore) qs.set('operatore_id', params.operatore);
   if (params.search.trim()) qs.set('search', params.search.trim());
+  if (params.sortBy) {
+    qs.set('sort_by', params.sortBy);
+    qs.set('sort_dir', params.sortDir);
+  }
   return `/policies?${qs.toString()}`;
 }
 
@@ -61,6 +69,8 @@ export default function PoliciesList() {
   const [structures, setStructures] = useState<User[]>([]);
   const [operators, setOperators] = useState<User[]>([]);
 
+  const tableSort = useListTableSort();
+
   useEffect(() => {
     api.get<InsuranceType[]>('/settings/insurance-types/active').then(setInsuranceTypes).catch(() => {});
     if (role === 'admin' || role === 'supervisore') {
@@ -76,7 +86,15 @@ export default function PoliciesList() {
 
   useEffect(() => {
     setPage(1);
-  }, [statoFilter, tipoFilter, strutturaFilter, operatoreFilter, debouncedSearch]);
+  }, [
+    statoFilter,
+    tipoFilter,
+    strutturaFilter,
+    operatoreFilter,
+    debouncedSearch,
+    tableSort.sortBy,
+    tableSort.sortDir,
+  ]);
 
   const fetchPolicies = useCallback(async () => {
     setListError(null);
@@ -90,6 +108,8 @@ export default function PoliciesList() {
           struttura: strutturaFilter,
           operatore: operatoreFilter,
           search: debouncedSearch,
+          sortBy: tableSort.sortBy,
+          sortDir: tableSort.sortDir,
         }),
       );
       setResult(data);
@@ -99,7 +119,16 @@ export default function PoliciesList() {
     } finally {
       setLoading(false);
     }
-  }, [page, statoFilter, tipoFilter, strutturaFilter, operatoreFilter, debouncedSearch]);
+  }, [
+    page,
+    statoFilter,
+    tipoFilter,
+    strutturaFilter,
+    operatoreFilter,
+    debouncedSearch,
+    tableSort.sortBy,
+    tableSort.sortDir,
+  ]);
 
   useEffect(() => {
     fetchPolicies();
@@ -204,13 +233,62 @@ export default function PoliciesList() {
             <table className="portal-table min-w-full text-left text-sm">
               <thead>
                 <tr>
-                  <th className="px-4 py-3 font-semibold text-gray-700">Numero Polizza</th>
-                  <th className="px-4 py-3 font-semibold text-gray-700">Preventivo</th>
-                  <th className="px-4 py-3 font-semibold text-gray-700">Assistito</th>
-                  <th className="px-4 py-3 font-semibold text-gray-700">Tipologia</th>
-                  <th className="px-4 py-3 font-semibold text-gray-700">Struttura</th>
-                  <th className="px-4 py-3 font-semibold text-gray-700">Stato</th>
-                  <th className="px-4 py-3 font-semibold text-gray-700">Data creazione</th>
+                  <SortableTh
+                    sortKey="numero"
+                    activeKey={tableSort.sortBy}
+                    direction={tableSort.sortDir}
+                    onRequestSort={tableSort.requestSort}
+                  >
+                    Numero Polizza
+                  </SortableTh>
+                  <SortableTh
+                    sortKey="preventivo"
+                    activeKey={tableSort.sortBy}
+                    direction={tableSort.sortDir}
+                    onRequestSort={tableSort.requestSort}
+                  >
+                    Preventivo
+                  </SortableTh>
+                  <SortableTh
+                    sortKey="assistito"
+                    activeKey={tableSort.sortBy}
+                    direction={tableSort.sortDir}
+                    onRequestSort={tableSort.requestSort}
+                  >
+                    Assistito
+                  </SortableTh>
+                  <SortableTh
+                    sortKey="tipo"
+                    activeKey={tableSort.sortBy}
+                    direction={tableSort.sortDir}
+                    onRequestSort={tableSort.requestSort}
+                  >
+                    Tipologia
+                  </SortableTh>
+                  <SortableTh
+                    sortKey="struttura"
+                    activeKey={tableSort.sortBy}
+                    direction={tableSort.sortDir}
+                    onRequestSort={tableSort.requestSort}
+                  >
+                    Struttura
+                  </SortableTh>
+                  <SortableTh
+                    sortKey="stato"
+                    activeKey={tableSort.sortBy}
+                    direction={tableSort.sortDir}
+                    onRequestSort={tableSort.requestSort}
+                  >
+                    Stato
+                  </SortableTh>
+                  <SortableTh
+                    sortKey="created_at"
+                    activeKey={tableSort.sortBy}
+                    direction={tableSort.sortDir}
+                    onRequestSort={tableSort.requestSort}
+                  >
+                    Data creazione
+                  </SortableTh>
                   <th className="px-4 py-3 text-right font-semibold text-gray-700">Azioni</th>
                 </tr>
               </thead>

@@ -2,6 +2,19 @@ const express = require('express');
 const { db } = require('../config/database');
 const { authenticateToken, authorizeRoles } = require('../middleware/auth');
 const { logActivity } = require('./logs');
+const { resolveListOrder } = require('../utils/listSort');
+
+const QUOTE_SORT_MAP = {
+  numero: 'q.numero',
+  assistito: `LOWER(TRIM(COALESCE(ap.cognome, '') || ' ' || COALESCE(ap.nome, '')))`,
+  tipo: `LOWER(COALESCE(it.nome, ''))`,
+  struttura: `LOWER(COALESCE(s.denominazione, ''))`,
+  operatore: `LOWER(TRIM(COALESCE(o.cognome, '') || ' ' || COALESCE(o.nome, '')))`,
+  stato: 'q.stato',
+  created_at: 'q.created_at',
+  data_decorrenza: '(q.data_decorrenza IS NULL), q.data_decorrenza',
+};
+const DEFAULT_QUOTE_ORDER = 'ORDER BY q.created_at DESC';
 
 const router = express.Router();
 
@@ -22,7 +35,20 @@ function generateQuoteNumber() {
 
 router.get('/', authenticateToken, (req, res) => {
   try {
-    const { page = 1, limit = 25, stato, tipo_assicurazione_id, struttura_id, operatore_id, search, data_da, data_a, assegnata } = req.query;
+    const {
+      page = 1,
+      limit = 25,
+      stato,
+      tipo_assicurazione_id,
+      struttura_id,
+      operatore_id,
+      search,
+      data_da,
+      data_a,
+      assegnata,
+      sort_by: sortBy,
+      sort_dir: sortDir,
+    } = req.query;
     const offset = (parseInt(page) - 1) * parseInt(limit);
 
     let where = ['1=1'];
@@ -50,6 +76,7 @@ router.get('/', authenticateToken, (req, res) => {
     }
 
     const whereClause = where.join(' AND ');
+    const orderClause = resolveListOrder(QUOTE_SORT_MAP, sortBy, sortDir, DEFAULT_QUOTE_ORDER);
 
     const total = db.prepare(`
       SELECT COUNT(*) as count FROM quotes q
@@ -69,7 +96,7 @@ router.get('/', authenticateToken, (req, res) => {
       LEFT JOIN users s ON q.struttura_id = s.id
       LEFT JOIN users o ON q.operatore_id = o.id
       WHERE ${whereClause}
-      ORDER BY q.created_at DESC
+      ${orderClause}
       LIMIT ? OFFSET ?
     `).all(...params, parseInt(limit), offset);
 

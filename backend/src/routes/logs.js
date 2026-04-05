@@ -1,6 +1,17 @@
 const express = require('express');
 const { db } = require('../config/database');
 const { authenticateToken, authorizeRoles } = require('../middleware/auth');
+const { resolveListOrder } = require('../utils/listSort');
+
+const LOG_SORT_MAP = {
+  created_at: 'created_at',
+  utente: 'LOWER(utente_nome)',
+  ruolo: 'LOWER(ruolo)',
+  azione: 'LOWER(azione)',
+  modulo: `LOWER(COALESCE(modulo, ''))`,
+  dettaglio: `LOWER(COALESCE(dettaglio, ''))`,
+};
+const DEFAULT_LOG_ORDER = 'ORDER BY created_at DESC';
 
 const router = express.Router();
 
@@ -17,7 +28,18 @@ function logActivity({ utente_id, utente_nome, ruolo, azione, modulo, riferiment
 
 router.get('/', authenticateToken, authorizeRoles('admin', 'supervisore'), (req, res) => {
   try {
-    const { page = 1, limit = 50, utente_id, azione, modulo, data_da, data_a, search } = req.query;
+    const {
+      page = 1,
+      limit = 50,
+      utente_id,
+      azione,
+      modulo,
+      data_da,
+      data_a,
+      search,
+      sort_by: sortBy,
+      sort_dir: sortDir,
+    } = req.query;
     const offset = (parseInt(page) - 1) * parseInt(limit);
 
     let where = ['1=1'];
@@ -31,9 +53,10 @@ router.get('/', authenticateToken, authorizeRoles('admin', 'supervisore'), (req,
     if (search) { where.push('(utente_nome LIKE ? OR dettaglio LIKE ? OR azione LIKE ?)'); params.push(`%${search}%`, `%${search}%`, `%${search}%`); }
 
     const whereClause = where.join(' AND ');
+    const orderClause = resolveListOrder(LOG_SORT_MAP, sortBy, sortDir, DEFAULT_LOG_ORDER);
 
     const total = db.prepare(`SELECT COUNT(*) as count FROM activity_logs WHERE ${whereClause}`).get(...params).count;
-    const logs = db.prepare(`SELECT * FROM activity_logs WHERE ${whereClause} ORDER BY created_at DESC LIMIT ? OFFSET ?`).all(...params, parseInt(limit), offset);
+    const logs = db.prepare(`SELECT * FROM activity_logs WHERE ${whereClause} ${orderClause} LIMIT ? OFFSET ?`).all(...params, parseInt(limit), offset);
 
     res.json({ data: logs, total, page: parseInt(page), limit: parseInt(limit), totalPages: Math.ceil(total / parseInt(limit)) });
   } catch (err) {

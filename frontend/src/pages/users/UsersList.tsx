@@ -28,6 +28,8 @@ import {
   type UsersListStatoFilter,
 } from '../../utils/usersListQuery';
 import UsersRoleFilterTabs from '../../components/users/UsersRoleFilterTabs';
+import { useListTableSort } from '../../hooks/useListTableSort';
+import SortableTh from '../../components/common/SortableTh';
 
 export default function UsersList() {
   const navigate = useNavigate();
@@ -55,6 +57,8 @@ export default function UsersList() {
   const roleCountsSeq = useRef(0);
   const [roleCountsBump, setRoleCountsBump] = useState(0);
 
+  const tableSort = useListTableSort();
+
   useEffect(() => {
     const t = window.setTimeout(() => setDebouncedSearch(searchInput), 350);
     return () => window.clearTimeout(t);
@@ -62,7 +66,7 @@ export default function UsersList() {
 
   useEffect(() => {
     setPage(1);
-  }, [roleFilter, statoFilter, debouncedSearch]);
+  }, [roleFilter, statoFilter, debouncedSearch, tableSort.sortBy, tableSort.sortDir]);
 
   useEffect(() => {
     const seq = ++roleCountsSeq.current;
@@ -108,6 +112,8 @@ export default function UsersList() {
           role: roleFilter,
           stato: statoFilter,
           search: debouncedSearch,
+          sortBy: tableSort.sortBy,
+          sortDir: tableSort.sortDir,
         }),
       );
       setResult(data);
@@ -117,7 +123,7 @@ export default function UsersList() {
     } finally {
       setLoading(false);
     }
-  }, [page, roleFilter, statoFilter, debouncedSearch]);
+  }, [page, roleFilter, statoFilter, debouncedSearch, tableSort.sortBy, tableSort.sortDir]);
 
   useEffect(() => {
     fetchUsers();
@@ -248,12 +254,54 @@ export default function UsersList() {
             <table className="portal-table min-w-full text-left text-sm">
               <thead>
                 <tr>
-                  <th className="px-4 py-3 font-semibold text-gray-700">Nome / Denominazione</th>
-                  <th className="px-4 py-3 font-semibold text-gray-700">Ruolo</th>
-                  <th className="px-4 py-3 font-semibold text-gray-700">Email</th>
-                  <th className="px-4 py-3 font-semibold text-gray-700">Username</th>
-                  <th className="px-4 py-3 font-semibold text-gray-700">Stato</th>
-                  <th className="px-4 py-3 font-semibold text-gray-700">Ultimo accesso</th>
+                  <SortableTh
+                    sortKey="nome"
+                    activeKey={tableSort.sortBy}
+                    direction={tableSort.sortDir}
+                    onRequestSort={tableSort.requestSort}
+                  >
+                    Nome / Denominazione
+                  </SortableTh>
+                  <SortableTh
+                    sortKey="ruolo"
+                    activeKey={tableSort.sortBy}
+                    direction={tableSort.sortDir}
+                    onRequestSort={tableSort.requestSort}
+                  >
+                    Ruolo
+                  </SortableTh>
+                  <SortableTh
+                    sortKey="email"
+                    activeKey={tableSort.sortBy}
+                    direction={tableSort.sortDir}
+                    onRequestSort={tableSort.requestSort}
+                  >
+                    Email
+                  </SortableTh>
+                  <SortableTh
+                    sortKey="username"
+                    activeKey={tableSort.sortBy}
+                    direction={tableSort.sortDir}
+                    onRequestSort={tableSort.requestSort}
+                  >
+                    Username
+                  </SortableTh>
+                  <SortableTh
+                    sortKey="stato"
+                    activeKey={tableSort.sortBy}
+                    direction={tableSort.sortDir}
+                    onRequestSort={tableSort.requestSort}
+                  >
+                    Stato
+                  </SortableTh>
+                  <SortableTh
+                    sortKey="ultimo_accesso"
+                    activeKey={tableSort.sortBy}
+                    direction={tableSort.sortDir}
+                    onRequestSort={tableSort.requestSort}
+                  >
+                    Ultimo accesso
+                  </SortableTh>
                   <th className="px-4 py-3 text-right font-semibold text-gray-700">Azioni</th>
                 </tr>
               </thead>

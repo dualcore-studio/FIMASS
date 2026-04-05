@@ -21,8 +21,15 @@ import {
 import { api, ApiError } from '../../utils/api';
 import KPICard from '../../components/common/KPICard';
 import TablePagination from '../../components/common/TablePagination';
+import SortableTh from '../../components/common/SortableTh';
 import { TABLE_PAGE_SIZE } from '../../constants/tablePagination';
 import { useSyncPageToTotalPages } from '../../hooks/useSyncPageToTotalPages';
+import { useListTableSort } from '../../hooks/useListTableSort';
+import {
+  compareNumbers,
+  compareStringsCaseInsensitive,
+  sortDirectionMultiplier,
+} from '../../utils/clientTableSort';
 
 type PeriodPreset = 'oggi' | 'settimana' | 'mese' | 'trimestre' | 'anno' | 'personalizzato';
 
@@ -104,6 +111,23 @@ export default function Reports() {
   const [pageByStructure, setPageByStructure] = useState(1);
   const [pageByOperator, setPageByOperator] = useState(1);
 
+  const sortByType = useListTableSort();
+  const sortByStructure = useListTableSort();
+  const sortByOperator = useListTableSort();
+
+  const handleSortType = (key: string) => {
+    sortByType.requestSort(key);
+    setPageByType(1);
+  };
+  const handleSortStructure = (key: string) => {
+    sortByStructure.requestSort(key);
+    setPageByStructure(1);
+  };
+  const handleSortOperator = (key: string) => {
+    sortByOperator.requestSort(key);
+    setPageByOperator(1);
+  };
+
   useEffect(() => {
     setPageByType(1);
     setPageByStructure(1);
@@ -135,20 +159,83 @@ export default function Reports() {
     setPageByOperator,
   );
 
+  const sortedByType = useMemo(() => {
+    const arr = [...byType];
+    if (!sortByType.sortBy) return arr;
+    const m = sortDirectionMultiplier(sortByType.sortDir);
+    arr.sort((a, b) => {
+      switch (sortByType.sortBy) {
+        case 'tipologia':
+          return compareStringsCaseInsensitive(a.tipologia, b.tipologia, m);
+        case 'preventivi':
+          return compareNumbers(a.preventivi, b.preventivi, m);
+        case 'polizze':
+          return compareNumbers(a.polizze, b.polizze, m);
+        default:
+          return 0;
+      }
+    });
+    return arr;
+  }, [byType, sortByType.sortBy, sortByType.sortDir]);
+
+  const sortedByStructure = useMemo(() => {
+    const arr = [...byStructure];
+    if (!sortByStructure.sortBy) return arr;
+    const m = sortDirectionMultiplier(sortByStructure.sortDir);
+    arr.sort((a, b) => {
+      switch (sortByStructure.sortBy) {
+        case 'denominazione':
+          return compareStringsCaseInsensitive(a.denominazione, b.denominazione, m);
+        case 'preventivi':
+          return compareNumbers(a.preventivi, b.preventivi, m);
+        case 'elaborati':
+          return compareNumbers(a.elaborati, b.elaborati, m);
+        case 'polizze':
+          return compareNumbers(a.polizze, b.polizze, m);
+        default:
+          return 0;
+      }
+    });
+    return arr;
+  }, [byStructure, sortByStructure.sortBy, sortByStructure.sortDir]);
+
+  const sortedByOperator = useMemo(() => {
+    const arr = [...byOperator];
+    if (!sortByOperator.sortBy) return arr;
+    const m = sortDirectionMultiplier(sortByOperator.sortDir);
+    arr.sort((a, b) => {
+      switch (sortByOperator.sortBy) {
+        case 'operatore':
+          return compareStringsCaseInsensitive(a.operatore, b.operatore, m);
+        case 'totali':
+          return compareNumbers(a.totali, b.totali, m);
+        case 'in_lavorazione':
+          return compareNumbers(a.in_lavorazione, b.in_lavorazione, m);
+        case 'elaborati':
+          return compareNumbers(a.elaborati, b.elaborati, m);
+        case 'standby':
+          return compareNumbers(a.standby, b.standby, m);
+        default:
+          return 0;
+      }
+    });
+    return arr;
+  }, [byOperator, sortByOperator.sortBy, sortByOperator.sortDir]);
+
   const byTypePage = useMemo(() => {
     const start = (pageByType - 1) * TABLE_PAGE_SIZE;
-    return byType.slice(start, start + TABLE_PAGE_SIZE);
-  }, [byType, pageByType]);
+    return sortedByType.slice(start, start + TABLE_PAGE_SIZE);
+  }, [sortedByType, pageByType]);
 
   const byStructurePage = useMemo(() => {
     const start = (pageByStructure - 1) * TABLE_PAGE_SIZE;
-    return byStructure.slice(start, start + TABLE_PAGE_SIZE);
-  }, [byStructure, pageByStructure]);
+    return sortedByStructure.slice(start, start + TABLE_PAGE_SIZE);
+  }, [sortedByStructure, pageByStructure]);
 
   const byOperatorPage = useMemo(() => {
     const start = (pageByOperator - 1) * TABLE_PAGE_SIZE;
-    return byOperator.slice(start, start + TABLE_PAGE_SIZE);
-  }, [byOperator, pageByOperator]);
+    return sortedByOperator.slice(start, start + TABLE_PAGE_SIZE);
+  }, [sortedByOperator, pageByOperator]);
 
   const getEffectiveDates = useCallback(() => {
     if (preset === 'personalizzato') {
@@ -342,9 +429,32 @@ export default function Reports() {
                 <table className="portal-table min-w-full text-left text-sm">
                   <thead>
                     <tr>
-                      <th className="px-4 py-3 font-semibold text-gray-700">Tipologia</th>
-                      <th className="px-4 py-3 font-semibold text-gray-700 text-right">Preventivi</th>
-                      <th className="px-4 py-3 font-semibold text-gray-700 text-right">Polizze</th>
+                      <SortableTh
+                        sortKey="tipologia"
+                        activeKey={sortByType.sortBy}
+                        direction={sortByType.sortDir}
+                        onRequestSort={handleSortType}
+                      >
+                        Tipologia
+                      </SortableTh>
+                      <SortableTh
+                        sortKey="preventivi"
+                        activeKey={sortByType.sortBy}
+                        direction={sortByType.sortDir}
+                        onRequestSort={handleSortType}
+                        align="right"
+                      >
+                        Preventivi
+                      </SortableTh>
+                      <SortableTh
+                        sortKey="polizze"
+                        activeKey={sortByType.sortBy}
+                        direction={sortByType.sortDir}
+                        onRequestSort={handleSortType}
+                        align="right"
+                      >
+                        Polizze
+                      </SortableTh>
                     </tr>
                   </thead>
                   <tbody>
@@ -381,10 +491,41 @@ export default function Reports() {
                 <table className="portal-table min-w-full text-left text-sm">
                   <thead>
                     <tr>
-                      <th className="px-4 py-3 font-semibold text-gray-700">Struttura</th>
-                      <th className="px-4 py-3 font-semibold text-gray-700 text-right">Preventivi</th>
-                      <th className="px-4 py-3 font-semibold text-gray-700 text-right">Elaborati</th>
-                      <th className="px-4 py-3 font-semibold text-gray-700 text-right">Polizze</th>
+                      <SortableTh
+                        sortKey="denominazione"
+                        activeKey={sortByStructure.sortBy}
+                        direction={sortByStructure.sortDir}
+                        onRequestSort={handleSortStructure}
+                      >
+                        Struttura
+                      </SortableTh>
+                      <SortableTh
+                        sortKey="preventivi"
+                        activeKey={sortByStructure.sortBy}
+                        direction={sortByStructure.sortDir}
+                        onRequestSort={handleSortStructure}
+                        align="right"
+                      >
+                        Preventivi
+                      </SortableTh>
+                      <SortableTh
+                        sortKey="elaborati"
+                        activeKey={sortByStructure.sortBy}
+                        direction={sortByStructure.sortDir}
+                        onRequestSort={handleSortStructure}
+                        align="right"
+                      >
+                        Elaborati
+                      </SortableTh>
+                      <SortableTh
+                        sortKey="polizze"
+                        activeKey={sortByStructure.sortBy}
+                        direction={sortByStructure.sortDir}
+                        onRequestSort={handleSortStructure}
+                        align="right"
+                      >
+                        Polizze
+                      </SortableTh>
                     </tr>
                   </thead>
                   <tbody>
@@ -422,11 +563,50 @@ export default function Reports() {
                 <table className="portal-table min-w-full text-left text-sm">
                   <thead>
                     <tr>
-                      <th className="px-4 py-3 font-semibold text-gray-700">Operatore</th>
-                      <th className="px-4 py-3 font-semibold text-gray-700 text-right">Totali</th>
-                      <th className="px-4 py-3 font-semibold text-gray-700 text-right">In Lavorazione</th>
-                      <th className="px-4 py-3 font-semibold text-gray-700 text-right">Elaborati</th>
-                      <th className="px-4 py-3 font-semibold text-gray-700 text-right">Standby</th>
+                      <SortableTh
+                        sortKey="operatore"
+                        activeKey={sortByOperator.sortBy}
+                        direction={sortByOperator.sortDir}
+                        onRequestSort={handleSortOperator}
+                      >
+                        Operatore
+                      </SortableTh>
+                      <SortableTh
+                        sortKey="totali"
+                        activeKey={sortByOperator.sortBy}
+                        direction={sortByOperator.sortDir}
+                        onRequestSort={handleSortOperator}
+                        align="right"
+                      >
+                        Totali
+                      </SortableTh>
+                      <SortableTh
+                        sortKey="in_lavorazione"
+                        activeKey={sortByOperator.sortBy}
+                        direction={sortByOperator.sortDir}
+                        onRequestSort={handleSortOperator}
+                        align="right"
+                      >
+                        In Lavorazione
+                      </SortableTh>
+                      <SortableTh
+                        sortKey="elaborati"
+                        activeKey={sortByOperator.sortBy}
+                        direction={sortByOperator.sortDir}
+                        onRequestSort={handleSortOperator}
+                        align="right"
+                      >
+                        Elaborati
+                      </SortableTh>
+                      <SortableTh
+                        sortKey="standby"
+                        activeKey={sortByOperator.sortBy}
+                        direction={sortByOperator.sortDir}
+                        onRequestSort={handleSortOperator}
+                        align="right"
+                      >
+                        Standby
+                      </SortableTh>
                     </tr>
                   </thead>
                   <tbody>

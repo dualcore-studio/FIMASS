@@ -10,6 +10,8 @@ import { formatDateTime, getRoleLabel } from '../../utils/helpers';
 import TablePagination from '../../components/common/TablePagination';
 import { TABLE_PAGE_SIZE } from '../../constants/tablePagination';
 import { useSyncPageToTotalPages } from '../../hooks/useSyncPageToTotalPages';
+import { useListTableSort } from '../../hooks/useListTableSort';
+import SortableTh from '../../components/common/SortableTh';
 
 const ACTION_COLORS: Record<string, string> = {
   create: 'bg-emerald-500',
@@ -46,6 +48,8 @@ export default function ActivityLogs() {
   const [actions, setActions] = useState<string[]>([]);
   const [modules, setModules] = useState<string[]>([]);
 
+  const tableSort = useListTableSort();
+
   useEffect(() => {
     api.get<string[]>('/logs/actions').then(setActions).catch(() => {});
     api.get<string[]>('/logs/modules').then(setModules).catch(() => {});
@@ -58,7 +62,7 @@ export default function ActivityLogs() {
 
   useEffect(() => {
     setPage(1);
-  }, [debouncedSearch, azioneFilter, moduloFilter, dataDa, dataA]);
+  }, [debouncedSearch, azioneFilter, moduloFilter, dataDa, dataA, tableSort.sortBy, tableSort.sortDir]);
 
   const fetchLogs = useCallback(async () => {
     setListError(null);
@@ -72,6 +76,10 @@ export default function ActivityLogs() {
       if (moduloFilter) qs.set('modulo', moduloFilter);
       if (dataDa) qs.set('data_da', dataDa);
       if (dataA) qs.set('data_a', dataA);
+      if (tableSort.sortBy) {
+        qs.set('sort_by', tableSort.sortBy);
+        qs.set('sort_dir', tableSort.sortDir);
+      }
 
       const data = await api.get<PaginatedResponse<ActivityLog>>(`/logs?${qs.toString()}`);
       setResult(data);
@@ -81,7 +89,7 @@ export default function ActivityLogs() {
     } finally {
       setLoading(false);
     }
-  }, [page, debouncedSearch, azioneFilter, moduloFilter, dataDa, dataA]);
+  }, [page, debouncedSearch, azioneFilter, moduloFilter, dataDa, dataA, tableSort.sortBy, tableSort.sortDir]);
 
   useEffect(() => {
     fetchLogs();
@@ -169,12 +177,54 @@ export default function ActivityLogs() {
             <table className="portal-table min-w-full text-left text-sm">
               <thead>
                 <tr>
-                  <th className="px-4 py-3 font-semibold text-gray-700">Data/Ora</th>
-                  <th className="px-4 py-3 font-semibold text-gray-700">Utente</th>
-                  <th className="px-4 py-3 font-semibold text-gray-700">Ruolo</th>
-                  <th className="px-4 py-3 font-semibold text-gray-700">Azione</th>
-                  <th className="px-4 py-3 font-semibold text-gray-700">Modulo</th>
-                  <th className="px-4 py-3 font-semibold text-gray-700">Dettaglio</th>
+                  <SortableTh
+                    sortKey="created_at"
+                    activeKey={tableSort.sortBy}
+                    direction={tableSort.sortDir}
+                    onRequestSort={tableSort.requestSort}
+                  >
+                    Data/Ora
+                  </SortableTh>
+                  <SortableTh
+                    sortKey="utente"
+                    activeKey={tableSort.sortBy}
+                    direction={tableSort.sortDir}
+                    onRequestSort={tableSort.requestSort}
+                  >
+                    Utente
+                  </SortableTh>
+                  <SortableTh
+                    sortKey="ruolo"
+                    activeKey={tableSort.sortBy}
+                    direction={tableSort.sortDir}
+                    onRequestSort={tableSort.requestSort}
+                  >
+                    Ruolo
+                  </SortableTh>
+                  <SortableTh
+                    sortKey="azione"
+                    activeKey={tableSort.sortBy}
+                    direction={tableSort.sortDir}
+                    onRequestSort={tableSort.requestSort}
+                  >
+                    Azione
+                  </SortableTh>
+                  <SortableTh
+                    sortKey="modulo"
+                    activeKey={tableSort.sortBy}
+                    direction={tableSort.sortDir}
+                    onRequestSort={tableSort.requestSort}
+                  >
+                    Modulo
+                  </SortableTh>
+                  <SortableTh
+                    sortKey="dettaglio"
+                    activeKey={tableSort.sortBy}
+                    direction={tableSort.sortDir}
+                    onRequestSort={tableSort.requestSort}
+                  >
+                    Dettaglio
+                  </SortableTh>
                 </tr>
               </thead>
               <tbody>

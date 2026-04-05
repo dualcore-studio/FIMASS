@@ -18,6 +18,8 @@ import TablePagination from '../../components/common/TablePagination';
 import Modal from '../../components/ui/Modal';
 import { TABLE_PAGE_SIZE } from '../../constants/tablePagination';
 import { useSyncPageToTotalPages } from '../../hooks/useSyncPageToTotalPages';
+import { useListTableSort } from '../../hooks/useListTableSort';
+import SortableTh from '../../components/common/SortableTh';
 const STATI = ['PRESENTATA', 'ASSEGNATA', 'IN LAVORAZIONE', 'STANDBY', 'ELABORATA'] as const;
 
 function buildQuery(params: {
@@ -28,6 +30,8 @@ function buildQuery(params: {
   operatore: string;
   search: string;
   assegnata: string;
+  sortBy: string | null;
+  sortDir: 'asc' | 'desc';
 }): string {
   const qs = new URLSearchParams();
   qs.set('page', String(params.page));
@@ -38,6 +42,10 @@ function buildQuery(params: {
   if (params.operatore) qs.set('operatore_id', params.operatore);
   if (params.search.trim()) qs.set('search', params.search.trim());
   if (params.assegnata) qs.set('assegnata', params.assegnata);
+  if (params.sortBy) {
+    qs.set('sort_by', params.sortBy);
+    qs.set('sort_dir', params.sortDir);
+  }
   return `/quotes?${qs.toString()}`;
 }
 
@@ -69,6 +77,8 @@ export default function QuotesList() {
   const [assignSubmitting, setAssignSubmitting] = useState(false);
   const [assignError, setAssignError] = useState<string | null>(null);
 
+  const tableSort = useListTableSort();
+
   useEffect(() => {
     api.get<InsuranceType[]>('/settings/insurance-types/active').then(setInsuranceTypes).catch(() => {});
     if (role === 'admin' || role === 'supervisore') {
@@ -84,7 +94,16 @@ export default function QuotesList() {
 
   useEffect(() => {
     setPage(1);
-  }, [statoFilter, tipoFilter, strutturaFilter, operatoreFilter, assegnataFilter, debouncedSearch]);
+  }, [
+    statoFilter,
+    tipoFilter,
+    strutturaFilter,
+    operatoreFilter,
+    assegnataFilter,
+    debouncedSearch,
+    tableSort.sortBy,
+    tableSort.sortDir,
+  ]);
 
   const fetchQuotes = useCallback(async () => {
     setListError(null);
@@ -99,6 +118,8 @@ export default function QuotesList() {
           operatore: operatoreFilter,
           search: debouncedSearch,
           assegnata: assegnataFilter,
+          sortBy: tableSort.sortBy,
+          sortDir: tableSort.sortDir,
         }),
       );
       setResult(data);
@@ -108,7 +129,17 @@ export default function QuotesList() {
     } finally {
       setLoading(false);
     }
-  }, [page, statoFilter, tipoFilter, strutturaFilter, operatoreFilter, assegnataFilter, debouncedSearch]);
+  }, [
+    page,
+    statoFilter,
+    tipoFilter,
+    strutturaFilter,
+    operatoreFilter,
+    assegnataFilter,
+    debouncedSearch,
+    tableSort.sortBy,
+    tableSort.sortDir,
+  ]);
 
   useEffect(() => {
     fetchQuotes();
@@ -265,13 +296,62 @@ export default function QuotesList() {
             <table className="portal-table min-w-full text-left text-sm">
               <thead>
                 <tr>
-                  <th className="px-4 py-3 font-semibold text-gray-700">ID Preventivo</th>
-                  <th className="px-4 py-3 font-semibold text-gray-700">Assistito</th>
-                  <th className="px-4 py-3 font-semibold text-gray-700">Tipologia</th>
-                  <th className="px-4 py-3 font-semibold text-gray-700">Struttura</th>
-                  <th className="px-4 py-3 font-semibold text-gray-700">Operatore</th>
-                  <th className="px-4 py-3 font-semibold text-gray-700">Stato</th>
-                  <th className="px-4 py-3 font-semibold text-gray-700">Data creazione</th>
+                  <SortableTh
+                    sortKey="numero"
+                    activeKey={tableSort.sortBy}
+                    direction={tableSort.sortDir}
+                    onRequestSort={tableSort.requestSort}
+                  >
+                    ID Preventivo
+                  </SortableTh>
+                  <SortableTh
+                    sortKey="assistito"
+                    activeKey={tableSort.sortBy}
+                    direction={tableSort.sortDir}
+                    onRequestSort={tableSort.requestSort}
+                  >
+                    Assistito
+                  </SortableTh>
+                  <SortableTh
+                    sortKey="tipo"
+                    activeKey={tableSort.sortBy}
+                    direction={tableSort.sortDir}
+                    onRequestSort={tableSort.requestSort}
+                  >
+                    Tipologia
+                  </SortableTh>
+                  <SortableTh
+                    sortKey="struttura"
+                    activeKey={tableSort.sortBy}
+                    direction={tableSort.sortDir}
+                    onRequestSort={tableSort.requestSort}
+                  >
+                    Struttura
+                  </SortableTh>
+                  <SortableTh
+                    sortKey="operatore"
+                    activeKey={tableSort.sortBy}
+                    direction={tableSort.sortDir}
+                    onRequestSort={tableSort.requestSort}
+                  >
+                    Operatore
+                  </SortableTh>
+                  <SortableTh
+                    sortKey="stato"
+                    activeKey={tableSort.sortBy}
+                    direction={tableSort.sortDir}
+                    onRequestSort={tableSort.requestSort}
+                  >
+                    Stato
+                  </SortableTh>
+                  <SortableTh
+                    sortKey="created_at"
+                    activeKey={tableSort.sortBy}
+                    direction={tableSort.sortDir}
+                    onRequestSort={tableSort.requestSort}
+                  >
+                    Data creazione
+                  </SortableTh>
                   <th className="px-4 py-3 text-right font-semibold text-gray-700">Azioni</th>
                 </tr>
               </thead>

@@ -3,6 +3,18 @@ const bcrypt = require('bcryptjs');
 const { db } = require('../config/database');
 const { authenticateToken, authorizeRoles } = require('../middleware/auth');
 const { logActivity } = require('./logs');
+const { resolveListOrder } = require('../utils/listSort');
+
+const USER_SORT_MAP = {
+  nome: `LOWER(TRIM(COALESCE(NULLIF(TRIM(denominazione), ''), COALESCE(nome, '') || ' ' || COALESCE(cognome, ''))))`,
+  ruolo: 'role',
+  email: 'LOWER(email)',
+  username: 'LOWER(username)',
+  stato: 'stato',
+  ultimo_accesso: '(last_login IS NULL), last_login',
+  created_at: 'created_at',
+};
+const DEFAULT_USER_ORDER = 'ORDER BY created_at DESC';
 
 const router = express.Router();
 
@@ -12,7 +24,7 @@ function getUserDisplayName(user) {
 
 router.get('/', authenticateToken, authorizeRoles('admin', 'supervisore'), (req, res) => {
   try {
-    const { page = 1, limit = 25, role, stato, search } = req.query;
+    const { page = 1, limit = 25, role, stato, search, sort_by: sortBy, sort_dir: sortDir } = req.query;
     const offset = (parseInt(page) - 1) * parseInt(limit);
 
     let where = ['1=1'];
@@ -26,10 +38,11 @@ router.get('/', authenticateToken, authorizeRoles('admin', 'supervisore'), (req,
     }
 
     const whereClause = where.join(' AND ');
+    const orderClause = resolveListOrder(USER_SORT_MAP, sortBy, sortDir, DEFAULT_USER_ORDER);
     const total = db.prepare(`SELECT COUNT(*) as count FROM users WHERE ${whereClause}`).get(...params).count;
     const users = db.prepare(`
       SELECT id, username, role, nome, cognome, denominazione, email, telefono, stato, enabled_types, last_login, created_at
-      FROM users WHERE ${whereClause} ORDER BY created_at DESC LIMIT ? OFFSET ?
+      FROM users WHERE ${whereClause} ${orderClause} LIMIT ? OFFSET ?
     `).all(...params, parseInt(limit), offset);
 
     res.json({

@@ -1,4 +1,5 @@
 import type { User } from '../types';
+import type { SortDirection } from '../hooks/useListTableSort';
 import { TABLE_PAGE_SIZE } from '../constants/tablePagination';
 
 export type UsersListStatoFilter = '' | User['stato'];
@@ -26,13 +27,15 @@ export interface UsersListQueryParams {
   role: UsersListRoleFilter;
   stato: UsersListStatoFilter;
   search: string;
+  sortBy?: string | null;
+  sortDir?: SortDirection | null;
 }
 
 /**
  * Builds the `/users` list API query string. Shared by the table fetch and optional aggregate requests (e.g. counts).
  */
 export function buildUsersListQueryString(params: UsersListQueryParams): string {
-  const { page, limit = TABLE_PAGE_SIZE, role, stato, search } = params;
+  const { page, limit = TABLE_PAGE_SIZE, role, stato, search, sortBy, sortDir } = params;
   const urlParams = new URLSearchParams();
   urlParams.set('page', String(page));
   urlParams.set('limit', String(limit));
@@ -40,5 +43,9 @@ export function buildUsersListQueryString(params: UsersListQueryParams): string 
   if (stato) urlParams.set('stato', stato);
   const q = search.trim();
   if (q) urlParams.set('search', q);
+  if (sortBy) {
+    urlParams.set('sort_by', sortBy);
+    urlParams.set('sort_dir', sortDir ?? 'asc');
+  }
   return `/users?${urlParams.toString()}`;
 }

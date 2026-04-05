@@ -2,6 +2,18 @@ const express = require('express');
 const { db } = require('../config/database');
 const { authenticateToken, authorizeRoles } = require('../middleware/auth');
 const { logActivity } = require('./logs');
+const { resolveListOrder } = require('../utils/listSort');
+
+const POLICY_SORT_MAP = {
+  numero: 'p.numero',
+  preventivo: `LOWER(COALESCE(q.numero, ''))`,
+  assistito: `LOWER(TRIM(COALESCE(ap.cognome, '') || ' ' || COALESCE(ap.nome, '')))`,
+  tipo: `LOWER(COALESCE(it.nome, ''))`,
+  struttura: `LOWER(COALESCE(s.denominazione, ''))`,
+  stato: 'p.stato',
+  created_at: 'p.created_at',
+};
+const DEFAULT_POLICY_ORDER = 'ORDER BY p.created_at DESC';
 
 const router = express.Router();
 
@@ -22,7 +34,17 @@ function generatePolicyNumber() {
 
 router.get('/', authenticateToken, (req, res) => {
   try {
-    const { page = 1, limit = 25, stato, tipo_assicurazione_id, struttura_id, operatore_id, search } = req.query;
+    const {
+      page = 1,
+      limit = 25,
+      stato,
+      tipo_assicurazione_id,
+      struttura_id,
+      operatore_id,
+      search,
+      sort_by: sortBy,
+      sort_dir: sortDir,
+    } = req.query;
     const offset = (parseInt(page) - 1) * parseInt(limit);
 
     let where = ['1=1'];
@@ -46,6 +68,7 @@ router.get('/', authenticateToken, (req, res) => {
     }
 
     const whereClause = where.join(' AND ');
+    const orderClause = resolveListOrder(POLICY_SORT_MAP, sortBy, sortDir, DEFAULT_POLICY_ORDER);
 
     const total = db.prepare(`
       SELECT COUNT(*) as count FROM policies p
@@ -67,7 +90,7 @@ router.get('/', authenticateToken, (req, res) => {
       LEFT JOIN users o ON p.operatore_id = o.id
       LEFT JOIN quotes q ON p.quote_id = q.id
       WHERE ${whereClause}
-      ORDER BY p.created_at DESC
+      ${orderClause}
       LIMIT ? OFFSET ?
     `).all(...params, parseInt(limit), offset);
 

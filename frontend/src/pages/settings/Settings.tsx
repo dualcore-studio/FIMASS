@@ -12,8 +12,17 @@ import {
 import { api, ApiError } from '../../utils/api';
 import type { InsuranceType } from '../../types';
 import TablePagination from '../../components/common/TablePagination';
+import SortableTh from '../../components/common/SortableTh';
 import { TABLE_PAGE_SIZE } from '../../constants/tablePagination';
 import { useSyncPageToTotalPages } from '../../hooks/useSyncPageToTotalPages';
+import { useListTableSort } from '../../hooks/useListTableSort';
+import {
+  compareBooleans,
+  compareNullableStrings,
+  compareNumbers,
+  compareStringsCaseInsensitive,
+  sortDirectionMultiplier,
+} from '../../utils/clientTableSort';
 
 type SettingsTab = 'generali' | 'tipologie' | 'campi' | 'checklist';
 
@@ -208,6 +217,14 @@ function TabTipologie() {
   const [error, setError] = useState<string | null>(null);
   const [togglingId, setTogglingId] = useState<number | null>(null);
   const [page, setPage] = useState(1);
+  const { sortBy, sortDir, requestSort } = useListTableSort();
+  const handleTipologieSort = useCallback(
+    (key: string) => {
+      requestSort(key);
+      setPage(1);
+    },
+    [requestSort],
+  );
 
   const fetchTypes = useCallback(async () => {
     setError(null);
@@ -242,13 +259,34 @@ function TabTipologie() {
     setPage(1);
   }, [types]);
 
-  const tipologieTotalPages = types.length === 0 ? 1 : Math.ceil(types.length / TABLE_PAGE_SIZE);
-  useSyncPageToTotalPages(page, types.length ? tipologieTotalPages : undefined, setPage);
+  const sortedTypes = useMemo(() => {
+    const arr = [...types];
+    if (!sortBy) return arr;
+    const m = sortDirectionMultiplier(sortDir);
+    arr.sort((a, b) => {
+      switch (sortBy) {
+        case 'nome':
+          return compareStringsCaseInsensitive(a.nome, b.nome, m);
+        case 'codice':
+          return compareStringsCaseInsensitive(a.codice, b.codice, m);
+        case 'stato':
+          return compareStringsCaseInsensitive(a.stato, b.stato, m);
+        case 'ordine':
+          return compareNumbers(a.ordine ?? 0, b.ordine ?? 0, m);
+        default:
+          return 0;
+      }
+    });
+    return arr;
+  }, [types, sortBy, sortDir]);
+
+  const tipologieTotalPages = sortedTypes.length === 0 ? 1 : Math.ceil(sortedTypes.length / TABLE_PAGE_SIZE);
+  useSyncPageToTotalPages(page, sortedTypes.length ? tipologieTotalPages : undefined, setPage);
 
   const typesPage = useMemo(() => {
     const start = (page - 1) * TABLE_PAGE_SIZE;
-    return types.slice(start, start + TABLE_PAGE_SIZE);
-  }, [types, page]);
+    return sortedTypes.slice(start, start + TABLE_PAGE_SIZE);
+  }, [sortedTypes, page]);
 
   if (loading) {
     return (
@@ -268,10 +306,39 @@ function TabTipologie() {
         <table className="portal-table min-w-full text-left text-sm">
           <thead>
             <tr>
-              <th className="px-4 py-3 font-semibold text-gray-700">Nome</th>
-              <th className="px-4 py-3 font-semibold text-gray-700">Codice</th>
-              <th className="px-4 py-3 font-semibold text-gray-700">Stato</th>
-              <th className="px-4 py-3 font-semibold text-gray-700 text-center">Ordine</th>
+              <SortableTh
+                sortKey="nome"
+                activeKey={sortBy}
+                direction={sortDir}
+                onRequestSort={handleTipologieSort}
+              >
+                Nome
+              </SortableTh>
+              <SortableTh
+                sortKey="codice"
+                activeKey={sortBy}
+                direction={sortDir}
+                onRequestSort={handleTipologieSort}
+              >
+                Codice
+              </SortableTh>
+              <SortableTh
+                sortKey="stato"
+                activeKey={sortBy}
+                direction={sortDir}
+                onRequestSort={handleTipologieSort}
+              >
+                Stato
+              </SortableTh>
+              <SortableTh
+                sortKey="ordine"
+                activeKey={sortBy}
+                direction={sortDir}
+                onRequestSort={handleTipologieSort}
+                align="center"
+              >
+                Ordine
+              </SortableTh>
               <th className="px-4 py-3 text-right font-semibold text-gray-700">Azioni</th>
             </tr>
           </thead>
@@ -312,11 +379,11 @@ function TabTipologie() {
           </tbody>
         </table>
       </div>
-      {types.length > 0 && (
+      {sortedTypes.length > 0 && (
         <TablePagination
           page={page}
           totalPages={tipologieTotalPages}
-          total={types.length}
+          total={sortedTypes.length}
           onPageChange={setPage}
           entityLabel="tipologie"
         />
@@ -332,6 +399,14 @@ function TabCampiForm() {
   const [selectedTypeId, setSelectedTypeId] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
   const [pageCampi, setPageCampi] = useState(1);
+  const { sortBy, sortDir, requestSort } = useListTableSort();
+  const handleCampiSort = useCallback(
+    (key: string) => {
+      requestSort(key);
+      setPageCampi(1);
+    },
+    [requestSort],
+  );
 
   useEffect(() => {
     api.get<InsuranceType[]>('/settings/insurance-types')
@@ -345,19 +420,43 @@ function TabCampiForm() {
 
   const selectedType = types.find((t) => t.id === selectedTypeId);
 
-  const campi = selectedType?.campi_specifici ?? [];
-  const campiTotalPages = campi.length === 0 ? 1 : Math.ceil(campi.length / TABLE_PAGE_SIZE);
+  const sortedCampi = useMemo(() => {
+    const campi = selectedType?.campi_specifici ?? [];
+    const arr = [...campi];
+    if (!sortBy) return arr;
+    const m = sortDirectionMultiplier(sortDir);
+    arr.sort((a, b) => {
+      switch (sortBy) {
+        case 'nome':
+          return compareStringsCaseInsensitive(a.nome, b.nome, m);
+        case 'label':
+          return compareStringsCaseInsensitive(a.label, b.label, m);
+        case 'tipo':
+          return compareStringsCaseInsensitive(a.tipo, b.tipo, m);
+        case 'obbligatorio':
+          return compareBooleans(a.obbligatorio, b.obbligatorio, m);
+        case 'opzioni':
+          return compareStringsCaseInsensitive(
+            (a.opzioni ?? []).join(', '),
+            (b.opzioni ?? []).join(', '),
+            m,
+          );
+        default:
+          return 0;
+      }
+    });
+    return arr;
+  }, [selectedType, sortBy, sortDir]);
 
-  useEffect(() => {
-    setPageCampi(1);
-  }, [selectedTypeId]);
+  const campiTotalPages =
+    sortedCampi.length === 0 ? 1 : Math.ceil(sortedCampi.length / TABLE_PAGE_SIZE);
 
-  useSyncPageToTotalPages(pageCampi, campi.length ? campiTotalPages : undefined, setPageCampi);
+  useSyncPageToTotalPages(pageCampi, sortedCampi.length ? campiTotalPages : undefined, setPageCampi);
 
   const campiPage = useMemo(() => {
     const start = (pageCampi - 1) * TABLE_PAGE_SIZE;
-    return campi.slice(start, start + TABLE_PAGE_SIZE);
-  }, [campi, pageCampi]);
+    return sortedCampi.slice(start, start + TABLE_PAGE_SIZE);
+  }, [sortedCampi, pageCampi]);
 
   if (loading) {
     return (
@@ -376,7 +475,10 @@ function TabCampiForm() {
         <select
           id="select-tipo-campi"
           value={selectedTypeId ?? ''}
-          onChange={(e) => setSelectedTypeId(Number(e.target.value))}
+          onChange={(e) => {
+            setSelectedTypeId(Number(e.target.value));
+            setPageCampi(1);
+          }}
           className="input-field"
         >
           {types.map((t) => (
@@ -391,11 +493,47 @@ function TabCampiForm() {
             <table className="portal-table min-w-full text-left text-sm">
               <thead>
                 <tr>
-                  <th className="px-4 py-3 font-semibold text-gray-700">Nome Campo</th>
-                  <th className="px-4 py-3 font-semibold text-gray-700">Label</th>
-                  <th className="px-4 py-3 font-semibold text-gray-700">Tipo</th>
-                  <th className="px-4 py-3 font-semibold text-gray-700 text-center">Obbligatorio</th>
-                  <th className="px-4 py-3 font-semibold text-gray-700">Opzioni</th>
+                  <SortableTh
+                    sortKey="nome"
+                    activeKey={sortBy}
+                    direction={sortDir}
+                    onRequestSort={handleCampiSort}
+                  >
+                    Nome Campo
+                  </SortableTh>
+                  <SortableTh
+                    sortKey="label"
+                    activeKey={sortBy}
+                    direction={sortDir}
+                    onRequestSort={handleCampiSort}
+                  >
+                    Label
+                  </SortableTh>
+                  <SortableTh
+                    sortKey="tipo"
+                    activeKey={sortBy}
+                    direction={sortDir}
+                    onRequestSort={handleCampiSort}
+                  >
+                    Tipo
+                  </SortableTh>
+                  <SortableTh
+                    sortKey="obbligatorio"
+                    activeKey={sortBy}
+                    direction={sortDir}
+                    onRequestSort={handleCampiSort}
+                    align="center"
+                  >
+                    Obbligatorio
+                  </SortableTh>
+                  <SortableTh
+                    sortKey="opzioni"
+                    activeKey={sortBy}
+                    direction={sortDir}
+                    onRequestSort={handleCampiSort}
+                  >
+                    Opzioni
+                  </SortableTh>
                 </tr>
               </thead>
               <tbody>
@@ -424,7 +562,7 @@ function TabCampiForm() {
           <TablePagination
             page={pageCampi}
             totalPages={campiTotalPages}
-            total={campi.length}
+            total={sortedCampi.length}
             onPageChange={setPageCampi}
             entityLabel="campi"
           />
@@ -445,6 +583,14 @@ function TabChecklist() {
   const [selectedTypeId, setSelectedTypeId] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
   const [pageChecklist, setPageChecklist] = useState(1);
+  const { sortBy, sortDir, requestSort } = useListTableSort();
+  const handleChecklistSort = useCallback(
+    (key: string) => {
+      requestSort(key);
+      setPageChecklist(1);
+    },
+    [requestSort],
+  );
 
   useEffect(() => {
     api.get<InsuranceType[]>('/settings/insurance-types')
@@ -458,24 +604,39 @@ function TabChecklist() {
 
   const selectedType = types.find((t) => t.id === selectedTypeId);
 
-  const checklistItems = selectedType?.checklist_allegati ?? [];
-  const checklistTotalPages =
-    checklistItems.length === 0 ? 1 : Math.ceil(checklistItems.length / TABLE_PAGE_SIZE);
+  const sortedChecklistItems = useMemo(() => {
+    const checklistItems = selectedType?.checklist_allegati ?? [];
+    const arr = [...checklistItems];
+    if (!sortBy) return arr;
+    const m = sortDirectionMultiplier(sortDir);
+    arr.sort((a, b) => {
+      switch (sortBy) {
+        case 'nome':
+          return compareStringsCaseInsensitive(a.nome, b.nome, m);
+        case 'obbligatorio':
+          return compareBooleans(a.obbligatorio, b.obbligatorio, m);
+        case 'condizione':
+          return compareNullableStrings(a.condizione, b.condizione, m);
+        default:
+          return 0;
+      }
+    });
+    return arr;
+  }, [selectedType, sortBy, sortDir]);
 
-  useEffect(() => {
-    setPageChecklist(1);
-  }, [selectedTypeId]);
+  const checklistTotalPages =
+    sortedChecklistItems.length === 0 ? 1 : Math.ceil(sortedChecklistItems.length / TABLE_PAGE_SIZE);
 
   useSyncPageToTotalPages(
     pageChecklist,
-    checklistItems.length ? checklistTotalPages : undefined,
+    sortedChecklistItems.length ? checklistTotalPages : undefined,
     setPageChecklist,
   );
 
   const checklistPage = useMemo(() => {
     const start = (pageChecklist - 1) * TABLE_PAGE_SIZE;
-    return checklistItems.slice(start, start + TABLE_PAGE_SIZE);
-  }, [checklistItems, pageChecklist]);
+    return sortedChecklistItems.slice(start, start + TABLE_PAGE_SIZE);
+  }, [sortedChecklistItems, pageChecklist]);
 
   if (loading) {
     return (
@@ -494,7 +655,10 @@ function TabChecklist() {
         <select
           id="select-tipo-checklist"
           value={selectedTypeId ?? ''}
-          onChange={(e) => setSelectedTypeId(Number(e.target.value))}
+          onChange={(e) => {
+            setSelectedTypeId(Number(e.target.value));
+            setPageChecklist(1);
+          }}
           className="input-field"
         >
           {types.map((t) => (
@@ -509,9 +673,31 @@ function TabChecklist() {
             <table className="portal-table min-w-full text-left text-sm">
               <thead>
                 <tr>
-                  <th className="px-4 py-3 font-semibold text-gray-700">Documento</th>
-                  <th className="px-4 py-3 font-semibold text-gray-700 text-center">Obbligatorio</th>
-                  <th className="px-4 py-3 font-semibold text-gray-700">Condizione</th>
+                  <SortableTh
+                    sortKey="nome"
+                    activeKey={sortBy}
+                    direction={sortDir}
+                    onRequestSort={handleChecklistSort}
+                  >
+                    Documento
+                  </SortableTh>
+                  <SortableTh
+                    sortKey="obbligatorio"
+                    activeKey={sortBy}
+                    direction={sortDir}
+                    onRequestSort={handleChecklistSort}
+                    align="center"
+                  >
+                    Obbligatorio
+                  </SortableTh>
+                  <SortableTh
+                    sortKey="condizione"
+                    activeKey={sortBy}
+                    direction={sortDir}
+                    onRequestSort={handleChecklistSort}
+                  >
+                    Condizione
+                  </SortableTh>
                 </tr>
               </thead>
               <tbody>
@@ -536,7 +722,7 @@ function TabChecklist() {
           <TablePagination
             page={pageChecklist}
             totalPages={checklistTotalPages}
-            total={checklistItems.length}
+            total={sortedChecklistItems.length}
             onPageChange={setPageChecklist}
             entityLabel="voci"
           />

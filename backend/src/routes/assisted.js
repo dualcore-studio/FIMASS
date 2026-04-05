@@ -1,12 +1,26 @@
 const express = require('express');
 const { db } = require('../config/database');
 const { authenticateToken, authorizeRoles } = require('../middleware/auth');
+const { resolveListOrder } = require('../utils/listSort');
+
+const ASSISTED_SORT_MAP = {
+  nome_cognome: `LOWER(TRIM(COALESCE(ap.cognome, '') || ' ' || COALESCE(ap.nome, '')))`,
+  cognome: 'LOWER(ap.cognome)',
+  nome: 'LOWER(ap.nome)',
+  codice_fiscale: `LOWER(COALESCE(ap.codice_fiscale, ''))`,
+  cellulare: `LOWER(COALESCE(ap.cellulare, ''))`,
+  email: `LOWER(COALESCE(ap.email, ''))`,
+  num_preventivi: 'num_preventivi',
+  num_polizze: 'num_polizze',
+  created_at: 'ap.created_at',
+};
+const DEFAULT_ASSISTED_ORDER = 'ORDER BY ap.cognome, ap.nome';
 
 const router = express.Router();
 
 router.get('/', authenticateToken, (req, res) => {
   try {
-    const { page = 1, limit = 25, search } = req.query;
+    const { page = 1, limit = 25, search, sort_by: sortBy, sort_dir: sortDir } = req.query;
     const offset = (parseInt(page) - 1) * parseInt(limit);
 
     let where = ['1=1'];
@@ -23,6 +37,7 @@ router.get('/', authenticateToken, (req, res) => {
     }
 
     const whereClause = where.join(' AND ');
+    const orderClause = resolveListOrder(ASSISTED_SORT_MAP, sortBy, sortDir, DEFAULT_ASSISTED_ORDER);
 
     const total = db.prepare(`SELECT COUNT(*) as count FROM assisted_people ap WHERE ${whereClause}`).get(...params).count;
 
@@ -32,7 +47,7 @@ router.get('/', authenticateToken, (req, res) => {
         (SELECT COUNT(*) FROM policies WHERE assistito_id = ap.id) as num_polizze
       FROM assisted_people ap
       WHERE ${whereClause}
-      ORDER BY ap.cognome, ap.nome
+      ${orderClause}
       LIMIT ? OFFSET ?
     `).all(...params, parseInt(limit), offset);
 
