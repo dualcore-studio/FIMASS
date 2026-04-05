@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
-import { Search, Bell, LogOut, User, ChevronDown } from 'lucide-react';
+import { Search, LogOut, User, ChevronDown } from 'lucide-react';
 import { getUserDisplayName, getRoleLabel, getRoleBadgeColor } from '../../utils/helpers';
 
 interface TopbarProps {
@@ -82,50 +82,39 @@ export default function Topbar({ sidebarCollapsed }: TopbarProps) {
             </div>
           </form>
           <div className="flex min-w-0 flex-1 justify-end">
-            <div className="flex items-center gap-2 sm:gap-3">
+            <div ref={profileRef} className="relative">
               <button
                 type="button"
-                className="relative rounded-lg p-2 text-slate-500 transition-colors hover:bg-[var(--portal-nav-hover)] hover:text-slate-800"
-                aria-label="Notifiche"
+                onClick={() => setShowProfile(!showProfile)}
+                className="flex items-center gap-2 rounded-lg px-2 py-1.5 transition-colors hover:bg-[var(--portal-nav-hover)] sm:px-3"
               >
-                <Bell size={20} />
-                <span className="absolute right-1.5 top-1.5 h-2 w-2 rounded-full bg-red-500 ring-2 ring-[var(--portal-nav-surface)]" />
+                <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-blue-500/15 text-blue-800">
+                  <User size={16} />
+                </div>
+                <div className="hidden text-left sm:block">
+                  <p className="text-sm font-medium leading-tight text-slate-900">{getUserDisplayName(user)}</p>
+                  <p className="text-xs leading-tight text-slate-600">{getRoleLabel(user.role)}</p>
+                </div>
+                <ChevronDown size={16} className="hidden shrink-0 text-slate-500 sm:block" />
               </button>
 
-              <div ref={profileRef} className="relative">
-                <button
-                  type="button"
-                  onClick={() => setShowProfile(!showProfile)}
-                  className="flex items-center gap-2 rounded-lg px-2 py-1.5 transition-colors hover:bg-[var(--portal-nav-hover)] sm:px-3"
-                >
-                  <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-blue-500/15 text-blue-800">
-                    <User size={16} />
+              {showProfile && (
+                <div className="absolute right-0 z-50 mt-1 w-56 rounded-xl border border-slate-200/95 bg-white py-1 shadow-[0_18px_40px_-12px_rgba(15,23,42,0.18),0_0_0_1px_rgba(15,23,42,0.04)]">
+                  <div className="border-b border-slate-200/90 px-4 py-3">
+                    <p className="text-sm font-medium text-slate-900">{getUserDisplayName(user)}</p>
+                    <p className="text-xs text-slate-600">{user.email}</p>
+                    <span className={`badge mt-1 ${getRoleBadgeColor(user.role)}`}>{getRoleLabel(user.role)}</span>
                   </div>
-                  <div className="hidden text-left sm:block">
-                    <p className="text-sm font-medium leading-tight text-slate-900">{getUserDisplayName(user)}</p>
-                    <p className="text-xs leading-tight text-slate-600">{getRoleLabel(user.role)}</p>
-                  </div>
-                  <ChevronDown size={16} className="hidden shrink-0 text-slate-500 sm:block" />
-                </button>
-
-                {showProfile && (
-                  <div className="absolute right-0 z-50 mt-1 w-56 rounded-xl border border-slate-200/95 bg-white py-1 shadow-[0_18px_40px_-12px_rgba(15,23,42,0.18),0_0_0_1px_rgba(15,23,42,0.04)]">
-                    <div className="border-b border-slate-200/90 px-4 py-3">
-                      <p className="text-sm font-medium text-slate-900">{getUserDisplayName(user)}</p>
-                      <p className="text-xs text-slate-600">{user.email}</p>
-                      <span className={`badge mt-1 ${getRoleBadgeColor(user.role)}`}>{getRoleLabel(user.role)}</span>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={handleLogout}
-                      className="flex w-full items-center gap-2 px-4 py-2.5 text-sm text-red-400 transition-colors hover:bg-red-500/10"
-                    >
-                      <LogOut size={16} />
-                      Esci
-                    </button>
-                  </div>
-                )}
-              </div>
+                  <button
+                    type="button"
+                    onClick={handleLogout}
+                    className="flex w-full items-center gap-2 px-4 py-2.5 text-sm text-red-400 transition-colors hover:bg-red-500/10"
+                  >
+                    <LogOut size={16} />
+                    Esci
+                  </button>
+                </div>
+              )}
             </div>
           </div>
         </div>
