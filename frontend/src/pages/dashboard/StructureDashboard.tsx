@@ -2,11 +2,14 @@ import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Plus, FileText, Clock, CheckCircle, Shield, ExternalLink } from 'lucide-react';
 import { api } from '../../utils/api';
-import KPICard from '../../components/common/KPICard';
 import StatusBadge from '../../components/common/StatusBadge';
 import { formatDate, getUserDisplayName } from '../../utils/helpers';
 import { useAuth } from '../../context/AuthContext';
 import type { Quote, PaginatedResponse } from '../../types';
+import DashboardPageHeader from '../../components/dashboard/DashboardPageHeader';
+import DashboardPrimaryKpi from '../../components/dashboard/DashboardPrimaryKpi';
+import DashboardSecondaryMetric from '../../components/dashboard/DashboardSecondaryMetric';
+import DashboardPanel from '../../components/dashboard/DashboardPanel';
 
 interface QuoteStats {
   PRESENTATA: number;
@@ -78,7 +81,7 @@ export default function StructureDashboard() {
       <div className="flex min-h-[40vh] items-center justify-center">
         <div className="flex flex-col items-center gap-3">
           <div className="h-10 w-10 animate-spin rounded-full border-2 border-blue-700 border-t-transparent" />
-          <p className="text-sm text-gray-500">Caricamento…</p>
+          <p className="text-sm text-slate-500">Caricamento…</p>
         </div>
       </div>
     );
@@ -86,132 +89,210 @@ export default function StructureDashboard() {
 
   if (error || !quoteStats || !policyStats) {
     return (
-      <div className="card border-l-4 border-l-red-500 p-6">
-        <p className="text-sm font-medium text-red-800">{error ?? 'Dati non disponibili.'}</p>
+      <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
+        <p className="border-l-4 border-l-red-500 pl-4 text-sm font-medium text-red-800">
+          {error ?? 'Dati non disponibili.'}
+        </p>
       </div>
     );
   }
 
   const polizzeRichieste = policyStats['RICHIESTA PRESENTATA'] ?? 0;
 
-  return (
-    <div className="space-y-8">
-      <header className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight text-gray-900">
-            Area struttura{user ? ` — ${getUserDisplayName(user)}` : ''}
-          </h1>
-          <p className="mt-1 capitalize text-gray-500">{todayLabel}</p>
-          <p className="mt-2 text-sm text-gray-600">
-            Gestione richieste e stato delle pratiche della tua struttura.
-          </p>
-        </div>
-        <Link
-          to="/preventivi/nuovo"
-          className="btn-primary shrink-0 px-6 py-3 text-base font-semibold shadow-md shadow-blue-900/10"
-        >
-          <Plus className="h-5 w-5" />
-          Nuova richiesta preventivo
-        </Link>
-      </header>
+  const operativitaRows = [
+    { label: 'Preventivi presentati dalla struttura', value: quoteStats.PRESENTATA },
+    { label: 'In lavorazione presso lo sportello', value: quoteStats['IN LAVORAZIONE'] },
+    { label: 'In stand-by', value: quoteStats.STANDBY },
+    { label: 'Elaborati', value: quoteStats.ELABORATA },
+    { label: 'Totale pratiche preventivo', value: quoteStats.totale },
+  ];
 
-      <section aria-label="Riepilogo">
-        <h2 className="mb-4 text-sm font-semibold uppercase tracking-wide text-gray-500">
-          Riepilogo
-        </h2>
-        <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
-          <KPICard
-            title="Presentate"
-            value={quoteStats.PRESENTATA}
-            icon={<FileText className="h-6 w-6" />}
-            color="slate"
-          />
-          <KPICard
-            title="In lavorazione"
-            value={quoteStats['IN LAVORAZIONE']}
-            icon={<Clock className="h-6 w-6" />}
-            color="amber"
-          />
-          <KPICard
-            title="Elaborate"
-            value={quoteStats.ELABORATA}
-            icon={<CheckCircle className="h-6 w-6" />}
-            color="green"
-          />
-          <KPICard
-            title="Polizze richieste"
-            value={polizzeRichieste}
-            icon={<Shield className="h-6 w-6" />}
-            color="purple"
-          />
+  const pipelinePolizze = [
+    { label: 'In verifica', value: policyStats['IN VERIFICA'] },
+    { label: 'Documentazione mancante', value: policyStats['DOCUMENTAZIONE MANCANTE'] },
+    { label: 'Pronte per emissione', value: policyStats['PRONTA PER EMISSIONE'] },
+    { label: 'Emesse', value: policyStats.EMESSA },
+    { label: 'Totale polizze', value: policyStats.totale },
+  ];
+
+  return (
+    <div className="mx-auto w-full max-w-[88rem] space-y-6 lg:space-y-7">
+      <DashboardPageHeader
+        title="Dashboard"
+        welcomeLine={user ? `Area struttura — ${getUserDisplayName(user)}` : undefined}
+        dateLabel={todayLabel}
+        description="Gestione richieste e stato delle pratiche della tua struttura su Sportello Amico."
+        actions={
+          <>
+            <Link
+              to="/preventivi/nuovo"
+              className="btn-primary inline-flex items-center justify-center gap-2 whitespace-nowrap px-4 py-2.5 text-sm shadow-sm shadow-blue-900/10"
+            >
+              <Plus className="h-4 w-4" />
+              Nuovo Preventivo
+            </Link>
+            <Link
+              to="/polizze/nuova"
+              className="btn-primary inline-flex items-center justify-center whitespace-nowrap px-4 py-2.5 text-sm shadow-sm shadow-blue-900/10"
+            >
+              Nuova Polizza
+            </Link>
+            <Link
+              to="/preventivi"
+              className="btn-secondary inline-flex items-center justify-center whitespace-nowrap px-4 py-2.5 text-sm"
+            >
+              Le pratiche
+            </Link>
+          </>
+        }
+      />
+
+      <section aria-label="Indicatori primari">
+        <p className="mb-3 text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-500">Indicatori primari</p>
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4 lg:gap-4">
+          <DashboardPrimaryKpi label="Preventivi presentati" value={quoteStats.PRESENTATA} icon={FileText} />
+          <DashboardPrimaryKpi label="In lavorazione" value={quoteStats['IN LAVORAZIONE']} icon={Clock} />
+          <DashboardPrimaryKpi label="Elaborati" value={quoteStats.ELABORATA} icon={CheckCircle} />
+          <DashboardPrimaryKpi label="Polizze richieste" value={polizzeRichieste} icon={Shield} />
         </div>
       </section>
 
-      <section aria-label="Preventivi recenti" className="card overflow-hidden">
-        <div className="portal-card-table-heading px-5 py-4">
-          <h2 className="text-base font-semibold text-gray-900">Preventivi recenti</h2>
-          <p className="mt-0.5 text-sm text-gray-500">Ultime cinque pratiche della struttura.</p>
+      <section aria-label="Metriche secondarie">
+        <p className="mb-2 text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-500">Altri indicatori</p>
+        <div className="flex flex-wrap gap-2">
+          <DashboardSecondaryMetric label="Stand-by" value={quoteStats.STANDBY} />
+          <DashboardSecondaryMetric label="Assegnati" value={quoteStats.ASSEGNATA} />
+          <DashboardSecondaryMetric label="Polizze emesse" value={policyStats.EMESSA} />
         </div>
-        <div className="overflow-x-auto">
-          <table className="portal-table min-w-full text-sm">
-            <thead>
-              <tr>
-                <th className="px-5 py-3 text-left font-medium text-gray-600">Numero</th>
-                <th className="px-5 py-3 text-left font-medium text-gray-600">Assistito</th>
-                <th className="px-5 py-3 text-left font-medium text-gray-600">Tipo</th>
-                <th className="px-5 py-3 text-left font-medium text-gray-600">Data</th>
-                <th className="px-5 py-3 text-left font-medium text-gray-600">Stato</th>
-                <th className="px-5 py-3 text-right font-medium text-gray-600">Azioni</th>
-              </tr>
-            </thead>
-            <tbody>
-              {quotes.length === 0 ? (
-                <tr>
-                  <td colSpan={6} className="px-5 py-8 text-center text-gray-500">
-                    Nessun preventivo registrato.
-                  </td>
-                </tr>
-              ) : (
-                quotes.map((q) => {
-                  const nomeAssistito = [q.assistito_nome, q.assistito_cognome].filter(Boolean).join(' ') || '—';
-                  const showPolicyCta = q.stato === 'ELABORATA' && q.has_policy === 0;
-                  return (
-                    <tr key={q.id}>
-                      <td className="whitespace-nowrap px-5 py-3 font-medium text-gray-900">{q.numero}</td>
-                      <td className="px-5 py-3 text-gray-700">{nomeAssistito}</td>
-                      <td className="px-5 py-3 text-gray-600">{q.tipo_nome ?? '—'}</td>
-                      <td className="whitespace-nowrap px-5 py-3 text-gray-600">
-                        {formatDate(q.created_at)}
-                      </td>
-                      <td className="px-5 py-3">
-                        <StatusBadge stato={q.stato} type="quote" />
-                      </td>
-                      <td className="px-5 py-3 text-right">
-                        <div className="flex flex-col items-end gap-2 sm:flex-row sm:justify-end">
-                          {showPolicyCta && (
-                            <Link
-                              to={`/preventivi/${q.id}`}
-                              className="btn-success inline-flex items-center gap-1.5 whitespace-nowrap py-1.5 px-3 text-xs"
-                            >
-                              Richiedi emissione polizza
-                            </Link>
-                          )}
-                          <Link
-                            to={`/preventivi/${q.id}`}
-                            className="btn-secondary inline-flex items-center gap-1.5 py-1.5 px-3 text-xs"
-                          >
-                            Apri
-                            <ExternalLink className="h-3.5 w-3.5" />
-                          </Link>
-                        </div>
+      </section>
+
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-12 lg:gap-5">
+        <div className="lg:col-span-7">
+          <DashboardPanel
+            title="Operatività recente"
+            description="Panoramica dei volumi preventivo per la tua struttura."
+          >
+            <div className="overflow-x-auto">
+              <table className="min-w-full text-sm">
+                <thead>
+                  <tr className="border-b border-slate-100 bg-slate-50/50 text-left text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+                    <th className="px-4 py-2.5 sm:px-5">Indicatore</th>
+                    <th className="px-4 py-2.5 text-right sm:px-5">Valore</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {operativitaRows.map((row) => (
+                    <tr key={row.label} className="border-b border-slate-100 last:border-0 hover:bg-slate-50/60">
+                      <td className="px-4 py-2.5 text-slate-700 sm:px-5">{row.label}</td>
+                      <td className="px-4 py-2.5 text-right font-semibold tabular-nums text-slate-900 sm:px-5">
+                        {row.value}
                       </td>
                     </tr>
-                  );
-                })
-              )}
-            </tbody>
-          </table>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </DashboardPanel>
         </div>
+
+        <div className="lg:col-span-5">
+          <DashboardPanel
+            title="Pipeline polizze"
+            description="Stato delle richieste di polizza collegate alla struttura."
+          >
+            <div className="overflow-x-auto">
+              <table className="min-w-full text-sm">
+                <thead>
+                  <tr className="border-b border-slate-100 bg-slate-50/50 text-left text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+                    <th className="px-4 py-2.5 sm:px-5">Fase</th>
+                    <th className="px-4 py-2.5 text-right sm:px-5">N.</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {pipelinePolizze.map((row) => (
+                    <tr key={row.label} className="border-b border-slate-100 last:border-0 hover:bg-slate-50/60">
+                      <td className="px-4 py-2.5 text-slate-700 sm:px-5">{row.label}</td>
+                      <td className="px-4 py-2.5 text-right font-semibold tabular-nums text-slate-900 sm:px-5">
+                        {row.value}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </DashboardPanel>
+        </div>
+      </div>
+
+      <section aria-label="Ultime pratiche">
+        <DashboardPanel
+          title="Ultime pratiche"
+          description="Ultime cinque pratiche preventivo registrate per la struttura."
+        >
+          <div className="overflow-x-auto">
+            <table className="portal-table min-w-full text-sm">
+              <thead>
+                <tr>
+                  <th className="px-4 py-3 text-left font-medium text-slate-600 sm:px-5">Numero</th>
+                  <th className="px-4 py-3 text-left font-medium text-slate-600 sm:px-5">Assistito</th>
+                  <th className="px-4 py-3 text-left font-medium text-slate-600 sm:px-5">Tipo</th>
+                  <th className="px-4 py-3 text-left font-medium text-slate-600 sm:px-5">Data</th>
+                  <th className="px-4 py-3 text-left font-medium text-slate-600 sm:px-5">Stato</th>
+                  <th className="px-4 py-3 text-right font-medium text-slate-600 sm:px-5">Azioni</th>
+                </tr>
+              </thead>
+              <tbody>
+                {quotes.length === 0 ? (
+                  <tr>
+                    <td colSpan={6} className="px-4 py-8 text-center text-slate-500 sm:px-5">
+                      Nessun preventivo registrato.
+                    </td>
+                  </tr>
+                ) : (
+                  quotes.map((q) => {
+                    const nomeAssistito =
+                      [q.assistito_nome, q.assistito_cognome].filter(Boolean).join(' ') || '—';
+                    const showPolicyCta = q.stato === 'ELABORATA' && q.has_policy === 0;
+                    return (
+                      <tr key={q.id}>
+                        <td className="whitespace-nowrap px-4 py-2.5 font-medium text-slate-900 sm:px-5">
+                          {q.numero}
+                        </td>
+                        <td className="px-4 py-2.5 text-slate-700 sm:px-5">{nomeAssistito}</td>
+                        <td className="px-4 py-2.5 text-slate-600 sm:px-5">{q.tipo_nome ?? '—'}</td>
+                        <td className="whitespace-nowrap px-4 py-2.5 text-slate-600 sm:px-5">
+                          {formatDate(q.created_at)}
+                        </td>
+                        <td className="px-4 py-2.5 sm:px-5">
+                          <StatusBadge stato={q.stato} type="quote" />
+                        </td>
+                        <td className="px-4 py-2.5 text-right sm:px-5">
+                          <div className="flex flex-col items-end gap-2 sm:flex-row sm:justify-end">
+                            {showPolicyCta && (
+                              <Link
+                                to={`/preventivi/${q.id}`}
+                                className="btn-success inline-flex items-center gap-1.5 whitespace-nowrap py-1.5 px-3 text-xs"
+                              >
+                                Richiedi emissione polizza
+                              </Link>
+                            )}
+                            <Link
+                              to={`/preventivi/${q.id}`}
+                              className="btn-secondary inline-flex items-center gap-1.5 py-1.5 px-3 text-xs"
+                            >
+                              Apri
+                              <ExternalLink className="h-3.5 w-3.5" />
+                            </Link>
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })
+                )}
+              </tbody>
+            </table>
+          </div>
+        </DashboardPanel>
       </section>
     </div>
   );

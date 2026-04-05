@@ -1,17 +1,14 @@
 import { useEffect, useState } from 'react';
-import {
-  FileText,
-  UserCheck,
-  Clock,
-  AlertTriangle,
-  CheckCircle,
-  Shield,
-  TrendingUp,
-} from 'lucide-react';
+import { Link } from 'react-router-dom';
+import { FileText, Clock, Shield, TrendingUp } from 'lucide-react';
 import { api } from '../../utils/api';
-import KPICard from '../../components/common/KPICard';
 import { getUserDisplayName } from '../../utils/helpers';
 import { useAuth } from '../../context/AuthContext';
+import DashboardPageHeader from '../../components/dashboard/DashboardPageHeader';
+import DashboardPrimaryKpi from '../../components/dashboard/DashboardPrimaryKpi';
+import DashboardSecondaryMetric from '../../components/dashboard/DashboardSecondaryMetric';
+import DashboardPanel from '../../components/dashboard/DashboardPanel';
+import DashboardAlertRow from '../../components/dashboard/DashboardAlertRow';
 
 interface QuoteStats {
   PRESENTATA: number;
@@ -37,38 +34,6 @@ interface AlertsReport {
   polizze_senza_avanzamento: number;
   pratiche_ferme: number;
 }
-
-const alertItems: {
-  key: keyof AlertsReport;
-  label: string;
-  borderClass: string;
-  icon: typeof AlertTriangle;
-}[] = [
-  {
-    key: 'pratiche_non_assegnate',
-    label: 'Pratiche non assegnate',
-    borderClass: 'border-l-orange-500',
-    icon: FileText,
-  },
-  {
-    key: 'standby_prolungato',
-    label: 'Stand-by prolungato',
-    borderClass: 'border-l-orange-500',
-    icon: Clock,
-  },
-  {
-    key: 'polizze_senza_avanzamento',
-    label: 'Polizze senza avanzamento',
-    borderClass: 'border-l-red-500',
-    icon: Shield,
-  },
-  {
-    key: 'pratiche_ferme',
-    label: 'Pratiche ferme',
-    borderClass: 'border-l-slate-500',
-    icon: AlertTriangle,
-  },
-];
 
 export default function AdminDashboard() {
   const { user } = useAuth();
@@ -121,7 +86,7 @@ export default function AdminDashboard() {
     return (
       <div className="flex min-h-[40vh] items-center justify-center">
         <div className="flex flex-col items-center gap-3">
-          <div className="h-10 w-10 animate-spin rounded-full border-2 border-blue-400 border-t-transparent" />
+          <div className="h-10 w-10 animate-spin rounded-full border-2 border-blue-700 border-t-transparent" />
           <p className="text-sm text-slate-500">Caricamento panoramica…</p>
         </div>
       </div>
@@ -130,8 +95,10 @@ export default function AdminDashboard() {
 
   if (error || !quoteStats || !policyStats || !alerts) {
     return (
-      <div className="card border-l-4 border-l-red-500 p-6">
-        <p className="text-sm font-medium text-red-800">{error ?? 'Dati non disponibili.'}</p>
+      <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
+        <p className="border-l-4 border-l-red-500 pl-4 text-sm font-medium text-red-800">
+          {error ?? 'Dati non disponibili.'}
+        </p>
       </div>
     );
   }
@@ -139,90 +106,187 @@ export default function AdminDashboard() {
   const richieste = policyStats['RICHIESTA PRESENTATA'] ?? 0;
   const emesse = policyStats.EMESSA ?? 0;
 
-  return (
-    <div className="space-y-8">
-      <header className="flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight text-slate-900">
-            Bentornato{user ? `, ${getUserDisplayName(user)}` : ''}
-          </h1>
-          <p className="mt-1.5 capitalize text-slate-600">{todayLabel}</p>
-          <p className="mt-2 max-w-2xl text-sm leading-relaxed text-slate-600">
-            Panoramica globale di Sportello Amico: preventivi, polizze e segnalazioni operative.
-          </p>
-        </div>
-      </header>
+  const operativitaRows = [
+    { label: 'Preventivi assegnati agli operatori', value: quoteStats.ASSEGNATA },
+    { label: 'Preventivi in stand-by', value: quoteStats.STANDBY },
+    { label: 'Preventivi elaborati (chiusi positivamente)', value: quoteStats.ELABORATA },
+    { label: 'Portafoglio preventivi (totale)', value: quoteStats.totale },
+    { label: 'Polizze in verifica', value: policyStats['IN VERIFICA'] },
+    { label: 'Polizze con documentazione mancante', value: policyStats['DOCUMENTAZIONE MANCANTE'] },
+    { label: 'Polizze pronte per emissione', value: policyStats['PRONTA PER EMISSIONE'] },
+  ];
 
-      <section aria-label="Indicatori chiave">
-        <h2 className="mb-4 text-xs font-semibold uppercase tracking-[0.12em] text-slate-600">
-          Indicatori chiave
-        </h2>
-        <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
-          <KPICard
-            title="Preventivi presentati"
-            value={quoteStats.PRESENTATA}
-            icon={<FileText className="h-6 w-6" />}
-            color="slate"
-          />
-          <KPICard
-            title="Preventivi assegnati"
-            value={quoteStats.ASSEGNATA}
-            icon={<UserCheck className="h-6 w-6" />}
-            color="blue"
-          />
-          <KPICard
-            title="In lavorazione"
-            value={quoteStats['IN LAVORAZIONE']}
-            icon={<Clock className="h-6 w-6" />}
-            color="amber"
-          />
-          <KPICard
-            title="In stand-by"
-            value={quoteStats.STANDBY}
-            icon={<AlertTriangle className="h-6 w-6" />}
-            color="red"
-          />
-          <KPICard
-            title="Elaborati"
-            value={quoteStats.ELABORATA}
-            icon={<CheckCircle className="h-6 w-6" />}
-            color="green"
-          />
-          <KPICard
-            title="Polizze richieste"
-            value={richieste}
-            icon={<Shield className="h-6 w-6" />}
-            color="purple"
-          />
-          <KPICard
-            title="Polizze emesse"
-            value={emesse}
-            icon={<TrendingUp className="h-6 w-6" />}
-            color="green"
-          />
+  const pipelineDetailRows: { area: string; voce: string; valore: number }[] = [
+    { area: 'Preventivi', voce: 'Presentata', valore: quoteStats.PRESENTATA },
+    { area: 'Preventivi', voce: 'Assegnata', valore: quoteStats.ASSEGNATA },
+    { area: 'Preventivi', voce: 'In lavorazione', valore: quoteStats['IN LAVORAZIONE'] },
+    { area: 'Preventivi', voce: 'Stand-by', valore: quoteStats.STANDBY },
+    { area: 'Preventivi', voce: 'Elaborata', valore: quoteStats.ELABORATA },
+    { area: 'Polizze', voce: 'Richiesta presentata', valore: policyStats['RICHIESTA PRESENTATA'] },
+    { area: 'Polizze', voce: 'In verifica', valore: policyStats['IN VERIFICA'] },
+    { area: 'Polizze', voce: 'Documentazione mancante', valore: policyStats['DOCUMENTAZIONE MANCANTE'] },
+    { area: 'Polizze', voce: 'Pronta per emissione', valore: policyStats['PRONTA PER EMISSIONE'] },
+    { area: 'Polizze', voce: 'Emessa', valore: policyStats.EMESSA },
+  ];
+
+  const quickLink = (to: string, label: string) => (
+    <Link
+      to={to}
+      className="btn-primary inline-flex items-center justify-center gap-2 whitespace-nowrap px-4 py-2.5 text-sm shadow-sm shadow-blue-900/10"
+    >
+      {label}
+    </Link>
+  );
+
+  return (
+    <div className="mx-auto w-full max-w-[88rem] space-y-6 lg:space-y-7">
+      <DashboardPageHeader
+        title="Dashboard"
+        welcomeLine={user ? `Bentornato, ${getUserDisplayName(user)}` : undefined}
+        dateLabel={todayLabel}
+        description="Panoramica esecutiva di Sportello Amico: volumi chiave, alert operativi e stato della pipeline preventivi e polizze."
+        actions={
+          <>
+            {quickLink('/preventivi/nuovo', 'Nuovo Preventivo')}
+            {quickLink('/polizze/nuova', 'Nuova Polizza')}
+            {quickLink('/preventivi', 'Assegna Pratica')}
+          </>
+        }
+      />
+
+      <section aria-label="Indicatori primari">
+        <p className="mb-3 text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-500">Indicatori primari</p>
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4 lg:gap-4">
+          <DashboardPrimaryKpi label="Preventivi presentati" value={quoteStats.PRESENTATA} icon={FileText} />
+          <DashboardPrimaryKpi label="In lavorazione" value={quoteStats['IN LAVORAZIONE']} icon={Clock} />
+          <DashboardPrimaryKpi label="Polizze richieste" value={richieste} icon={Shield} />
+          <DashboardPrimaryKpi label="Polizze emesse" value={emesse} icon={TrendingUp} />
         </div>
       </section>
 
-      <section aria-label="Avvisi operativi">
-        <h2 className="mb-4 text-xs font-semibold uppercase tracking-[0.12em] text-slate-600">
-          Avvisi operativi
-        </h2>
-        <div className="grid gap-4 sm:grid-cols-2">
-          {alertItems.map(({ key, label, borderClass, icon: Icon }) => (
-            <div
-              key={key}
-              className={`flex items-center gap-4 rounded-xl border border-slate-200/95 border-l-4 bg-white p-5 shadow-[0_1px_3px_rgba(15,23,42,0.06),0_1px_2px_rgba(15,23,42,0.04)] ${borderClass}`}
-            >
-              <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-[10px] bg-slate-100 text-slate-600">
-                <Icon className="h-5 w-5" />
-              </div>
-              <div className="min-w-0 flex-1">
-                <p className="text-sm font-medium text-slate-800">{label}</p>
-                <p className="mt-1 text-2xl font-bold tabular-nums text-slate-900">{alerts[key]}</p>
-              </div>
-            </div>
-          ))}
+      <section aria-label="Metriche secondarie">
+        <p className="mb-2 text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-500">Pipeline e volumi</p>
+        <div className="flex flex-wrap gap-2">
+          <DashboardSecondaryMetric label="Assegnati" value={quoteStats.ASSEGNATA} />
+          <DashboardSecondaryMetric label="Stand-by" value={quoteStats.STANDBY} />
+          <DashboardSecondaryMetric label="Elaborati" value={quoteStats.ELABORATA} />
+          <DashboardSecondaryMetric label="Tot. preventivi" value={quoteStats.totale} />
+          <DashboardSecondaryMetric label="Polizze in verifica" value={policyStats['IN VERIFICA']} />
+          <DashboardSecondaryMetric label="Doc. mancante" value={policyStats['DOCUMENTAZIONE MANCANTE']} />
+          <DashboardSecondaryMetric label="Pronte emissione" value={policyStats['PRONTA PER EMISSIONE']} />
         </div>
+      </section>
+
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-12 lg:gap-5">
+        <div className="lg:col-span-7">
+          <DashboardPanel
+            title="Operatività recente"
+            description="Snapshot operativo dai dati aggregati attuali: volumi e colli di bottiglia nella pipeline."
+          >
+            <div className="overflow-x-auto">
+              <table className="min-w-full text-sm">
+                <thead>
+                  <tr className="border-b border-slate-100 bg-slate-50/50 text-left text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+                    <th className="px-4 py-2.5 sm:px-5">Indicatore</th>
+                    <th className="px-4 py-2.5 text-right sm:px-5">Valore</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {operativitaRows.map((row) => (
+                    <tr key={row.label} className="border-b border-slate-100 last:border-0 hover:bg-slate-50/60">
+                      <td className="px-4 py-2.5 text-slate-700 sm:px-5">{row.label}</td>
+                      <td className="px-4 py-2.5 text-right font-semibold tabular-nums text-slate-900 sm:px-5">
+                        {row.value}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </DashboardPanel>
+        </div>
+
+        <div className="lg:col-span-5">
+          <DashboardPanel
+            title="Alert operativi"
+            description="Segnalazioni che richiedono attenzione: interveni dalla lista pratiche o polizze."
+          >
+            <DashboardAlertRow
+              label="Pratiche non assegnate"
+              value={alerts.pratiche_non_assegnate}
+              severity="warning"
+              badgeText="Attenzione"
+              action={
+                <Link to="/preventivi" className="text-xs font-semibold text-blue-700 hover:text-blue-800">
+                  Vai ai preventivi
+                </Link>
+              }
+            />
+            <DashboardAlertRow
+              label="Polizze senza avanzamento"
+              value={alerts.polizze_senza_avanzamento}
+              severity="critical"
+              badgeText="Critico"
+              action={
+                <Link to="/polizze" className="text-xs font-semibold text-blue-700 hover:text-blue-800">
+                  Vai alle polizze
+                </Link>
+              }
+            />
+            <DashboardAlertRow
+              label="Stand-by prolungato"
+              value={alerts.standby_prolungato}
+              severity="warning"
+              badgeText="Follow-up"
+              action={
+                <Link to="/preventivi" className="text-xs font-semibold text-blue-700 hover:text-blue-800">
+                  Vai ai preventivi
+                </Link>
+              }
+            />
+            <DashboardAlertRow
+              label="Pratiche ferme"
+              value={alerts.pratiche_ferme}
+              severity="neutral"
+              badgeText="Monitoraggio"
+              action={
+                <Link to="/preventivi" className="text-xs font-semibold text-blue-700 hover:text-blue-800">
+                  Vai ai preventivi
+                </Link>
+              }
+            />
+          </DashboardPanel>
+        </div>
+      </div>
+
+      <section aria-label="Dettaglio pipeline">
+        <DashboardPanel
+          title="Ultime voci di pipeline"
+          description="Dettaglio per stato su preventivi e polizze — utile per revisione operativa e reportistica."
+        >
+          <div className="overflow-x-auto">
+            <table className="portal-table min-w-full text-sm">
+              <thead>
+                <tr>
+                  <th className="px-4 py-3 text-left font-medium text-slate-600 sm:px-5">Area</th>
+                  <th className="px-4 py-3 text-left font-medium text-slate-600 sm:px-5">Stato / voce</th>
+                  <th className="px-4 py-3 text-right font-medium text-slate-600 sm:px-5">Conteggio</th>
+                </tr>
+              </thead>
+              <tbody>
+                {pipelineDetailRows.map((row) => (
+                  <tr key={`${row.area}-${row.voce}`}>
+                    <td className="whitespace-nowrap px-4 py-2.5 text-slate-600 sm:px-5">{row.area}</td>
+                    <td className="px-4 py-2.5 text-slate-800 sm:px-5">{row.voce}</td>
+                    <td className="px-4 py-2.5 text-right font-semibold tabular-nums text-slate-900 sm:px-5">
+                      {row.valore}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </DashboardPanel>
       </section>
     </div>
   );

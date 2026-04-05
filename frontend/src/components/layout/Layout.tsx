@@ -16,7 +16,7 @@ export default function Layout() {
         <Topbar sidebarCollapsed={sidebarCollapsed} />
         <Sidebar collapsed={sidebarCollapsed} onCollapsedChange={setSidebarCollapsed} />
         <main
-          className={`mt-20 p-6 transition-[margin] duration-200 ${sidebarCollapsed ? 'ml-16' : 'ml-52'}`}
+          className={`mt-20 min-h-[calc(100vh-5rem)] border-l border-t border-slate-200/70 bg-[var(--portal-main-content-bg)] p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.65)] transition-[margin] duration-200 sm:p-6 lg:rounded-tl-xl lg:p-8 ${sidebarCollapsed ? 'ml-16' : 'ml-52'}`}
         >
           <Outlet />
         </main>
