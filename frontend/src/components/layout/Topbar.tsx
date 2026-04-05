@@ -48,7 +48,7 @@ export default function Topbar({ sidebarCollapsed }: TopbarProps) {
       <Link
         to="/"
         title="Torna alla dashboard"
-        className={`box-border flex h-full min-w-0 shrink-0 cursor-pointer items-center justify-center border-r border-[#0a1428] bg-[#0F1B36] outline-none transition-colors duration-200 hover:bg-[#142244] focus-visible:ring-2 focus-visible:ring-blue-400/50 focus-visible:ring-inset ${sidebarWidthClass} ${
+        className={`box-border flex h-full min-w-0 shrink-0 cursor-pointer items-center justify-center border-r border-[var(--portal-nav-border)] bg-[var(--portal-nav-surface)] outline-none transition-colors duration-200 hover:bg-[var(--portal-nav-hover)] focus-visible:ring-2 focus-visible:ring-blue-500/50 focus-visible:ring-inset ${sidebarWidthClass} ${
           sidebarCollapsed ? 'px-3' : 'px-5'
         }`}
       >
