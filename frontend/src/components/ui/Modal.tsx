@@ -34,25 +34,25 @@ export default function Modal({ isOpen, onClose, title, children, size = 'md' }:
   return (
     <div
       ref={overlayRef}
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 p-4 backdrop-blur-[2px]"
       onClick={(e) => {
         if (e.target === overlayRef.current) onClose();
       }}
     >
       <div
-        className={`flex max-h-[90vh] w-full flex-col rounded-xl border border-white/10 bg-[#1c2436] shadow-2xl shadow-black/50 ${sizes[size]}`}
+        className={`flex max-h-[90vh] w-full flex-col rounded-xl border border-slate-200/95 bg-white shadow-[0_24px_48px_-12px_rgba(15,23,42,0.2),0_0_0_1px_rgba(15,23,42,0.04)] ${sizes[size]}`}
       >
-        <div className="flex items-center justify-between border-b border-white/[0.08] px-6 py-4">
-          <h2 className="text-lg font-semibold text-slate-100">{title}</h2>
+        <div className="flex items-center justify-between border-b border-slate-200/90 px-6 py-4">
+          <h2 className="text-lg font-semibold text-slate-900">{title}</h2>
           <button
             type="button"
             onClick={onClose}
-            className="rounded-lg p-1 text-slate-400 transition-colors hover:bg-white/[0.06] hover:text-slate-200"
+            className="rounded-lg p-1 text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-800"
           >
             <X size={20} />
           </button>
         </div>
-        <div className="flex-1 overflow-y-auto px-6 py-4 text-slate-200">{children}</div>
+        <div className="flex-1 overflow-y-auto px-6 py-4 text-slate-700">{children}</div>
       </div>
     </div>
   );

@@ -12,7 +12,7 @@ export default function Layout() {
       <div className="pointer-events-none fixed inset-0 z-0" aria-hidden>
         <PortalBackgroundLayers />
       </div>
-      <div className="portal-shell relative z-10 min-h-screen text-slate-200">
+      <div className="portal-shell relative z-10 min-h-screen text-slate-900">
         <Topbar sidebarCollapsed={sidebarCollapsed} />
         <Sidebar collapsed={sidebarCollapsed} onCollapsedChange={setSidebarCollapsed} />
         <main

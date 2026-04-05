@@ -45,7 +45,7 @@ export default function Sidebar({ collapsed, onCollapsedChange }: SidebarProps) 
 
   return (
     <aside
-      className={`fixed left-0 top-20 z-40 flex h-[calc(100vh-5rem)] flex-col border-r border-[var(--portal-nav-border)] bg-[var(--portal-nav-surface)] transition-all duration-200 ${widthClass}`}
+      className={`fixed left-0 top-20 z-40 flex h-[calc(100vh-5rem)] flex-col border-r border-[var(--portal-nav-border)] bg-[var(--portal-nav-surface)] shadow-[2px_0_12px_-4px_rgba(15,23,42,0.06)] transition-all duration-200 ${widthClass}`}
     >
       <nav className="flex flex-1 flex-col overflow-hidden px-2 py-3">
         <div className="min-h-0 flex-1 space-y-0.5 overflow-y-auto">
@@ -57,8 +57,8 @@ export default function Sidebar({ collapsed, onCollapsedChange }: SidebarProps) 
               className={({ isActive }) =>
                 `flex items-center gap-3 rounded-[10px] py-2.5 pl-[10px] pr-3 text-sm font-medium transition-colors ${
                   isActive
-                    ? 'bg-[var(--portal-nav-active-bg)] text-blue-100 shadow-sm shadow-[var(--portal-nav-active-shadow)]'
-                    : 'text-slate-400 hover:bg-[var(--portal-nav-hover)] hover:text-slate-100'
+                    ? 'bg-[var(--portal-nav-active-bg)] font-semibold text-[#0B4EA2] shadow-sm shadow-[var(--portal-nav-active-shadow)]'
+                    : 'text-slate-600 hover:bg-[var(--portal-nav-hover)] hover:text-slate-900'
                 } ${collapsed ? 'justify-center px-0' : ''}`
               }
               title={collapsed ? item.label : undefined}
@@ -76,8 +76,8 @@ export default function Sidebar({ collapsed, onCollapsedChange }: SidebarProps) 
               className={({ isActive }) =>
                 `flex items-center gap-3 rounded-[10px] py-2.5 pl-[10px] pr-3 text-sm font-medium transition-colors ${
                   isActive
-                    ? 'bg-[var(--portal-nav-active-bg)] text-blue-100 shadow-sm shadow-[var(--portal-nav-active-shadow)]'
-                    : 'text-slate-400 hover:bg-[var(--portal-nav-hover)] hover:text-slate-100'
+                    ? 'bg-[var(--portal-nav-active-bg)] font-semibold text-[#0B4EA2] shadow-sm shadow-[var(--portal-nav-active-shadow)]'
+                    : 'text-slate-600 hover:bg-[var(--portal-nav-hover)] hover:text-slate-900'
                 } ${collapsed ? 'justify-center px-0' : ''}`
               }
               title={collapsed ? settingsItem.label : undefined}
@@ -92,7 +92,7 @@ export default function Sidebar({ collapsed, onCollapsedChange }: SidebarProps) 
       <button
         type="button"
         onClick={() => onCollapsedChange(!collapsed)}
-        className="flex items-center justify-center border-t border-[var(--portal-nav-border)] p-3 text-slate-500 transition-colors hover:bg-[var(--portal-nav-hover)] hover:text-slate-300"
+        className="flex items-center justify-center border-t border-[var(--portal-nav-border)] p-3 text-slate-500 transition-colors hover:bg-[var(--portal-nav-hover)] hover:text-slate-700"
         aria-label={collapsed ? 'Espandi menu' : 'Comprimi menu'}
       >
         {collapsed ? <ChevronRight size={18} /> : <ChevronLeft size={18} />}

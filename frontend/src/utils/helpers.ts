@@ -31,34 +31,34 @@ export function getUserDisplayName(user: { role: string; nome?: string | null; c
 
 export function getQuoteStatusColor(stato: string): string {
   const colors: Record<string, string> = {
-    PRESENTATA: 'bg-slate-500/20 text-slate-200',
-    ASSEGNATA: 'bg-blue-500/20 text-blue-200',
-    'IN LAVORAZIONE': 'bg-amber-500/20 text-amber-200',
-    STANDBY: 'bg-red-500/20 text-red-200',
-    ELABORATA: 'bg-emerald-500/20 text-emerald-200',
+    PRESENTATA: 'bg-slate-500/12 text-slate-800',
+    ASSEGNATA: 'bg-blue-500/12 text-blue-900',
+    'IN LAVORAZIONE': 'bg-amber-500/12 text-amber-900',
+    STANDBY: 'bg-red-500/12 text-red-800',
+    ELABORATA: 'bg-emerald-500/12 text-emerald-800',
   };
-  return colors[stato] || 'bg-slate-500/20 text-slate-200';
+  return colors[stato] || 'bg-slate-500/12 text-slate-800';
 }
 
 export function getPolicyStatusColor(stato: string): string {
   const colors: Record<string, string> = {
-    'RICHIESTA PRESENTATA': 'bg-slate-500/20 text-slate-200',
-    'IN VERIFICA': 'bg-blue-500/20 text-blue-200',
-    'DOCUMENTAZIONE MANCANTE': 'bg-red-500/20 text-red-200',
-    'PRONTA PER EMISSIONE': 'bg-amber-500/20 text-amber-200',
-    EMESSA: 'bg-emerald-500/20 text-emerald-200',
+    'RICHIESTA PRESENTATA': 'bg-slate-500/12 text-slate-800',
+    'IN VERIFICA': 'bg-blue-500/12 text-blue-900',
+    'DOCUMENTAZIONE MANCANTE': 'bg-red-500/12 text-red-800',
+    'PRONTA PER EMISSIONE': 'bg-amber-500/12 text-amber-900',
+    EMESSA: 'bg-emerald-500/12 text-emerald-800',
   };
-  return colors[stato] || 'bg-slate-500/20 text-slate-200';
+  return colors[stato] || 'bg-slate-500/12 text-slate-800';
 }
 
 export function getRoleBadgeColor(role: string): string {
   const colors: Record<string, string> = {
-    admin: 'bg-purple-500/20 text-purple-200',
-    supervisore: 'bg-blue-500/20 text-blue-200',
-    operatore: 'bg-amber-500/20 text-amber-200',
-    struttura: 'bg-emerald-500/20 text-emerald-200',
+    admin: 'bg-purple-500/12 text-purple-900',
+    supervisore: 'bg-blue-500/12 text-blue-900',
+    operatore: 'bg-amber-500/12 text-amber-900',
+    struttura: 'bg-emerald-500/12 text-emerald-800',
   };
-  return colors[role] || 'bg-slate-500/20 text-slate-200';
+  return colors[role] || 'bg-slate-500/12 text-slate-800';
 }
 
 export function getRoleLabel(role: string): string {

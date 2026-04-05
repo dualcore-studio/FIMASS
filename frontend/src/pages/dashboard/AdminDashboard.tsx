@@ -122,7 +122,7 @@ export default function AdminDashboard() {
       <div className="flex min-h-[40vh] items-center justify-center">
         <div className="flex flex-col items-center gap-3">
           <div className="h-10 w-10 animate-spin rounded-full border-2 border-blue-400 border-t-transparent" />
-          <p className="text-sm text-slate-400">Caricamento panoramica…</p>
+          <p className="text-sm text-slate-500">Caricamento panoramica…</p>
         </div>
       </div>
     );
@@ -143,18 +143,18 @@ export default function AdminDashboard() {
     <div className="space-y-8">
       <header className="flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight text-slate-50">
+          <h1 className="text-3xl font-bold tracking-tight text-slate-900">
             Bentornato{user ? `, ${getUserDisplayName(user)}` : ''}
           </h1>
-          <p className="mt-1.5 capitalize text-slate-400">{todayLabel}</p>
-          <p className="mt-2 max-w-2xl text-sm leading-relaxed text-slate-400">
+          <p className="mt-1.5 capitalize text-slate-600">{todayLabel}</p>
+          <p className="mt-2 max-w-2xl text-sm leading-relaxed text-slate-600">
             Panoramica globale di Sportello Amico: preventivi, polizze e segnalazioni operative.
           </p>
         </div>
       </header>
 
       <section aria-label="Indicatori chiave">
-        <h2 className="mb-4 text-xs font-semibold uppercase tracking-[0.12em] text-slate-500">
+        <h2 className="mb-4 text-xs font-semibold uppercase tracking-[0.12em] text-slate-600">
           Indicatori chiave
         </h2>
         <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
@@ -204,21 +204,21 @@ export default function AdminDashboard() {
       </section>
 
       <section aria-label="Avvisi operativi">
-        <h2 className="mb-4 text-xs font-semibold uppercase tracking-[0.12em] text-slate-500">
+        <h2 className="mb-4 text-xs font-semibold uppercase tracking-[0.12em] text-slate-600">
           Avvisi operativi
         </h2>
         <div className="grid gap-4 sm:grid-cols-2">
           {alertItems.map(({ key, label, borderClass, icon: Icon }) => (
             <div
               key={key}
-              className={`flex items-center gap-4 rounded-xl border border-white/[0.08] border-l-4 bg-[#1e2738]/95 p-5 shadow-none backdrop-blur-sm ${borderClass}`}
+              className={`flex items-center gap-4 rounded-xl border border-slate-200/95 border-l-4 bg-white p-5 shadow-[0_1px_3px_rgba(15,23,42,0.06),0_1px_2px_rgba(15,23,42,0.04)] ${borderClass}`}
             >
-              <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-[10px] bg-white/[0.06] text-slate-300">
+              <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-[10px] bg-slate-100 text-slate-600">
                 <Icon className="h-5 w-5" />
               </div>
               <div className="min-w-0 flex-1">
-                <p className="text-sm font-medium text-slate-100">{label}</p>
-                <p className="mt-1 text-2xl font-bold tabular-nums text-slate-50">{alerts[key]}</p>
+                <p className="text-sm font-medium text-slate-800">{label}</p>
+                <p className="mt-1 text-2xl font-bold tabular-nums text-slate-900">{alerts[key]}</p>
               </div>
             </div>
           ))}

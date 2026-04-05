@@ -445,7 +445,7 @@ function TabStorico({ history }: { history: StatusHistory[] }) {
         <ul className="space-y-6">
           {history.map((h, i) => (
             <li key={h.id} className="relative pl-10">
-              <div className={`absolute left-2.5 top-1 h-3 w-3 rounded-full border-2 border-white ${
+              <div className={`absolute left-2.5 top-1 h-3 w-3 rounded-full border-2 border-[#f3f5f9] shadow-[0_0_0_1px_rgba(226,232,240,0.9)] ${
                 i === 0 ? 'bg-blue-600' : 'bg-gray-400'
               }`} />
               <div>

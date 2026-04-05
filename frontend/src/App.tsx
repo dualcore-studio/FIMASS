@@ -25,7 +25,7 @@ function ProtectedRoute({ children, roles }: { children: ReactNode; roles?: stri
 
   if (isLoading) {
     return (
-      <div className="relative min-h-screen flex items-center justify-center bg-[#12151C]">
+      <div className="relative min-h-screen flex items-center justify-center bg-[var(--portal-app-bg)]">
         <div className="pointer-events-none absolute inset-0" aria-hidden>
           <PortalBackgroundLayers />
         </div>
