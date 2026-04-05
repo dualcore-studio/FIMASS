@@ -28,9 +28,9 @@ export default function Login() {
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex flex-col overflow-hidden bg-[#12151C]">
+    <div className="fixed inset-0 z-50 flex flex-col overflow-hidden bg-[#0F1B36]">
       <div className="pointer-events-none absolute inset-0" aria-hidden>
-        <PortalBackgroundLayers />
+        <PortalBackgroundLayers variant="login" />
       </div>
 
       <div className="relative z-10 flex min-h-0 w-full flex-1 flex-col items-center justify-start overflow-hidden px-4 pb-3 pt-[max(0.75rem,3.5dvh)] sm:px-6 sm:pt-[max(1rem,5dvh)]">
