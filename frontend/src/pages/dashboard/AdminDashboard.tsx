@@ -6,7 +6,6 @@ import { getUserDisplayName } from '../../utils/helpers';
 import { useAuth } from '../../context/AuthContext';
 import DashboardPageHeader from '../../components/dashboard/DashboardPageHeader';
 import DashboardPrimaryKpi from '../../components/dashboard/DashboardPrimaryKpi';
-import DashboardSecondaryMetric from '../../components/dashboard/DashboardSecondaryMetric';
 import DashboardPanel from '../../components/dashboard/DashboardPanel';
 import DashboardAlertRow from '../../components/dashboard/DashboardAlertRow';
 
@@ -34,6 +33,14 @@ interface AlertsReport {
   polizze_senza_avanzamento: number;
   pratiche_ferme: number;
 }
+
+type OperativeRow = {
+  area: string;
+  focus: string;
+  detail: string;
+  value: number;
+  action: { label: string; to: string } | null;
+};
 
 export default function AdminDashboard() {
   const { user } = useAuth();
@@ -106,57 +113,61 @@ export default function AdminDashboard() {
   const richieste = policyStats['RICHIESTA PRESENTATA'] ?? 0;
   const emesse = policyStats.EMESSA ?? 0;
 
-  const operativitaRows = [
-    { label: 'Preventivi assegnati agli operatori', value: quoteStats.ASSEGNATA },
-    { label: 'Preventivi in stand-by', value: quoteStats.STANDBY },
-    { label: 'Preventivi elaborati (chiusi positivamente)', value: quoteStats.ELABORATA },
-    { label: 'Portafoglio preventivi (totale)', value: quoteStats.totale },
-    { label: 'Polizze in verifica', value: policyStats['IN VERIFICA'] },
-    { label: 'Polizze con documentazione mancante', value: policyStats['DOCUMENTAZIONE MANCANTE'] },
-    { label: 'Polizze pronte per emissione', value: policyStats['PRONTA PER EMISSIONE'] },
+  const polizzeInIter =
+    (policyStats['RICHIESTA PRESENTATA'] ?? 0) +
+    (policyStats['IN VERIFICA'] ?? 0) +
+    (policyStats['DOCUMENTAZIONE MANCANTE'] ?? 0) +
+    (policyStats['PRONTA PER EMISSIONE'] ?? 0);
+
+  /** Flussi che indicano dove si concentra il lavoro e dove serve coordinamento. */
+  const operativeFlowRows: OperativeRow[] = [
+    {
+      area: 'Preventivi',
+      focus: 'Ingresso — da assegnare',
+      detail: 'Pratiche in stato Presentata: assegnazione agli operatori.',
+      value: quoteStats.PRESENTATA,
+      action: { label: 'Gestisci coda', to: '/preventivi' },
+    },
+    {
+      area: 'Preventivi',
+      focus: 'Lavorazione attiva',
+      detail: 'Capacità operativa attualmente impegnata sulle pratiche.',
+      value: quoteStats['IN LAVORAZIONE'],
+      action: null,
+    },
+    {
+      area: 'Preventivi',
+      focus: 'Stand-by',
+      detail: 'Pratiche in pausa: possibile attrito o attesa documenti.',
+      value: quoteStats.STANDBY,
+      action: { label: 'Rivedi', to: '/preventivi' },
+    },
+    {
+      area: 'Polizze',
+      focus: 'Pipeline pre-emissione',
+      detail: 'Richieste e iter amministrativo prima dell’emissione.',
+      value: polizzeInIter,
+      action: { label: 'Apri polizze', to: '/polizze' },
+    },
   ];
 
-  const pipelineDetailRows: { area: string; voce: string; valore: number }[] = [
-    { area: 'Preventivi', voce: 'Presentata', valore: quoteStats.PRESENTATA },
-    { area: 'Preventivi', voce: 'Assegnata', valore: quoteStats.ASSEGNATA },
-    { area: 'Preventivi', voce: 'In lavorazione', valore: quoteStats['IN LAVORAZIONE'] },
-    { area: 'Preventivi', voce: 'Stand-by', valore: quoteStats.STANDBY },
-    { area: 'Preventivi', voce: 'Elaborata', valore: quoteStats.ELABORATA },
-    { area: 'Polizze', voce: 'Richiesta presentata', valore: policyStats['RICHIESTA PRESENTATA'] },
-    { area: 'Polizze', voce: 'In verifica', valore: policyStats['IN VERIFICA'] },
-    { area: 'Polizze', voce: 'Documentazione mancante', valore: policyStats['DOCUMENTAZIONE MANCANTE'] },
-    { area: 'Polizze', voce: 'Pronta per emissione', valore: policyStats['PRONTA PER EMISSIONE'] },
-    { area: 'Polizze', voce: 'Emessa', valore: policyStats.EMESSA },
-  ];
-
-  const quickLink = (to: string, label: string) => (
-    <Link
-      to={to}
-      className="btn-primary inline-flex items-center justify-center gap-2 whitespace-nowrap px-4 py-2.5 text-sm shadow-sm shadow-blue-900/10"
-    >
-      {label}
-    </Link>
-  );
+  const adminAlertsTotal =
+    alerts.pratiche_non_assegnate +
+    alerts.polizze_senza_avanzamento +
+    alerts.standby_prolungato +
+    alerts.pratiche_ferme;
 
   return (
-    <div className="mx-auto w-full max-w-[88rem] space-y-6 lg:space-y-7">
+    <div className="mx-auto w-full max-w-[80rem] space-y-8 lg:space-y-10">
       <DashboardPageHeader
         title="Dashboard"
         welcomeLine={user ? `Bentornato, ${getUserDisplayName(user)}` : undefined}
         dateLabel={todayLabel}
-        description="Panoramica esecutiva di Sportello Amico: volumi chiave, alert operativi e stato della pipeline preventivi e polizze."
-        actions={
-          <>
-            {quickLink('/preventivi/nuovo', 'Nuovo Preventivo')}
-            {quickLink('/polizze/nuova', 'Nuova Polizza')}
-            {quickLink('/preventivi', 'Assegna Pratica')}
-          </>
-        }
+        description="Centro di controllo: dove intervenire, dove si accumula il lavoro e cosa segnala il sistema."
       />
 
-      <section aria-label="Indicatori primari">
-        <p className="mb-3 text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-500">Indicatori primari</p>
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4 lg:gap-4">
+      <section aria-label="Indicatori chiave">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4 lg:gap-5">
           <DashboardPrimaryKpi label="Preventivi presentati" value={quoteStats.PRESENTATA} icon={FileText} />
           <DashboardPrimaryKpi label="In lavorazione" value={quoteStats['IN LAVORAZIONE']} icon={Clock} />
           <DashboardPrimaryKpi label="Polizze richieste" value={richieste} icon={Shield} />
@@ -164,39 +175,47 @@ export default function AdminDashboard() {
         </div>
       </section>
 
-      <section aria-label="Metriche secondarie">
-        <p className="mb-2 text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-500">Pipeline e volumi</p>
-        <div className="flex flex-wrap gap-2">
-          <DashboardSecondaryMetric label="Assegnati" value={quoteStats.ASSEGNATA} />
-          <DashboardSecondaryMetric label="Stand-by" value={quoteStats.STANDBY} />
-          <DashboardSecondaryMetric label="Elaborati" value={quoteStats.ELABORATA} />
-          <DashboardSecondaryMetric label="Tot. preventivi" value={quoteStats.totale} />
-          <DashboardSecondaryMetric label="Polizze in verifica" value={policyStats['IN VERIFICA']} />
-          <DashboardSecondaryMetric label="Doc. mancante" value={policyStats['DOCUMENTAZIONE MANCANTE']} />
-          <DashboardSecondaryMetric label="Pronte emissione" value={policyStats['PRONTA PER EMISSIONE']} />
-        </div>
-      </section>
-
-      <div className="grid grid-cols-1 gap-4 lg:grid-cols-12 lg:gap-5">
+      <div className="grid grid-cols-1 gap-5 lg:grid-cols-12 lg:gap-8">
         <div className="lg:col-span-7">
           <DashboardPanel
-            title="Operatività recente"
-            description="Snapshot operativo dai dati aggregati attuali: volumi e colli di bottiglia nella pipeline."
+            title="Operatività"
+            description="Snapshot del carico sulle code: dove intervenire e dove si accumula il lavoro (dati aggregati attuali)."
           >
             <div className="overflow-x-auto">
               <table className="min-w-full text-sm">
                 <thead>
-                  <tr className="border-b border-slate-100 bg-slate-50/50 text-left text-[11px] font-semibold uppercase tracking-wide text-slate-500">
-                    <th className="px-4 py-2.5 sm:px-5">Indicatore</th>
-                    <th className="px-4 py-2.5 text-right sm:px-5">Valore</th>
+                  <tr className="border-b border-slate-100 bg-slate-50/60 text-left text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+                    <th className="px-4 py-3 sm:px-5">Area</th>
+                    <th className="px-4 py-3 sm:px-5">Focus</th>
+                    <th className="hidden px-4 py-3 md:table-cell sm:px-5">Nota</th>
+                    <th className="px-4 py-3 text-right sm:px-5">N.</th>
+                    <th className="px-4 py-3 text-right sm:px-5"> </th>
                   </tr>
                 </thead>
                 <tbody>
-                  {operativitaRows.map((row) => (
-                    <tr key={row.label} className="border-b border-slate-100 last:border-0 hover:bg-slate-50/60">
-                      <td className="px-4 py-2.5 text-slate-700 sm:px-5">{row.label}</td>
-                      <td className="px-4 py-2.5 text-right font-semibold tabular-nums text-slate-900 sm:px-5">
+                  {operativeFlowRows.map((row) => (
+                    <tr key={`${row.area}-${row.focus}`} className="border-b border-slate-100 last:border-0">
+                      <td className="whitespace-nowrap px-4 py-3.5 text-xs font-semibold text-slate-500 sm:px-5">
+                        {row.area}
+                      </td>
+                      <td className="px-4 py-3.5 font-medium text-slate-900 sm:px-5">{row.focus}</td>
+                      <td className="hidden max-w-xs px-4 py-3.5 text-slate-500 md:table-cell sm:px-5">
+                        {row.detail}
+                      </td>
+                      <td className="whitespace-nowrap px-4 py-3.5 text-right text-lg font-semibold tabular-nums text-slate-900 sm:px-5">
                         {row.value}
+                      </td>
+                      <td className="whitespace-nowrap px-4 py-3.5 text-right sm:px-5">
+                        {row.action ? (
+                          <Link
+                            to={row.action.to}
+                            className="text-xs font-semibold text-blue-700 hover:text-blue-800"
+                          >
+                            {row.action.label}
+                          </Link>
+                        ) : (
+                          <span className="text-xs text-slate-300">—</span>
+                        )}
                       </td>
                     </tr>
                   ))}
@@ -209,16 +228,20 @@ export default function AdminDashboard() {
         <div className="lg:col-span-5">
           <DashboardPanel
             title="Alert operativi"
-            description="Segnalazioni che richiedono attenzione: interveni dalla lista pratiche o polizze."
+            description={
+              adminAlertsTotal === 0
+                ? 'Nessuna anomalia segnalata dai conteggi automatici.'
+                : 'Segnalazioni che richiedono verifica o intervento di coordinamento.'
+            }
           >
             <DashboardAlertRow
               label="Pratiche non assegnate"
               value={alerts.pratiche_non_assegnate}
               severity="warning"
-              badgeText="Attenzione"
+              badgeText="Assegnazione"
               action={
                 <Link to="/preventivi" className="text-xs font-semibold text-blue-700 hover:text-blue-800">
-                  Vai ai preventivi
+                  Apri
                 </Link>
               }
             />
@@ -229,7 +252,7 @@ export default function AdminDashboard() {
               badgeText="Critico"
               action={
                 <Link to="/polizze" className="text-xs font-semibold text-blue-700 hover:text-blue-800">
-                  Vai alle polizze
+                  Apri
                 </Link>
               }
             />
@@ -240,7 +263,7 @@ export default function AdminDashboard() {
               badgeText="Follow-up"
               action={
                 <Link to="/preventivi" className="text-xs font-semibold text-blue-700 hover:text-blue-800">
-                  Vai ai preventivi
+                  Apri
                 </Link>
               }
             />
@@ -251,7 +274,7 @@ export default function AdminDashboard() {
               badgeText="Monitoraggio"
               action={
                 <Link to="/preventivi" className="text-xs font-semibold text-blue-700 hover:text-blue-800">
-                  Vai ai preventivi
+                  Apri
                 </Link>
               }
             />
@@ -259,34 +282,43 @@ export default function AdminDashboard() {
         </div>
       </div>
 
-      <section aria-label="Dettaglio pipeline">
-        <DashboardPanel
-          title="Ultime voci di pipeline"
-          description="Dettaglio per stato su preventivi e polizze — utile per revisione operativa e reportistica."
-        >
-          <div className="overflow-x-auto">
-            <table className="portal-table min-w-full text-sm">
-              <thead>
-                <tr>
-                  <th className="px-4 py-3 text-left font-medium text-slate-600 sm:px-5">Area</th>
-                  <th className="px-4 py-3 text-left font-medium text-slate-600 sm:px-5">Stato / voce</th>
-                  <th className="px-4 py-3 text-right font-medium text-slate-600 sm:px-5">Conteggio</th>
-                </tr>
-              </thead>
-              <tbody>
-                {pipelineDetailRows.map((row) => (
-                  <tr key={`${row.area}-${row.voce}`}>
-                    <td className="whitespace-nowrap px-4 py-2.5 text-slate-600 sm:px-5">{row.area}</td>
-                    <td className="px-4 py-2.5 text-slate-800 sm:px-5">{row.voce}</td>
-                    <td className="px-4 py-2.5 text-right font-semibold tabular-nums text-slate-900 sm:px-5">
-                      {row.valore}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+      <section aria-label="Interventi amministratore">
+        <div className="grid grid-cols-1 gap-4 lg:grid-cols-2 lg:gap-5">
+          <div className="rounded-xl border border-slate-200/90 bg-white p-6 shadow-[0_1px_2px_rgba(15,23,42,0.04),0_6px_20px_-4px_rgba(15,23,42,0.06)]">
+            <h3 className="text-sm font-semibold text-slate-900">Pratiche da assegnare</h3>
+            <p className="mt-2 text-sm leading-relaxed text-slate-600">
+              Coordina l’ingresso in sportello: assegna le pratiche presentate agli operatori e sblocca la coda.
+            </p>
+            <div className="mt-5 flex flex-wrap items-center gap-3">
+              <Link
+                to="/preventivi"
+                className="btn-primary inline-flex items-center justify-center px-4 py-2.5 text-sm shadow-sm shadow-blue-900/10"
+              >
+                Apri coda preventivi
+              </Link>
+            </div>
           </div>
-        </DashboardPanel>
+          <div className="rounded-xl border border-slate-200/90 bg-white p-6 shadow-[0_1px_2px_rgba(15,23,42,0.04),0_6px_20px_-4px_rgba(15,23,42,0.06)]">
+            <h3 className="text-sm font-semibold text-slate-900">Polizze da monitorare</h3>
+            <p className="mt-2 text-sm leading-relaxed text-slate-600">
+              Verifica le polizze segnalate senza avanzamento e allinea strutture o operatori sullo stato.
+            </p>
+            <p className="mt-3 text-xs text-slate-500">
+              Segnalazioni attive:{' '}
+              <span className="font-semibold tabular-nums text-slate-800">
+                {alerts.polizze_senza_avanzamento}
+              </span>
+            </p>
+            <div className="mt-5 flex flex-wrap items-center gap-3">
+              <Link
+                to="/polizze"
+                className="btn-secondary inline-flex items-center justify-center px-4 py-2.5 text-sm"
+              >
+                Apri elenco polizze
+              </Link>
+            </div>
+          </div>
+        </div>
       </section>
     </div>
   );
