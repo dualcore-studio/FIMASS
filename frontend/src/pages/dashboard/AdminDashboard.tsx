@@ -1,13 +1,15 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { FileText, Clock3, Shield, ReceiptText } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import { api, ApiError } from '../../utils/api';
 import { getUserDisplayName } from '../../utils/helpers';
 import { useAuth } from '../../context/AuthContext';
-import type { InProgressQuoteRow, PaginatedResponse, Quote } from '../../types';
+import type { InProgressQuoteRow, PaginatedResponse, Policy, Quote, User } from '../../types';
 import DashboardPageHeader from '../../components/dashboard/DashboardPageHeader';
 import Modal from '../../components/ui/Modal';
+
+const DASHBOARD_ROW_LIMIT = 6;
 
 interface QuoteStats {
   PRESENTATA: number;
@@ -39,67 +41,77 @@ export default function AdminDashboard() {
   const [quoteStats, setQuoteStats] = useState<QuoteStats | null>(null);
   const [policyStats, setPolicyStats] = useState<PolicyStats | null>(null);
   const [alerts, setAlerts] = useState<AlertsReport | null>(null);
+  const [presentedQuotes, setPresentedQuotes] = useState<Quote[]>([]);
   const [inProgressQuotes, setInProgressQuotes] = useState<InProgressQuoteRow[]>([]);
+  const [requestedPolicies, setRequestedPolicies] = useState<Policy[]>([]);
+  const [issuedPolicies, setIssuedPolicies] = useState<Policy[]>([]);
+  const [operators, setOperators] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [assignModalOpen, setAssignModalOpen] = useState(false);
+  const [selectedPresentedId, setSelectedPresentedId] = useState<number | null>(null);
+  const [assignOperatorId, setAssignOperatorId] = useState('');
+  const [assignSubmitting, setAssignSubmitting] = useState(false);
+  const [assignFeedback, setAssignFeedback] = useState<string | null>(null);
   const [sollecitoModalOpen, setSollecitoModalOpen] = useState(false);
   const [selectedInProgressId, setSelectedInProgressId] = useState<number | null>(null);
   const [sendingReminderFor, setSendingReminderFor] = useState<number | null>(null);
   const [reminderFeedback, setReminderFeedback] = useState<string | null>(null);
 
-  useEffect(() => {
-    let cancelled = false;
+  const loadDashboard = useCallback(async () => {
+    setError(null);
+    setLoading(true);
+    try {
+      const [q, p, a, presented, policiesRequested, policiesIssued, operatorList] = await Promise.all([
+        api.get<QuoteStats>('/quotes/stats'),
+        api.get<PolicyStats>('/policies/stats'),
+        api.get<AlertsReport>('/reports/alerts'),
+        api.get<PaginatedResponse<Quote>>(`/quotes?stato=PRESENTATA&limit=${DASHBOARD_ROW_LIMIT}`),
+        api.get<PaginatedResponse<Policy>>(`/policies?stato=RICHIESTA%20PRESENTATA&limit=${DASHBOARD_ROW_LIMIT}`),
+        api.get<PaginatedResponse<Policy>>(`/policies?stato=EMESSA&limit=${DASHBOARD_ROW_LIMIT}`),
+        api.get<User[]>('/users/operators'),
+      ]);
 
-    async function load() {
-      setError(null);
-      setLoading(true);
+      let inProgress: InProgressQuoteRow[] = [];
       try {
-        const [q, p, a] = await Promise.all([
-          api.get<QuoteStats>('/quotes/stats'),
-          api.get<PolicyStats>('/policies/stats'),
-          api.get<AlertsReport>('/reports/alerts'),
-        ]);
-
-        let inProgress: InProgressQuoteRow[] = [];
-        try {
-          inProgress = await api.get<InProgressQuoteRow[]>('/quotes/in-progress?limit=10');
-        } catch {
-          try {
-            const fallback = await api.get<PaginatedResponse<Quote>>('/quotes?stato=IN%20LAVORAZIONE&limit=10');
-            inProgress = (fallback.data ?? []).map((quote) => ({
-              id: quote.id,
-              numero: quote.numero,
-              operatore_id: quote.operatore_id,
-              operatore_nome: quote.operatore_nome,
-              operatore_cognome: quote.operatore_cognome,
-              in_lavorazione_dal: quote.updated_at,
-              updated_at: quote.updated_at,
-            }));
-          } catch {
-            inProgress = [];
-          }
-        }
-
-        if (!cancelled) {
-          setQuoteStats(q);
-          setPolicyStats(p);
-          setAlerts(a);
-          setInProgressQuotes(inProgress);
-        }
+        inProgress = await api.get<InProgressQuoteRow[]>(`/quotes/in-progress?limit=${DASHBOARD_ROW_LIMIT}`);
       } catch {
-        if (!cancelled) {
-          setError('Impossibile caricare i dati della dashboard. Riprova più tardi.');
+        try {
+          const fallback = await api.get<PaginatedResponse<Quote>>(
+            `/quotes?stato=IN%20LAVORAZIONE&limit=${DASHBOARD_ROW_LIMIT}`,
+          );
+          inProgress = (fallback.data ?? []).map((quote) => ({
+            id: quote.id,
+            numero: quote.numero,
+            operatore_id: quote.operatore_id,
+            operatore_nome: quote.operatore_nome,
+            operatore_cognome: quote.operatore_cognome,
+            in_lavorazione_dal: quote.updated_at,
+            updated_at: quote.updated_at,
+          }));
+        } catch {
+          inProgress = [];
         }
-      } finally {
-        if (!cancelled) setLoading(false);
       }
-    }
 
-    load();
-    return () => {
-      cancelled = true;
-    };
+      setQuoteStats(q);
+      setPolicyStats(p);
+      setAlerts(a);
+      setPresentedQuotes(presented.data ?? []);
+      setInProgressQuotes(inProgress);
+      setRequestedPolicies(policiesRequested.data ?? []);
+      setIssuedPolicies(policiesIssued.data ?? []);
+      setOperators(operatorList);
+    } catch {
+      setError('Impossibile caricare i dati della dashboard. Riprova più tardi.');
+    } finally {
+      setLoading(false);
+    }
   }, []);
+
+  useEffect(() => {
+    void loadDashboard();
+  }, [loadDashboard]);
 
   const todayLabel = new Date().toLocaleDateString('it-IT', {
     weekday: 'long',
@@ -131,13 +143,43 @@ export default function AdminDashboard() {
 
   const richieste = policyStats['RICHIESTA PRESENTATA'] ?? 0;
   const emesse = policyStats.EMESSA ?? 0;
+  const presentedRows = presentedQuotes.map((quote) => ({
+    id: quote.id,
+    title: `ID Preventivo: ${quote.numero}`,
+    subtitle: [quote.assistito_nome, quote.assistito_cognome].filter(Boolean).join(' ') || 'Assistito non disponibile',
+  }));
   const inLavorazioneRows = inProgressQuotes.map((quote) => ({
     id: quote.id,
-    numero: quote.numero,
-    operatore: [quote.operatore_nome, quote.operatore_cognome].filter(Boolean).join(' ') || 'Operatore non assegnato',
-    inLavorazioneDal: quote.in_lavorazione_dal,
+    title: `ID Preventivo: ${quote.numero}`,
+    subtitle: [quote.operatore_nome, quote.operatore_cognome].filter(Boolean).join(' ') || 'Operatore non assegnato',
+    meta: quote.in_lavorazione_dal ? `In lavorazione da: ${formatElapsedTime(quote.in_lavorazione_dal)}` : undefined,
   }));
-  const selectedInLavorazioneRow = inLavorazioneRows.find((row) => row.id === selectedInProgressId) ?? null;
+  const richiesteRows = requestedPolicies.map((policy) => ({
+    id: policy.id,
+    title: `Polizza: ${policy.numero}`,
+    subtitle: `Preventivo: ${policy.preventivo_numero || '-'}`,
+  }));
+  const emesseRows = issuedPolicies.map((policy) => ({
+    id: policy.id,
+    title: `Polizza: ${policy.numero}`,
+    subtitle: [policy.assistito_nome, policy.assistito_cognome].filter(Boolean).join(' ') || 'Assistito non disponibile',
+  }));
+  const selectedInLavorazioneRow = inProgressQuotes.find((row) => row.id === selectedInProgressId) ?? null;
+  const selectedPresentedRow = presentedQuotes.find((row) => row.id === selectedPresentedId) ?? null;
+
+  function openAssignModal(rowId: number) {
+    setSelectedPresentedId(rowId);
+    setAssignOperatorId('');
+    setAssignFeedback(null);
+    setAssignModalOpen(true);
+  }
+
+  function closeAssignModal() {
+    setAssignModalOpen(false);
+    setSelectedPresentedId(null);
+    setAssignOperatorId('');
+    setAssignFeedback(null);
+  }
 
   function openSollecitoModal(rowId: number) {
     setSelectedInProgressId(rowId);
@@ -149,6 +191,31 @@ export default function AdminDashboard() {
     setSollecitoModalOpen(false);
     setSelectedInProgressId(null);
     setReminderFeedback(null);
+  }
+
+  async function handleAssignQuote(quoteId: number) {
+    if (!assignOperatorId) {
+      setAssignFeedback('Seleziona un operatore prima di confermare.');
+      return;
+    }
+    setAssignFeedback(null);
+    setAssignSubmitting(true);
+    try {
+      await api.put(`/quotes/${quoteId}/assign`, { operatore_id: Number(assignOperatorId) });
+      setAssignFeedback('Preventivo assegnato con successo.');
+      window.setTimeout(() => {
+        closeAssignModal();
+      }, 900);
+      await loadDashboard();
+    } catch (e) {
+      const msg =
+        e instanceof ApiError
+          ? e.message
+          : 'Assegnazione non riuscita. Riprova tra qualche secondo.';
+      setAssignFeedback(msg);
+    } finally {
+      setAssignSubmitting(false);
+    }
   }
 
   async function handleSollecito(quoteId: number) {
@@ -211,18 +278,85 @@ export default function AdminDashboard() {
 
       <section aria-label="Stato lavorazioni" className="pt-0.5">
         <div className="grid grid-cols-1 gap-4 lg:grid-cols-2 xl:grid-cols-4">
-          <DashboardWorkColumn title="Preventivi presentati" value={quoteStats.PRESENTATA} icon={FileText} />
+          <DashboardWorkColumn
+            title="Preventivi presentati"
+            value={quoteStats.PRESENTATA}
+            icon={FileText}
+            rows={presentedRows}
+            actionLabel="Assegna"
+            onAction={openAssignModal}
+            actionLoadingId={assignSubmitting ? selectedPresentedId : null}
+          />
           <DashboardWorkColumn
             title="In lavorazione"
             value={quoteStats['IN LAVORAZIONE']}
             icon={Clock3}
             rows={inLavorazioneRows}
-            onOpenSollecito={openSollecitoModal}
+            actionLabel="Sollecita"
+            onAction={openSollecitoModal}
+            actionLoadingId={sendingReminderFor}
           />
-          <DashboardWorkColumn title="Polizze richieste" value={richieste} icon={Shield} />
-          <DashboardWorkColumn title="Polizze emesse" value={emesse} icon={ReceiptText} />
+          <DashboardWorkColumn title="Polizze richieste" value={richieste} icon={Shield} rows={richiesteRows} />
+          <DashboardWorkColumn title="Polizze emesse" value={emesse} icon={ReceiptText} rows={emesseRows} />
         </div>
       </section>
+
+      <Modal
+        isOpen={assignModalOpen && selectedPresentedRow != null}
+        onClose={closeAssignModal}
+        title="Assegna operatore"
+        size="sm"
+      >
+        {selectedPresentedRow && (
+          <div className="space-y-4">
+            <div className="rounded-lg border border-slate-200 bg-slate-50/80 px-4 py-3 text-sm">
+              <p className="font-medium text-slate-900">Preventivo {selectedPresentedRow.numero}</p>
+              <p className="mt-1 text-slate-600">
+                Assistito:{' '}
+                <span className="font-medium text-slate-800">
+                  {[selectedPresentedRow.assistito_nome, selectedPresentedRow.assistito_cognome].filter(Boolean).join(' ') || '-'}
+                </span>
+              </p>
+            </div>
+            <div>
+              <label htmlFor="assign-operator-dashboard" className="mb-1 block text-sm font-medium text-slate-700">
+                Operatore
+              </label>
+              <select
+                id="assign-operator-dashboard"
+                value={assignOperatorId}
+                onChange={(e) => setAssignOperatorId(e.target.value)}
+                className="input-field"
+              >
+                <option value="">Seleziona operatore…</option>
+                {operators.map((op) => (
+                  <option key={op.id} value={String(op.id)}>
+                    {getUserDisplayName(op)}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div className="flex flex-wrap items-center justify-end gap-2 pt-1">
+              <button type="button" onClick={closeAssignModal} className="btn-secondary px-4 py-2 text-sm">
+                Annulla
+              </button>
+              <button
+                type="button"
+                onClick={() => handleAssignQuote(selectedPresentedRow.id)}
+                disabled={assignSubmitting}
+                className="btn-primary px-4 py-2 text-sm disabled:opacity-60"
+              >
+                {assignSubmitting ? 'Assegnazione…' : 'Conferma'}
+              </button>
+            </div>
+            {assignFeedback && (
+              <p className={`text-sm ${assignFeedback.toLowerCase().includes('successo') ? 'text-emerald-700' : 'text-red-700'}`}>
+                {assignFeedback}
+              </p>
+            )}
+          </div>
+        )}
+      </Modal>
 
       <Modal
         isOpen={sollecitoModalOpen && selectedInLavorazioneRow != null}
@@ -235,12 +369,15 @@ export default function AdminDashboard() {
             <div className="rounded-lg border border-slate-200 bg-slate-50/80 px-4 py-3 text-sm">
               <p className="font-medium text-slate-900">Preventivo {selectedInLavorazioneRow.numero}</p>
               <p className="mt-1 text-slate-600">
-                Operatore: <span className="font-medium text-slate-800">{selectedInLavorazioneRow.operatore}</span>
+                Operatore:{' '}
+                <span className="font-medium text-slate-800">
+                  {[selectedInLavorazioneRow.operatore_nome, selectedInLavorazioneRow.operatore_cognome].filter(Boolean).join(' ') || 'Operatore non assegnato'}
+                </span>
               </p>
               <p className="mt-2 text-xs text-slate-500">
                 In lavorazione da:{' '}
                 <span className="font-semibold text-slate-700">
-                  {formatElapsedTime(selectedInLavorazioneRow.inLavorazioneDal)}
+                  {formatElapsedTime(selectedInLavorazioneRow.in_lavorazione_dal)}
                 </span>
               </p>
             </div>
@@ -296,8 +433,10 @@ interface DashboardWorkColumnProps {
   title: string;
   value: number;
   icon: LucideIcon;
-  rows?: Array<{ id: number; numero: string; operatore: string; inLavorazioneDal?: string }>;
-  onOpenSollecito?: (id: number) => void;
+  rows?: Array<{ id: number; title: string; subtitle?: string; meta?: string }>;
+  actionLabel?: string;
+  onAction?: (id: number) => void;
+  actionLoadingId?: number | null;
 }
 
 function DashboardWorkColumn({
@@ -305,7 +444,9 @@ function DashboardWorkColumn({
   value,
   icon: Icon,
   rows = [],
-  onOpenSollecito,
+  actionLabel,
+  onAction,
+  actionLoadingId = null,
 }: DashboardWorkColumnProps) {
   return (
     <article className="min-h-[27rem] rounded-xl border border-slate-200/90 bg-white px-4 py-4 shadow-[0_1px_3px_rgba(15,23,42,0.05)]">
@@ -326,14 +467,23 @@ function DashboardWorkColumn({
           <ul className="space-y-2">
             {rows.map((row) => (
               <li key={row.id}>
-                <button
-                  type="button"
-                  onClick={() => onOpenSollecito?.(row.id)}
-                  className="w-full rounded-lg border border-slate-200/80 bg-slate-50/60 px-3 py-2 text-left transition-colors hover:bg-slate-100/80"
-                >
-                  <p className="text-xs font-semibold text-slate-700">ID Preventivo: {row.numero}</p>
-                  <p className="mt-0.5 text-xs text-slate-500">Operatore: {row.operatore}</p>
-                </button>
+                <div className="rounded-lg border border-slate-200/80 bg-slate-50/60 px-3 py-2">
+                  <p className="text-xs font-semibold text-slate-700">{row.title}</p>
+                  {row.subtitle && <p className="mt-0.5 text-xs text-slate-500">{row.subtitle}</p>}
+                  {row.meta && <p className="mt-0.5 text-[11px] text-slate-400">{row.meta}</p>}
+                  {actionLabel && onAction && (
+                    <div className="mt-2 flex justify-end">
+                      <button
+                        type="button"
+                        onClick={() => onAction(row.id)}
+                        disabled={actionLoadingId === row.id}
+                        className="rounded-md border border-slate-200 bg-white px-2.5 py-1 text-[11px] font-medium text-slate-700 transition hover:border-blue-300 hover:bg-blue-50 hover:text-blue-700 disabled:opacity-60"
+                      >
+                        {actionLoadingId === row.id ? 'Invio…' : actionLabel}
+                      </button>
+                    </div>
+                  )}
+                </div>
               </li>
             ))}
           </ul>
