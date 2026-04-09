@@ -37,7 +37,7 @@ export default function Login() {
         <div className="flex min-h-0 w-full max-w-xl flex-col items-center overflow-hidden">
           {/* Logo — stessa scala percepita, limiti in dvh per stare in viewport senza scroll */}
           <div className="mb-4 w-full shrink-0 flex justify-center px-2 sm:mb-5">
-            <div className="relative flex w-full max-w-[min(100%,92vw,580px)] justify-center">
+            <div className="relative flex w-full max-w-md justify-center">
               <div
                 className="pointer-events-none absolute left-1/2 top-1/2 h-[min(130%,440px)] w-[min(150%,640px)] -translate-x-1/2 -translate-y-1/2 rounded-full bg-[radial-gradient(circle,rgba(11,78,162,0.09)_0%,rgba(253,200,48,0.04)_38%,transparent_68%)] blur-2xl"
                 aria-hidden
@@ -45,7 +45,7 @@ export default function Login() {
               <img
                 src="/fimass-logo-main.svg"
                 alt="FIMASS by Sportello Amico — Servizi per la famiglia e l'azienda"
-                className="relative z-[1] h-auto w-full max-h-[min(32dvh,220px)] sm:max-h-[min(36dvh,260px)] object-contain object-center bg-transparent [image-rendering:auto] drop-shadow-[0_10px_36px_rgba(15,23,42,0.12),0_2px_8px_rgba(11,78,162,0.08)] transition-transform duration-300 ease-out motion-safe:hover:scale-[1.01]"
+                className="relative z-[1] h-auto w-full object-contain object-center bg-transparent [image-rendering:auto] drop-shadow-[0_10px_36px_rgba(15,23,42,0.12),0_2px_8px_rgba(11,78,162,0.08)] transition-transform duration-300 ease-out motion-safe:hover:scale-[1.01]"
                 decoding="async"
               />
             </div>
