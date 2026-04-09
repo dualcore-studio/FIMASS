@@ -1,4 +1,4 @@
-const { getInstantClient } = require('../lib/instantdb');
+const { getInstantClient, instantId } = require('../lib/instantdb');
 
 const TABLES = [
   'users',
@@ -23,7 +23,11 @@ async function fetchTable(namespace) {
   const db = getInstantClient();
   const payload = await db.query({ [namespace]: {} });
   const rows = Array.isArray(payload?.[namespace]) ? payload[namespace] : [];
-  return rows.map((row) => ({ ...row }));
+  return rows.map((row) => ({
+    ...row,
+    _instant_id: row.id,
+    id: Number(row.db_id ?? row.id),
+  }));
 }
 
 async function fetchAllTables() {
@@ -35,7 +39,13 @@ async function fetchAllTables() {
   const payload = await db.query(query);
   const tables = {};
   for (const table of TABLES) {
-    tables[table] = Array.isArray(payload?.[table]) ? payload[table].map((r) => ({ ...r })) : [];
+    tables[table] = Array.isArray(payload?.[table])
+      ? payload[table].map((r) => ({
+          ...r,
+          _instant_id: r.id,
+          id: Number(r.db_id ?? r.id),
+        }))
+      : [];
   }
   return tables;
 }
@@ -56,23 +66,43 @@ async function nextNumericId(namespace) {
 
 async function insert(namespace, data) {
   const db = getInstantClient();
-  const id = data.id ? Number(data.id) : await nextNumericId(namespace);
-  const row = normalizeInput({ ...data, id, created_at: data.created_at || nowIso(), updated_at: data.updated_at || nowIso() });
-  await db.transact([db.tx[namespace][String(id)].update(row)]);
-  return row;
+  const logicalId = data.id ? Number(data.id) : await nextNumericId(namespace);
+  const instantEntityId = instantId();
+  const row = normalizeInput({
+    ...data,
+    db_id: logicalId,
+    created_at: data.created_at || nowIso(),
+    updated_at: data.updated_at || nowIso(),
+  });
+  delete row.id;
+  await db.transact([db.tx[namespace][instantEntityId].update(row)]);
+  return { ...row, id: logicalId, _instant_id: instantEntityId };
 }
 
 async function upsertById(namespace, id, patch) {
   const db = getInstantClient();
-  const current = await getById(namespace, id);
-  const row = normalizeInput({ ...(current || {}), ...patch, id: Number(id), updated_at: nowIso() });
-  await db.transact([db.tx[namespace][String(id)].update(row)]);
-  return row;
+  const rows = await fetchTable(namespace);
+  const current = rows.find((r) => Number(r.id) === Number(id)) || null;
+  if (!current) {
+    return insert(namespace, { ...patch, id: Number(id) });
+  }
+  const row = normalizeInput({
+    ...current,
+    ...patch,
+    db_id: Number(id),
+    updated_at: nowIso(),
+  });
+  delete row.id;
+  delete row._instant_id;
+  await db.transact([db.tx[namespace][current._instant_id].update(row)]);
+  return { ...row, id: Number(id), _instant_id: current._instant_id };
 }
 
 async function removeById(namespace, id) {
   const db = getInstantClient();
-  await db.transact([db.tx[namespace][String(id)].delete()]);
+  const current = await getById(namespace, id);
+  if (!current?._instant_id) return;
+  await db.transact([db.tx[namespace][current._instant_id].delete()]);
 }
 
 async function getById(namespace, id) {

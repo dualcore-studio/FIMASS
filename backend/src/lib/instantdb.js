@@ -1,4 +1,4 @@
-const { init } = require('@instantdb/admin');
+const { init, id } = require('@instantdb/admin');
 
 let client = null;
 
@@ -19,4 +19,4 @@ function getInstantClient() {
   return client;
 }
 
-module.exports = { getInstantClient, isInstantConfigured };
+module.exports = { getInstantClient, isInstantConfigured, instantId: id };
