@@ -39,24 +39,57 @@ export default function StructureDashboard() {
 
   useEffect(() => {
     let cancelled = false;
+    const emptyQuoteStats: QuoteStats = {
+      PRESENTATA: 0,
+      ASSEGNATA: 0,
+      'IN LAVORAZIONE': 0,
+      STANDBY: 0,
+      ELABORATA: 0,
+      totale: 0,
+    };
+    const emptyPolicyStats: PolicyStats = {
+      'RICHIESTA PRESENTATA': 0,
+      'IN VERIFICA': 0,
+      'DOCUMENTAZIONE MANCANTE': 0,
+      'PRONTA PER EMISSIONE': 0,
+      EMESSA: 0,
+      totale: 0,
+    };
 
     async function load() {
       setError(null);
       setLoading(true);
       try {
-        const [qStats, pStats, list] = await Promise.all([
+        const [qStatsResult, pStatsResult, listResult] = await Promise.allSettled([
           api.get<QuoteStats>('/quotes/stats'),
           api.get<PolicyStats>('/policies/stats'),
           api.get<PaginatedResponse<Quote>>('/quotes?limit=5'),
         ]);
         if (!cancelled) {
+          const qStats = qStatsResult.status === 'fulfilled' ? qStatsResult.value : emptyQuoteStats;
+          const pStats = pStatsResult.status === 'fulfilled' ? pStatsResult.value : emptyPolicyStats;
+          const list = listResult.status === 'fulfilled' ? listResult.value : { data: [] as Quote[] };
           setQuoteStats(qStats);
           setPolicyStats(pStats);
           setQuotes(list.data);
+
+          const failedRequests = [qStatsResult, pStatsResult, listResult].filter(
+            (r) => r.status === 'rejected',
+          ).length;
+          if (failedRequests > 0) {
+            setError(
+              failedRequests === 3
+                ? 'Impossibile caricare i dati della struttura.'
+                : 'Alcuni dati non sono al momento disponibili.',
+            );
+          }
         }
       } catch {
         if (!cancelled) {
           setError('Impossibile caricare i dati della struttura.');
+          setQuoteStats(emptyQuoteStats);
+          setPolicyStats(emptyPolicyStats);
+          setQuotes([]);
         }
       } finally {
         if (!cancelled) setLoading(false);
@@ -87,7 +120,7 @@ export default function StructureDashboard() {
     );
   }
 
-  if (error || !quoteStats || !policyStats) {
+  if (!quoteStats || !policyStats) {
     return (
       <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
         <p className="border-l-4 border-l-red-500 pl-4 text-sm font-medium text-red-800">
@@ -146,6 +179,12 @@ export default function StructureDashboard() {
           </>
         }
       />
+
+      {error ? (
+        <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm font-medium text-amber-800">
+          {error}
+        </div>
+      ) : null}
 
       <section aria-label="Indicatori primari">
         <p className="mb-3 text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-500">Indicatori primari</p>
