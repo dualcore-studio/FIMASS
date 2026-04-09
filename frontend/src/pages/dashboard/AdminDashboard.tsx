@@ -1,8 +1,11 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
+import { FileText, Clock3, Shield, ReceiptText } from 'lucide-react';
+import type { LucideIcon } from 'lucide-react';
 import { api } from '../../utils/api';
 import { getUserDisplayName } from '../../utils/helpers';
 import { useAuth } from '../../context/AuthContext';
+import type { PaginatedResponse, Quote } from '../../types';
 import DashboardPageHeader from '../../components/dashboard/DashboardPageHeader';
 
 interface QuoteStats {
@@ -35,6 +38,7 @@ export default function AdminDashboard() {
   const [quoteStats, setQuoteStats] = useState<QuoteStats | null>(null);
   const [policyStats, setPolicyStats] = useState<PolicyStats | null>(null);
   const [alerts, setAlerts] = useState<AlertsReport | null>(null);
+  const [recentQuotes, setRecentQuotes] = useState<Quote[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -45,15 +49,17 @@ export default function AdminDashboard() {
       setError(null);
       setLoading(true);
       try {
-        const [q, p, a] = await Promise.all([
+        const [q, p, a, recent] = await Promise.all([
           api.get<QuoteStats>('/quotes/stats'),
           api.get<PolicyStats>('/policies/stats'),
           api.get<AlertsReport>('/reports/alerts'),
+          api.get<PaginatedResponse<Quote>>('/quotes?limit=80'),
         ]);
         if (!cancelled) {
           setQuoteStats(q);
           setPolicyStats(p);
           setAlerts(a);
+          setRecentQuotes(recent.data ?? []);
         }
       } catch {
         if (!cancelled) {
@@ -100,6 +106,14 @@ export default function AdminDashboard() {
 
   const richieste = policyStats['RICHIESTA PRESENTATA'] ?? 0;
   const emesse = policyStats.EMESSA ?? 0;
+  const inLavorazioneRows = recentQuotes
+    .filter((quote) => quote.stato === 'IN LAVORAZIONE')
+    .slice(0, 10)
+    .map((quote) => ({
+      id: quote.id,
+      numero: quote.numero,
+      operatore: [quote.operatore_nome, quote.operatore_cognome].filter(Boolean).join(' ') || 'Operatore non assegnato',
+    }));
 
   return (
     <div className="mx-auto w-full max-w-[74rem] space-y-7">
@@ -133,10 +147,15 @@ export default function AdminDashboard() {
 
       <section aria-label="Stato lavorazioni" className="pt-0.5">
         <div className="grid grid-cols-1 gap-4 lg:grid-cols-2 xl:grid-cols-4">
-          <DashboardWorkColumn title="Preventivi presentati" value={quoteStats.PRESENTATA} />
-          <DashboardWorkColumn title="In lavorazione" value={quoteStats['IN LAVORAZIONE']} />
-          <DashboardWorkColumn title="Polizze richieste" value={richieste} />
-          <DashboardWorkColumn title="Polizze emesse" value={emesse} />
+          <DashboardWorkColumn title="Preventivi presentati" value={quoteStats.PRESENTATA} icon={FileText} />
+          <DashboardWorkColumn
+            title="In lavorazione"
+            value={quoteStats['IN LAVORAZIONE']}
+            icon={Clock3}
+            rows={inLavorazioneRows}
+          />
+          <DashboardWorkColumn title="Polizze richieste" value={richieste} icon={Shield} />
+          <DashboardWorkColumn title="Polizze emesse" value={emesse} icon={ReceiptText} />
         </div>
       </section>
     </div>
@@ -164,14 +183,36 @@ function DashboardSummaryCard({ label, value, to }: DashboardSummaryCardProps) {
 interface DashboardWorkColumnProps {
   title: string;
   value: number;
+  icon: LucideIcon;
+  rows?: Array<{ id: number; numero: string; operatore: string }>;
 }
 
-function DashboardWorkColumn({ title, value }: DashboardWorkColumnProps) {
+function DashboardWorkColumn({ title, value, icon: Icon, rows = [] }: DashboardWorkColumnProps) {
   return (
     <article className="min-h-[27rem] rounded-xl border border-slate-200/90 bg-white px-4 py-4 shadow-[0_1px_3px_rgba(15,23,42,0.05)]">
       <div className="flex items-start justify-between gap-3">
-        <h3 className="text-[11px] font-semibold uppercase tracking-[0.08em] text-slate-400">{title}</h3>
+        <div className="flex items-center gap-2">
+          <span className="inline-flex h-6 w-6 items-center justify-center rounded-md border border-slate-200 bg-slate-50 text-slate-400">
+            <Icon className="h-3.5 w-3.5" />
+          </span>
+          <h3 className="text-[11px] font-semibold uppercase tracking-[0.08em] text-slate-400">{title}</h3>
+        </div>
         <span className="text-3xl font-semibold leading-none tabular-nums text-slate-900">{value}</span>
+      </div>
+
+      <div className="mt-4">
+        {rows.length === 0 ? (
+          <p className="px-1 text-xs text-slate-400">Nessun record disponibile.</p>
+        ) : (
+          <ul className="space-y-2">
+            {rows.map((row) => (
+              <li key={row.id} className="rounded-lg border border-slate-200/80 bg-slate-50/60 px-3 py-2">
+                <p className="text-xs font-semibold text-slate-700">ID Preventivo: {row.numero}</p>
+                <p className="mt-0.5 text-xs text-slate-500">Operatore: {row.operatore}</p>
+              </li>
+            ))}
+          </ul>
+        )}
       </div>
     </article>
   );
