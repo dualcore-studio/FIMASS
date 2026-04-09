@@ -152,7 +152,6 @@ export default function AdminDashboard() {
     id: quote.id,
     title: `ID Preventivo: ${quote.numero}`,
     subtitle: [quote.operatore_nome, quote.operatore_cognome].filter(Boolean).join(' ') || 'Operatore non assegnato',
-    meta: quote.in_lavorazione_dal ? `In lavorazione da: ${formatElapsedTime(quote.in_lavorazione_dal)}` : undefined,
   }));
   const richiesteRows = requestedPolicies.map((policy) => ({
     id: policy.id,
