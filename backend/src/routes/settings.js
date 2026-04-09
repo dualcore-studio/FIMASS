@@ -65,8 +65,14 @@ router.get('/insurance-types/active', authenticateToken, (req, res) => {
       } catch (e) {
         enabledTypes = null;
       }
-      if (enabledTypes && !enabledTypes.includes('all')) {
-        types = types.filter((t) => enabledTypes.includes(t.codice));
+      // Treat empty/invalid config as "all enabled" to avoid hiding every type.
+      if (Array.isArray(enabledTypes) && enabledTypes.length > 0) {
+        const normalized = enabledTypes
+          .map((v) => String(v || '').trim().toLowerCase())
+          .filter(Boolean);
+        if (!normalized.includes('all')) {
+          types = types.filter((t) => normalized.includes(String(t.codice || '').trim().toLowerCase()));
+        }
       }
     }
 

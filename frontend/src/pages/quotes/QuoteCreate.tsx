@@ -55,6 +55,7 @@ export default function QuoteCreate() {
   // Step 1
   const [insuranceTypes, setInsuranceTypes] = useState<InsuranceType[]>([]);
   const [typesLoading, setTypesLoading] = useState(true);
+  const [typesError, setTypesError] = useState<string | null>(null);
   const [selectedType, setSelectedType] = useState<InsuranceType | null>(null);
 
   // Step 2
@@ -79,9 +80,13 @@ export default function QuoteCreate() {
 
   useEffect(() => {
     setTypesLoading(true);
+    setTypesError(null);
     api.get<InsuranceType[]>('/settings/insurance-types/active')
       .then(setInsuranceTypes)
-      .catch(() => {})
+      .catch((e) => {
+        setInsuranceTypes([]);
+        setTypesError(e instanceof ApiError ? e.message : 'Impossibile caricare le tipologie assicurative.');
+      })
       .finally(() => setTypesLoading(false));
   }, []);
 
@@ -273,6 +278,7 @@ export default function QuoteCreate() {
           <Step1Types
             types={insuranceTypes}
             loading={typesLoading}
+            error={typesError}
             selected={selectedType}
             onSelect={(t) => { setSelectedType(t); setDatiSpecifici({}); setAttachmentFiles({}); setStepErrors([]); setStep(1); }}
           />
@@ -361,11 +367,13 @@ export default function QuoteCreate() {
 function Step1Types({
   types,
   loading,
+  error,
   selected,
   onSelect,
 }: {
   types: InsuranceType[];
   loading: boolean;
+  error: string | null;
   selected: InsuranceType | null;
   onSelect: (t: InsuranceType) => void;
 }) {
@@ -375,6 +383,10 @@ function Step1Types({
         <div className="h-8 w-8 animate-spin rounded-full border-2 border-blue-700 border-t-transparent" />
       </div>
     );
+  }
+
+  if (error) {
+    return <p className="py-8 text-center text-sm text-red-600">{error}</p>;
   }
 
   if (types.length === 0) {
