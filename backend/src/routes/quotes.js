@@ -173,7 +173,7 @@ router.get('/in-progress', authenticateToken, authorizeRoles('admin', 'superviso
       FROM quotes q
       LEFT JOIN users u ON q.operatore_id = u.id
       WHERE q.stato = 'IN LAVORAZIONE'
-      ORDER BY datetime(in_lavorazione_dal) ASC, q.id ASC
+      ORDER BY in_lavorazione_dal ASC, q.id ASC
       LIMIT ?
     `).all(safeLimit);
 

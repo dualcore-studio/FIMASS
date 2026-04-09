@@ -52,12 +52,19 @@ export default function AdminDashboard() {
       setError(null);
       setLoading(true);
       try {
-        const [q, p, a, inProgress] = await Promise.all([
+        const [q, p, a] = await Promise.all([
           api.get<QuoteStats>('/quotes/stats'),
           api.get<PolicyStats>('/policies/stats'),
           api.get<AlertsReport>('/reports/alerts'),
-          api.get<InProgressQuoteRow[]>('/quotes/in-progress?limit=10'),
         ]);
+
+        let inProgress: InProgressQuoteRow[] = [];
+        try {
+          inProgress = await api.get<InProgressQuoteRow[]>('/quotes/in-progress?limit=10');
+        } catch {
+          inProgress = [];
+        }
+
         if (!cancelled) {
           setQuoteStats(q);
           setPolicyStats(p);
