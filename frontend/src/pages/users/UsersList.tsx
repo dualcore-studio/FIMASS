@@ -5,6 +5,7 @@ import {
   Pencil,
   ToggleLeft,
   KeyRound,
+  Trash2,
   Plus,
 } from 'lucide-react';
 import { api, ApiError } from '../../utils/api';
@@ -52,6 +53,8 @@ export default function UsersList() {
   const [resetError, setResetError] = useState<string | null>(null);
 
   const [togglingId, setTogglingId] = useState<number | null>(null);
+  const [deleteUserId, setDeleteUserId] = useState<number | null>(null);
+  const [deleteSubmitting, setDeleteSubmitting] = useState(false);
 
   const [roleTabCounts, setRoleTabCounts] = useState<RoleTabCounts>(() => emptyRoleTabCounts());
   const roleCountsSeq = useRef(0);
@@ -167,6 +170,26 @@ export default function UsersList() {
       setResetError(e instanceof ApiError ? e.message : 'Reset password non riuscito.');
     } finally {
       setResetSubmitting(false);
+    }
+  };
+
+  const closeDeleteModal = () => {
+    setDeleteUserId(null);
+  };
+
+  const handleDeleteUser = async () => {
+    if (deleteUserId == null) return;
+    setActionError(null);
+    setDeleteSubmitting(true);
+    try {
+      await api.delete(`/users/${deleteUserId}`);
+      closeDeleteModal();
+      await fetchUsers();
+      setRoleCountsBump((n) => n + 1);
+    } catch (e) {
+      setActionError(e instanceof ApiError ? e.message : 'Eliminazione utente non riuscita.');
+    } finally {
+      setDeleteSubmitting(false);
     }
   };
 
@@ -372,6 +395,15 @@ export default function UsersList() {
                             >
                               <KeyRound className="h-4 w-4" />
                             </button>
+                            <button
+                              type="button"
+                              disabled={isSelf || deleteSubmitting}
+                              onClick={() => setDeleteUserId(u.id)}
+                              className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-gray-200 bg-white text-gray-600 transition hover:border-red-300 hover:bg-red-50 hover:text-red-700 disabled:cursor-not-allowed disabled:opacity-40"
+                              title={isSelf ? 'Non disponibile sul proprio account' : 'Elimina utente'}
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </button>
                           </div>
                         </td>
                       </tr>
@@ -430,6 +462,32 @@ export default function UsersList() {
               className="btn-primary"
             >
               {resetSubmitting ? 'Salvataggio…' : 'Conferma'}
+            </button>
+          </div>
+        </div>
+      </Modal>
+
+      <Modal
+        isOpen={deleteUserId != null}
+        onClose={closeDeleteModal}
+        title="Elimina utente"
+        size="sm"
+      >
+        <div className="space-y-4">
+          <p className="text-sm text-gray-600">
+            Questa operazione è irreversibile. L&apos;utente selezionato verrà eliminato definitivamente.
+          </p>
+          <div className="flex justify-end gap-2 pt-2">
+            <button type="button" onClick={closeDeleteModal} className="btn-secondary" disabled={deleteSubmitting}>
+              Annulla
+            </button>
+            <button
+              type="button"
+              onClick={handleDeleteUser}
+              disabled={deleteSubmitting}
+              className="rounded-lg bg-red-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-70"
+            >
+              {deleteSubmitting ? 'Eliminazione…' : 'Elimina'}
             </button>
           </div>
         </div>

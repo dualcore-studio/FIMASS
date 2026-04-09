@@ -1,6 +1,6 @@
 const express = require('express');
 const bcrypt = require('bcryptjs');
-const { list, getById, findOne, insert, upsertById, like, sortBy: sortRecords, paginate } = require('../data/store');
+const { list, getById, findOne, insert, upsertById, removeById, like, sortBy: sortRecords, paginate } = require('../data/store');
 const { authenticateToken, authorizeRoles } = require('../middleware/auth');
 const { logActivity } = require('./logs');
 
@@ -201,6 +201,36 @@ router.post('/:id/toggle-status', authenticateToken, authorizeRoles('admin'), (r
   })().catch((err) => {
     console.error('Error toggling user status:', err);
     res.status(500).json({ error: 'Errore nel cambio stato utente' });
+  });
+});
+
+router.delete('/:id', authenticateToken, authorizeRoles('admin'), (req, res) => {
+  (async () => {
+    const userId = Number(req.params.id);
+    const user = await getById('users', userId);
+    if (!user) return res.status(404).json({ error: 'Utente non trovato' });
+
+    if (Number(req.user.id) === userId) {
+      return res.status(400).json({ error: 'Non puoi eliminare il tuo account.' });
+    }
+
+    await removeById('users', userId);
+
+    await logActivity({
+      utente_id: req.user.id,
+      utente_nome: getUserDisplayName(req.user),
+      ruolo: req.user.role,
+      azione: 'ELIMINAZIONE_UTENTE',
+      modulo: 'utenti',
+      riferimento_id: userId,
+      riferimento_tipo: 'user',
+      dettaglio: `Eliminato utente ${user.username}`
+    });
+
+    res.json({ message: 'Utente eliminato con successo' });
+  })().catch((err) => {
+    console.error('Error deleting user:', err);
+    res.status(500).json({ error: 'Errore nell\'eliminazione utente' });
   });
 });
 
