@@ -43,7 +43,7 @@ export default function Login() {
                 aria-hidden
               />
               <img
-                src="/fimass-logo-full.png"
+                src="/fimass-logo-main.svg"
                 alt="FIMASS by Sportello Amico — Servizi per la famiglia e l'azienda"
                 className="relative z-[1] h-auto w-full max-h-[min(32dvh,220px)] sm:max-h-[min(36dvh,260px)] object-contain object-center bg-transparent [image-rendering:auto] drop-shadow-[0_10px_36px_rgba(15,23,42,0.12),0_2px_8px_rgba(11,78,162,0.08)] transition-transform duration-300 ease-out motion-safe:hover:scale-[1.01]"
                 decoding="async"
