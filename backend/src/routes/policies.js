@@ -1,5 +1,5 @@
 const express = require('express');
-const { list, getById, insert, upsertById, like, sortBy, paginate } = require('../data/store');
+const { list, getById, insert, upsertById, like, sortBy: sortRecords, paginate } = require('../data/store');
 const { loadContext, enrichPolicy } = require('../data/views');
 const { authenticateToken, authorizeRoles } = require('../middleware/auth');
 const { logActivity } = require('./logs');
@@ -34,7 +34,7 @@ router.get('/', authenticateToken, (req, res) => {
       struttura_id,
       operatore_id,
       search,
-      sort_by: sortBy,
+      sort_by: sortByParam,
       sort_dir: sortDir,
     } = req.query;
     try {
@@ -48,7 +48,7 @@ router.get('/', authenticateToken, (req, res) => {
       if (operatore_id) policies = policies.filter((p) => Number(p.operatore_id) === Number(operatore_id));
       if (search) policies = policies.filter((p) => like(p.numero, search) || like(p.assistito_nome, search) || like(p.assistito_cognome, search));
       const sortMap = { numero: 'numero', preventivo: 'preventivo_numero', assistito: 'assistito_cognome', tipo: 'tipo_nome', struttura: 'struttura_nome', stato: 'stato', created_at: 'created_at' };
-      policies = sortBy(policies, sortMap[sortBy] || 'created_at', sortDir || 'desc');
+      policies = sortRecords(policies, sortMap[sortByParam] || 'created_at', sortDir || 'desc');
       res.json(paginate(policies, page, limit));
     } catch (err) {
       console.error('Error fetching policies:', err);

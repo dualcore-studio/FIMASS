@@ -1,5 +1,5 @@
 const express = require('express');
-const { list, getById, upsertById, like, sortBy, paginate } = require('../data/store');
+const { list, getById, upsertById, like, sortBy: sortRecords, paginate } = require('../data/store');
 const { loadContext } = require('../data/views');
 const { authenticateToken, authorizeRoles } = require('../middleware/auth');
 
@@ -7,7 +7,7 @@ const router = express.Router();
 
 router.get('/', authenticateToken, (req, res) => {
   (async () => {
-    const { page = 1, limit = 25, search, sort_by: sortBy, sort_dir: sortDir } = req.query;
+    const { page = 1, limit = 25, search, sort_by: sortByParam, sort_dir: sortDir } = req.query;
     try {
       const ctx = await loadContext();
       let assisted = [...ctx.assisted_people];
@@ -28,7 +28,7 @@ router.get('/', authenticateToken, (req, res) => {
         num_polizze: ctx.policies.filter((p) => Number(p.assistito_id) === Number(ap.id)).length,
       }));
       const sortMap = { nome_cognome: 'cognome', cognome: 'cognome', nome: 'nome', codice_fiscale: 'codice_fiscale', cellulare: 'cellulare', email: 'email', num_preventivi: 'num_preventivi', num_polizze: 'num_polizze', created_at: 'created_at' };
-      assisted = sortBy(assisted, sortMap[sortBy] || 'cognome', sortDir || 'asc');
+      assisted = sortRecords(assisted, sortMap[sortByParam] || 'cognome', sortDir || 'asc');
       res.json(paginate(assisted, page, limit));
     } catch (err) {
       console.error('Error fetching assisted:', err);
