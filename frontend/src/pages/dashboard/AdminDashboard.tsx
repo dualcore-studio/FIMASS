@@ -5,7 +5,7 @@ import type { LucideIcon } from 'lucide-react';
 import { api } from '../../utils/api';
 import { getUserDisplayName } from '../../utils/helpers';
 import { useAuth } from '../../context/AuthContext';
-import type { InProgressQuoteRow } from '../../types';
+import type { InProgressQuoteRow, PaginatedResponse, Quote } from '../../types';
 import DashboardPageHeader from '../../components/dashboard/DashboardPageHeader';
 
 interface QuoteStats {
@@ -62,7 +62,20 @@ export default function AdminDashboard() {
         try {
           inProgress = await api.get<InProgressQuoteRow[]>('/quotes/in-progress?limit=10');
         } catch {
-          inProgress = [];
+          try {
+            const fallback = await api.get<PaginatedResponse<Quote>>('/quotes?stato=IN%20LAVORAZIONE&limit=10');
+            inProgress = (fallback.data ?? []).map((quote) => ({
+              id: quote.id,
+              numero: quote.numero,
+              operatore_id: quote.operatore_id,
+              operatore_nome: quote.operatore_nome,
+              operatore_cognome: quote.operatore_cognome,
+              in_lavorazione_dal: quote.updated_at,
+              updated_at: quote.updated_at,
+            }));
+          } catch {
+            inProgress = [];
+          }
         }
 
         if (!cancelled) {

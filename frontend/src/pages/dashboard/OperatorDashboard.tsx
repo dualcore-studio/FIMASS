@@ -34,11 +34,18 @@ export default function OperatorDashboard() {
       setError(null);
       setLoading(true);
       try {
-        const [stats, list, remindersData] = await Promise.all([
+        const [stats, list] = await Promise.all([
           api.get<QuoteStats>('/quotes/stats'),
           api.get<PaginatedResponse<Quote>>('/quotes?limit=10'),
-          api.get<QuoteReminder[]>('/quotes/reminders/mine'),
         ]);
+
+        let remindersData: QuoteReminder[] = [];
+        try {
+          remindersData = await api.get<QuoteReminder[]>('/quotes/reminders/mine');
+        } catch {
+          remindersData = [];
+        }
+
         if (!cancelled) {
           setQuoteStats(stats);
           setQuotes(list.data);
