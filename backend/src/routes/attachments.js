@@ -9,7 +9,8 @@ const { logActivity } = require('./logs');
 
 const router = express.Router();
 
-const uploadsDir = process.env.UPLOADS_DIR || path.join(__dirname, '..', '..', 'uploads');
+const isVercel = Boolean(process.env.VERCEL);
+const uploadsDir = process.env.UPLOADS_DIR || (isVercel ? '/tmp/uploads' : path.join(__dirname, '..', '..', 'uploads'));
 if (!fs.existsSync(uploadsDir)) {
   fs.mkdirSync(uploadsDir, { recursive: true });
 }

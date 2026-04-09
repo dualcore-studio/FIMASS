@@ -1,19 +1,16 @@
 {
-  "installCommand": "cd frontend && npm ci",
+  "installCommand": "cd backend && npm ci && cd ../frontend && npm ci",
   "buildCommand": "cd frontend && npm run build",
   "outputDirectory": "frontend/dist",
-  "rewrites": [
-    {
-      "source": "/api/(.*)",
-      "destination": "https://fimass-sportello-amico-production.up.railway.app/api/$1"
+  "functions": {
+    "api/[...all].js": {
+      "includeFiles": "backend/**"
     },
-    {
-      "source": "/uploads/(.*)",
-      "destination": "https://fimass-sportello-amico-production.up.railway.app/uploads/$1"
-    },
-    {
-      "source": "/(.*)",
-      "destination": "/index.html"
+    "api/index.js": {
+      "includeFiles": "backend/**"
     }
+  },
+  "rewrites": [
+    { "source": "/((?!api/).*)", "destination": "/index.html" }
   ]
 }

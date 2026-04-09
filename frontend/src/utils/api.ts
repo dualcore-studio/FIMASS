@@ -1,8 +1,7 @@
-const PROD_API_BASE = 'https://fimass-sportello-amico-production.up.railway.app/api';
 const envApiBase = (import.meta.env.VITE_API_BASE_URL as string | undefined)?.trim();
 const API_BASE = envApiBase
   ? envApiBase.replace(/\/$/, '')
-  : (import.meta.env.DEV ? '/api' : PROD_API_BASE);
+  : '/api';
 
 class ApiError extends Error {
   status: number;
