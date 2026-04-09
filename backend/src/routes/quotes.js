@@ -1,20 +1,8 @@
 const express = require('express');
-const { db } = require('../config/database');
 const { authenticateToken, authorizeRoles } = require('../middleware/auth');
 const { logActivity } = require('./logs');
-const { resolveListOrder } = require('../utils/listSort');
-
-const QUOTE_SORT_MAP = {
-  numero: 'q.numero',
-  assistito: `LOWER(TRIM(COALESCE(ap.cognome, '') || ' ' || COALESCE(ap.nome, '')))`,
-  tipo: `LOWER(COALESCE(it.nome, ''))`,
-  struttura: `LOWER(COALESCE(s.denominazione, ''))`,
-  operatore: `LOWER(TRIM(COALESCE(o.cognome, '') || ' ' || COALESCE(o.nome, '')))`,
-  stato: 'q.stato',
-  created_at: 'q.created_at',
-  data_decorrenza: '(q.data_decorrenza IS NULL), q.data_decorrenza',
-};
-const DEFAULT_QUOTE_ORDER = 'ORDER BY q.created_at DESC';
+const { list, getById, findOne, insert, upsertById, like, sortBy, paginate } = require('../data/store');
+const { loadContext, enrichQuote } = require('../data/views');
 
 const router = express.Router();
 
@@ -22,19 +10,20 @@ function getUserDisplayName(user) {
   return user.role === 'struttura' ? user.denominazione : `${user.nome} ${user.cognome}`;
 }
 
-function generateQuoteNumber() {
+async function generateQuoteNumber() {
   const year = new Date().getFullYear();
-  const last = db.prepare("SELECT numero FROM quotes WHERE numero LIKE ? ORDER BY id DESC LIMIT 1").get(`PRV-${year}-%`);
-  let seq = 1;
-  if (last) {
-    const parts = last.numero.split('-');
-    seq = parseInt(parts[2]) + 1;
-  }
+  const prefix = `PRV-${year}-`;
+  const quotes = await list('quotes');
+  const seq = quotes
+    .map((q) => String(q.numero || ''))
+    .filter((n) => n.startsWith(prefix))
+    .map((n) => Number(n.split('-')[2]) || 0)
+    .reduce((a, b) => Math.max(a, b), 0) + 1;
   return `PRV-${year}-${String(seq).padStart(5, '0')}`;
 }
 
 router.get('/', authenticateToken, (req, res) => {
-  try {
+  (async () => {
     const {
       page = 1,
       limit = 25,
@@ -49,163 +38,88 @@ router.get('/', authenticateToken, (req, res) => {
       sort_by: sortBy,
       sort_dir: sortDir,
     } = req.query;
-    const offset = (parseInt(page) - 1) * parseInt(limit);
-
-    let where = ['1=1'];
-    let params = [];
-
-    if (req.user.role === 'struttura') {
-      where.push('q.struttura_id = ?');
-      params.push(req.user.id);
-    } else if (req.user.role === 'operatore') {
-      where.push('q.operatore_id = ?');
-      params.push(req.user.id);
+    try {
+      const ctx = await loadContext();
+      let quotes = ctx.quotes.map((q) => enrichQuote(q, ctx));
+      if (req.user.role === 'struttura') quotes = quotes.filter((q) => Number(q.struttura_id) === Number(req.user.id));
+      else if (req.user.role === 'operatore') quotes = quotes.filter((q) => Number(q.operatore_id) === Number(req.user.id));
+      if (stato) quotes = quotes.filter((q) => q.stato === stato);
+      if (tipo_assicurazione_id) quotes = quotes.filter((q) => Number(q.tipo_assicurazione_id) === Number(tipo_assicurazione_id));
+      if (struttura_id) quotes = quotes.filter((q) => Number(q.struttura_id) === Number(struttura_id));
+      if (operatore_id) quotes = quotes.filter((q) => Number(q.operatore_id) === Number(operatore_id));
+      if (data_da) quotes = quotes.filter((q) => String(q.created_at || '') >= String(data_da));
+      if (data_a) quotes = quotes.filter((q) => String(q.created_at || '') <= `${data_a} 23:59:59`);
+      if (assegnata === 'si') quotes = quotes.filter((q) => q.operatore_id != null);
+      if (assegnata === 'no') quotes = quotes.filter((q) => q.operatore_id == null);
+      if (search) quotes = quotes.filter((q) => like(q.numero, search) || like(q.assistito_nome, search) || like(q.assistito_cognome, search) || like(q.assistito_cf, search));
+      const sortMap = { numero: 'numero', assistito: 'assistito_cognome', tipo: 'tipo_nome', struttura: 'struttura_nome', operatore: 'operatore_cognome', stato: 'stato', created_at: 'created_at', data_decorrenza: 'data_decorrenza' };
+      quotes = sortBy(quotes, sortMap[sortBy] || 'created_at', sortDir || 'desc');
+      res.json(paginate(quotes, page, limit));
+    } catch (err) {
+      console.error('Error fetching quotes:', err);
+      res.status(500).json({ error: 'Errore nel recupero preventivi' });
     }
-
-    if (stato) { where.push('q.stato = ?'); params.push(stato); }
-    if (tipo_assicurazione_id) { where.push('q.tipo_assicurazione_id = ?'); params.push(tipo_assicurazione_id); }
-    if (struttura_id) { where.push('q.struttura_id = ?'); params.push(struttura_id); }
-    if (operatore_id) { where.push('q.operatore_id = ?'); params.push(operatore_id); }
-    if (data_da) { where.push('q.created_at >= ?'); params.push(data_da); }
-    if (data_a) { where.push('q.created_at <= ?'); params.push(data_a + ' 23:59:59'); }
-    if (assegnata === 'si') { where.push('q.operatore_id IS NOT NULL'); }
-    if (assegnata === 'no') { where.push('q.operatore_id IS NULL'); }
-    if (search) {
-      where.push('(q.numero LIKE ? OR ap.nome LIKE ? OR ap.cognome LIKE ? OR ap.codice_fiscale LIKE ?)');
-      params.push(`%${search}%`, `%${search}%`, `%${search}%`, `%${search}%`);
-    }
-
-    const whereClause = where.join(' AND ');
-    const orderClause = resolveListOrder(QUOTE_SORT_MAP, sortBy, sortDir, DEFAULT_QUOTE_ORDER);
-
-    const total = db.prepare(`
-      SELECT COUNT(*) as count FROM quotes q
-      LEFT JOIN assisted_people ap ON q.assistito_id = ap.id
-      WHERE ${whereClause}
-    `).get(...params).count;
-
-    const quotes = db.prepare(`
-      SELECT q.*,
-        ap.nome as assistito_nome, ap.cognome as assistito_cognome, ap.codice_fiscale as assistito_cf,
-        it.nome as tipo_nome, it.codice as tipo_codice,
-        s.denominazione as struttura_nome,
-        o.nome as operatore_nome, o.cognome as operatore_cognome
-      FROM quotes q
-      LEFT JOIN assisted_people ap ON q.assistito_id = ap.id
-      LEFT JOIN insurance_types it ON q.tipo_assicurazione_id = it.id
-      LEFT JOIN users s ON q.struttura_id = s.id
-      LEFT JOIN users o ON q.operatore_id = o.id
-      WHERE ${whereClause}
-      ${orderClause}
-      LIMIT ? OFFSET ?
-    `).all(...params, parseInt(limit), offset);
-
-    res.json({
-      data: quotes.map(q => ({
-        ...q,
-        dati_specifici: q.dati_specifici ? JSON.parse(q.dati_specifici) : null,
-        dati_preventivo: q.dati_preventivo ? JSON.parse(q.dati_preventivo) : null
-      })),
-      total,
-      page: parseInt(page),
-      limit: parseInt(limit),
-      totalPages: Math.ceil(total / parseInt(limit))
-    });
-  } catch (err) {
-    console.error('Error fetching quotes:', err);
-    res.status(500).json({ error: 'Errore nel recupero preventivi' });
-  }
+  })();
 });
 
 router.get('/stats', authenticateToken, (req, res) => {
-  try {
-    let struttura_filter = '';
-    let operatore_filter = '';
-    let params_s = [];
-    let params_o = [];
-
-    if (req.user.role === 'struttura') {
-      struttura_filter = ' AND struttura_id = ?';
-      params_s = [req.user.id];
-      params_o = [req.user.id];
-    } else if (req.user.role === 'operatore') {
-      operatore_filter = ' AND operatore_id = ?';
-      params_o = [req.user.id];
+  (async () => {
+    try {
+      let quotes = await list('quotes');
+      if (req.user.role === 'struttura') quotes = quotes.filter((q) => Number(q.struttura_id) === Number(req.user.id));
+      else if (req.user.role === 'operatore') quotes = quotes.filter((q) => Number(q.operatore_id) === Number(req.user.id));
+      const stats = {};
+      const stati = ['PRESENTATA', 'ASSEGNATA', 'IN LAVORAZIONE', 'STANDBY', 'ELABORATA'];
+      stati.forEach((s) => { stats[s] = quotes.filter((q) => q.stato === s).length; });
+      stats.totale = Object.values(stats).reduce((a, b) => a + b, 0);
+      res.json(stats);
+    } catch (err) {
+      console.error('Error fetching quote stats:', err);
+      res.status(500).json({ error: 'Errore nel recupero statistiche' });
     }
-
-    const stats = {};
-    const stati = ['PRESENTATA', 'ASSEGNATA', 'IN LAVORAZIONE', 'STANDBY', 'ELABORATA'];
-    stati.forEach(s => {
-      const f = req.user.role === 'struttura' ? struttura_filter : operatore_filter;
-      const p = req.user.role === 'struttura' ? params_s : params_o;
-      stats[s] = db.prepare(`SELECT COUNT(*) as count FROM quotes WHERE stato = ?${f}`).get(s, ...p).count;
-    });
-
-    stats.totale = Object.values(stats).reduce((a, b) => a + b, 0);
-
-    res.json(stats);
-  } catch (err) {
-    console.error('Error fetching quote stats:', err);
-    res.status(500).json({ error: 'Errore nel recupero statistiche' });
-  }
+  })();
 });
 
 router.get('/in-progress', authenticateToken, authorizeRoles('admin', 'supervisore'), (req, res) => {
-  try {
+  (async () => {
     const { limit = 10 } = req.query;
     const safeLimit = Math.max(1, Math.min(parseInt(limit, 10) || 10, 50));
-
-    const rows = db.prepare(`
-      SELECT
-        q.id,
-        q.numero,
-        q.operatore_id,
-        q.updated_at,
-        u.nome as operatore_nome,
-        u.cognome as operatore_cognome,
-        COALESCE((
-          SELECT qsh.created_at
-          FROM quote_status_history qsh
-          WHERE qsh.quote_id = q.id AND qsh.stato_nuovo = 'IN LAVORAZIONE'
-          ORDER BY qsh.created_at DESC
-          LIMIT 1
-        ), q.updated_at) as in_lavorazione_dal
-      FROM quotes q
-      LEFT JOIN users u ON q.operatore_id = u.id
-      WHERE q.stato = 'IN LAVORAZIONE'
-      ORDER BY in_lavorazione_dal ASC, q.id ASC
-      LIMIT ?
-    `).all(safeLimit);
-
-    res.json(rows);
-  } catch (err) {
-    console.error('Error fetching in-progress quotes:', err);
-    res.status(500).json({ error: 'Errore nel recupero pratiche in lavorazione' });
-  }
+    try {
+      const ctx = await loadContext();
+      const rows = ctx.quotes
+        .filter((q) => q.stato === 'IN LAVORAZIONE')
+        .map((q) => {
+          const hist = ctx.quote_status_history
+            .filter((h) => Number(h.quote_id) === Number(q.id) && h.stato_nuovo === 'IN LAVORAZIONE')
+            .sort((a, b) => String(b.created_at || '').localeCompare(String(a.created_at || '')))[0];
+          return {
+            id: q.id,
+            numero: q.numero,
+            operatore_id: q.operatore_id,
+            updated_at: q.updated_at,
+            operatore_nome: ctx.usersById.get(Number(q.operatore_id))?.nome,
+            operatore_cognome: ctx.usersById.get(Number(q.operatore_id))?.cognome,
+            in_lavorazione_dal: hist?.created_at || q.updated_at,
+          };
+        })
+        .sort((a, b) => String(a.in_lavorazione_dal || '').localeCompare(String(b.in_lavorazione_dal || '')))
+        .slice(0, safeLimit);
+      res.json(rows);
+    } catch (err) {
+      console.error('Error fetching in-progress quotes:', err);
+      res.status(500).json({ error: 'Errore nel recupero pratiche in lavorazione' });
+    }
+  })();
 });
 
-function insertQuoteReminder(quoteId, req, res) {
-  const quote = db.prepare(`
-    SELECT id, numero, stato, operatore_id
-    FROM quotes
-    WHERE id = ?
-  `).get(quoteId);
-
+async function insertQuoteReminder(quoteId, req, res) {
+  const quote = await getById('quotes', quoteId);
   if (!quote) return res.status(404).json({ error: 'Preventivo non trovato' });
-  if (quote.stato !== 'IN LAVORAZIONE') {
-    return res.status(400).json({ error: 'Il sollecito è disponibile solo per pratiche in lavorazione' });
-  }
-  if (!quote.operatore_id) {
-    return res.status(400).json({ error: 'La pratica non ha un operatore assegnato' });
-  }
-
+  if (quote.stato !== 'IN LAVORAZIONE') return res.status(400).json({ error: 'Il sollecito è disponibile solo per pratiche in lavorazione' });
+  if (!quote.operatore_id) return res.status(400).json({ error: 'La pratica non ha un operatore assegnato' });
   try {
-    db.prepare(`
-      INSERT INTO quote_reminders (quote_id, operatore_id, created_by)
-      VALUES (?, ?, ?)
-    `).run(quote.id, quote.operatore_id, req.user.id);
-
-    logActivity({
+    await insert('quote_reminders', { quote_id: quote.id, operatore_id: quote.operatore_id, created_by: req.user.id, read_at: null });
+    await logActivity({
       utente_id: req.user.id,
       utente_nome: getUserDisplayName(req.user),
       ruolo: req.user.role,
@@ -213,9 +127,8 @@ function insertQuoteReminder(quoteId, req, res) {
       modulo: 'preventivi',
       riferimento_id: quote.id,
       riferimento_tipo: 'quote',
-      dettaglio: `Sollecito inviato per preventivo ${quote.numero}`
+      dettaglio: `Sollecito inviato per preventivo ${quote.numero}`,
     });
-
     return res.status(201).json({ message: 'Sollecito inviato all\'operatore' });
   } catch (err) {
     console.error('Error creating quote reminder:', err);
@@ -225,136 +138,98 @@ function insertQuoteReminder(quoteId, req, res) {
 
 /** Body: { quote_id } — percorso esplicito (evita ambiguità con proxy o versioni vecchie del client). */
 router.post('/sollecito', authenticateToken, authorizeRoles('admin', 'supervisore'), (req, res) => {
+  (async () => {
   const raw = req.body?.quote_id ?? req.body?.quoteId;
   const quoteId = parseInt(raw, 10);
   if (!raw || Number.isNaN(quoteId)) {
     return res.status(400).json({ error: 'quote_id richiesto' });
   }
   return insertQuoteReminder(quoteId, req, res);
+  })();
 });
 
 router.post('/:id/reminders', authenticateToken, authorizeRoles('admin', 'supervisore'), (req, res) => {
+  (async () => {
   const quoteId = parseInt(req.params.id, 10);
   if (Number.isNaN(quoteId)) {
     return res.status(400).json({ error: 'ID preventivo non valido' });
   }
   return insertQuoteReminder(quoteId, req, res);
+  })();
 });
 
 router.get('/reminders/mine', authenticateToken, authorizeRoles('operatore'), (req, res) => {
-  try {
-    const reminders = db.prepare(`
-      SELECT
-        qr.id,
-        qr.quote_id,
-        qr.created_at,
-        qr.read_at,
-        q.numero as quote_numero,
-        u.role as created_by_role,
-        u.nome as created_by_nome,
-        u.cognome as created_by_cognome,
-        u.denominazione as created_by_denominazione
-      FROM quote_reminders qr
-      INNER JOIN quotes q ON q.id = qr.quote_id
-      INNER JOIN users u ON u.id = qr.created_by
-      WHERE qr.operatore_id = ?
-      ORDER BY datetime(qr.created_at) DESC
-      LIMIT 50
-    `).all(req.user.id);
-
-    res.json(reminders);
-  } catch (err) {
-    console.error('Error fetching operator reminders:', err);
-    res.status(500).json({ error: 'Errore nel recupero solleciti' });
-  }
+  (async () => {
+    try {
+      const ctx = await loadContext();
+      const reminders = ctx.quote_reminders
+        .filter((r) => Number(r.operatore_id) === Number(req.user.id))
+        .map((r) => ({
+          ...r,
+          quote_numero: ctx.quotesById.get(Number(r.quote_id))?.numero,
+          created_by_role: ctx.usersById.get(Number(r.created_by))?.role,
+          created_by_nome: ctx.usersById.get(Number(r.created_by))?.nome,
+          created_by_cognome: ctx.usersById.get(Number(r.created_by))?.cognome,
+          created_by_denominazione: ctx.usersById.get(Number(r.created_by))?.denominazione,
+        }))
+        .sort((a, b) => String(b.created_at || '').localeCompare(String(a.created_at || '')))
+        .slice(0, 50);
+      res.json(reminders);
+    } catch (err) {
+      console.error('Error fetching operator reminders:', err);
+      res.status(500).json({ error: 'Errore nel recupero solleciti' });
+    }
+  })();
 });
 
 router.put('/reminders/:id/read', authenticateToken, authorizeRoles('operatore'), (req, res) => {
-  try {
-    const reminder = db.prepare('SELECT id, operatore_id, read_at FROM quote_reminders WHERE id = ?').get(req.params.id);
-    if (!reminder) return res.status(404).json({ error: 'Sollecito non trovato' });
-    if (reminder.operatore_id !== req.user.id) return res.status(403).json({ error: 'Accesso non autorizzato' });
-    if (reminder.read_at) return res.json({ message: 'Sollecito già letto' });
-
-    db.prepare("UPDATE quote_reminders SET read_at = datetime('now') WHERE id = ?").run(reminder.id);
-    res.json({ message: 'Sollecito segnato come letto' });
-  } catch (err) {
-    console.error('Error marking reminder as read:', err);
-    res.status(500).json({ error: 'Errore nell\'aggiornamento del sollecito' });
-  }
+  (async () => {
+    try {
+      const reminder = await getById('quote_reminders', req.params.id);
+      if (!reminder) return res.status(404).json({ error: 'Sollecito non trovato' });
+      if (Number(reminder.operatore_id) !== Number(req.user.id)) return res.status(403).json({ error: 'Accesso non autorizzato' });
+      if (reminder.read_at) return res.json({ message: 'Sollecito già letto' });
+      await upsertById('quote_reminders', reminder.id, { read_at: new Date().toISOString().slice(0, 19).replace('T', ' ') });
+      res.json({ message: 'Sollecito segnato come letto' });
+    } catch (err) {
+      console.error('Error marking reminder as read:', err);
+      res.status(500).json({ error: 'Errore nell\'aggiornamento del sollecito' });
+    }
+  })();
 });
 
 router.get('/:id', authenticateToken, (req, res) => {
-  try {
-    const quote = db.prepare(`
-      SELECT q.*,
-        ap.nome as assistito_nome, ap.cognome as assistito_cognome, ap.codice_fiscale as assistito_cf,
-        ap.data_nascita as assistito_data_nascita, ap.cellulare as assistito_cellulare,
-        ap.email as assistito_email, ap.indirizzo as assistito_indirizzo, ap.cap as assistito_cap, ap.citta as assistito_citta,
-        it.nome as tipo_nome, it.codice as tipo_codice,
-        s.denominazione as struttura_nome, s.email as struttura_email,
-        o.nome as operatore_nome, o.cognome as operatore_cognome
-      FROM quotes q
-      LEFT JOIN assisted_people ap ON q.assistito_id = ap.id
-      LEFT JOIN insurance_types it ON q.tipo_assicurazione_id = it.id
-      LEFT JOIN users s ON q.struttura_id = s.id
-      LEFT JOIN users o ON q.operatore_id = o.id
-      WHERE q.id = ?
-    `).get(req.params.id);
-
-    if (!quote) return res.status(404).json({ error: 'Preventivo non trovato' });
-
-    if (req.user.role === 'struttura' && quote.struttura_id !== req.user.id) {
-      return res.status(403).json({ error: 'Accesso non autorizzato' });
+  (async () => {
+    try {
+      const ctx = await loadContext();
+      const row = await getById('quotes', req.params.id);
+      if (!row) return res.status(404).json({ error: 'Preventivo non trovato' });
+      const quote = enrichQuote(row, ctx);
+      if (req.user.role === 'struttura' && Number(quote.struttura_id) !== Number(req.user.id)) return res.status(403).json({ error: 'Accesso non autorizzato' });
+      if (req.user.role === 'operatore' && Number(quote.operatore_id) !== Number(req.user.id)) return res.status(403).json({ error: 'Accesso non autorizzato' });
+      const history = ctx.quote_status_history
+        .filter((h) => Number(h.quote_id) === Number(row.id))
+        .map((h) => ({ ...h, ...ctx.usersById.get(Number(h.utente_id)) }))
+        .sort((a, b) => String(b.created_at || '').localeCompare(String(a.created_at || '')));
+      const notes = ctx.quote_notes
+        .filter((n) => Number(n.quote_id) === Number(row.id))
+        .map((n) => ({ ...n, ...ctx.usersById.get(Number(n.utente_id)) }))
+        .sort((a, b) => String(b.created_at || '').localeCompare(String(a.created_at || '')));
+      const attachments = ctx.attachments
+        .filter((a) => a.entity_type === 'quote' && Number(a.entity_id) === Number(row.id))
+        .map((a) => ({ ...a, caricato_nome: ctx.usersById.get(Number(a.caricato_da))?.nome, caricato_cognome: ctx.usersById.get(Number(a.caricato_da))?.cognome, caricato_denominazione: ctx.usersById.get(Number(a.caricato_da))?.denominazione }))
+        .sort((a, b) => String(b.created_at || '').localeCompare(String(a.created_at || '')));
+      const policy = ctx.policies.find((p) => Number(p.quote_id) === Number(row.id));
+      res.json({ ...quote, history, notes, attachments, policy: policy ? { id: policy.id, numero: policy.numero, stato: policy.stato } : null });
+    } catch (err) {
+      console.error('Error fetching quote:', err);
+      res.status(500).json({ error: 'Errore nel recupero preventivo' });
     }
-    if (req.user.role === 'operatore' && quote.operatore_id !== req.user.id) {
-      return res.status(403).json({ error: 'Accesso non autorizzato' });
-    }
-
-    const history = db.prepare(`
-      SELECT qsh.*, u.nome, u.cognome, u.denominazione, u.role
-      FROM quote_status_history qsh
-      LEFT JOIN users u ON qsh.utente_id = u.id
-      ORDER BY qsh.created_at DESC
-    `).all();
-
-    const quoteHistory = history.filter(h => h.quote_id === quote.id);
-
-    const notes = db.prepare(`
-      SELECT qn.*, u.nome, u.cognome, u.denominazione, u.role
-      FROM quote_notes qn
-      LEFT JOIN users u ON qn.utente_id = u.id
-      WHERE qn.quote_id = ?
-      ORDER BY qn.created_at DESC
-    `).all(req.params.id);
-
-    const attachments = db.prepare(`
-      SELECT a.*, u.nome as caricato_nome, u.cognome as caricato_cognome, u.denominazione as caricato_denominazione
-      FROM attachments a
-      LEFT JOIN users u ON a.caricato_da = u.id
-      WHERE a.entity_type = 'quote' AND a.entity_id = ?
-      ORDER BY a.created_at DESC
-    `).all(req.params.id);
-
-    const policy = db.prepare('SELECT id, numero, stato FROM policies WHERE quote_id = ?').get(req.params.id);
-
-    res.json({
-      ...quote,
-      dati_specifici: quote.dati_specifici ? JSON.parse(quote.dati_specifici) : null,
-      dati_preventivo: quote.dati_preventivo ? JSON.parse(quote.dati_preventivo) : null,
-      history: quoteHistory,
-      notes,
-      attachments,
-      policy
-    });
-  } catch (err) {
-    console.error('Error fetching quote:', err);
-    res.status(500).json({ error: 'Errore nel recupero preventivo' });
-  }
+  })();
 });
 
 router.post('/', authenticateToken, authorizeRoles('struttura', 'admin'), (req, res) => {
-  try {
+  (async () => {
     const { tipo_assicurazione_id, assistito, dati_specifici, data_decorrenza, note_struttura } = req.body;
 
     if (!tipo_assicurazione_id || !assistito) {
@@ -366,45 +241,26 @@ router.post('/', authenticateToken, authorizeRoles('struttura', 'admin'), (req, 
     let assistito_id;
     if (assistito.id) {
       assistito_id = assistito.id;
-      db.prepare(`
-        UPDATE assisted_people SET nome=?, cognome=?, data_nascita=?, codice_fiscale=?, cellulare=?, email=?, indirizzo=?, cap=?, citta=?, updated_at=datetime('now')
-        WHERE id=?
-      `).run(assistito.nome, assistito.cognome, assistito.data_nascita, assistito.codice_fiscale, assistito.cellulare, assistito.email, assistito.indirizzo, assistito.cap, assistito.citta, assistito.id);
+      await upsertById('assisted_people', assistito.id, { nome: assistito.nome, cognome: assistito.cognome, data_nascita: assistito.data_nascita, codice_fiscale: assistito.codice_fiscale, cellulare: assistito.cellulare, email: assistito.email, indirizzo: assistito.indirizzo, cap: assistito.cap, citta: assistito.citta });
     } else {
       if (assistito.codice_fiscale) {
-        const existing = db.prepare('SELECT id FROM assisted_people WHERE codice_fiscale = ?').get(assistito.codice_fiscale);
+        const existing = await findOne('assisted_people', (a) => a.codice_fiscale === assistito.codice_fiscale);
         if (existing) {
           assistito_id = existing.id;
-          db.prepare(`
-            UPDATE assisted_people SET nome=?, cognome=?, data_nascita=?, cellulare=?, email=?, indirizzo=?, cap=?, citta=?, updated_at=datetime('now')
-            WHERE id=?
-          `).run(assistito.nome, assistito.cognome, assistito.data_nascita, assistito.cellulare, assistito.email, assistito.indirizzo, assistito.cap, assistito.citta, existing.id);
+          await upsertById('assisted_people', existing.id, { nome: assistito.nome, cognome: assistito.cognome, data_nascita: assistito.data_nascita, cellulare: assistito.cellulare, email: assistito.email, indirizzo: assistito.indirizzo, cap: assistito.cap, citta: assistito.citta });
         }
       }
       if (!assistito_id) {
-        const result = db.prepare(`
-          INSERT INTO assisted_people (nome, cognome, data_nascita, codice_fiscale, cellulare, email, indirizzo, cap, citta, created_by)
-          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-        `).run(assistito.nome, assistito.cognome, assistito.data_nascita, assistito.codice_fiscale, assistito.cellulare, assistito.email, assistito.indirizzo, assistito.cap, assistito.citta, req.user.id);
-        assistito_id = result.lastInsertRowid;
+        const result = await insert('assisted_people', { nome: assistito.nome, cognome: assistito.cognome, data_nascita: assistito.data_nascita, codice_fiscale: assistito.codice_fiscale, cellulare: assistito.cellulare, email: assistito.email, indirizzo: assistito.indirizzo, cap: assistito.cap, citta: assistito.citta, created_by: req.user.id });
+        assistito_id = result.id;
       }
     }
 
-    const numero = generateQuoteNumber();
-    const datiSpecificiJson = dati_specifici ? JSON.stringify(dati_specifici) : null;
-
-    const result = db.prepare(`
-      INSERT INTO quotes (numero, assistito_id, tipo_assicurazione_id, struttura_id, stato, data_decorrenza, note_struttura, dati_specifici)
-      VALUES (?, ?, ?, ?, 'PRESENTATA', ?, ?, ?)
-    `).run(numero, assistito_id, tipo_assicurazione_id, struttura_id, data_decorrenza, note_struttura, datiSpecificiJson);
-
-    const quoteId = result.lastInsertRowid;
-
-    db.prepare(`
-      INSERT INTO quote_status_history (quote_id, stato_nuovo, utente_id) VALUES (?, 'PRESENTATA', ?)
-    `).run(quoteId, req.user.id);
-
-    logActivity({
+    const numero = await generateQuoteNumber();
+    const result = await insert('quotes', { numero, assistito_id, tipo_assicurazione_id, struttura_id, stato: 'PRESENTATA', data_decorrenza, note_struttura, dati_specifici: dati_specifici || null, has_policy: 0 });
+    const quoteId = result.id;
+    await insert('quote_status_history', { quote_id: quoteId, stato_nuovo: 'PRESENTATA', utente_id: req.user.id });
+    await logActivity({
       utente_id: req.user.id,
       utente_nome: getUserDisplayName(req.user),
       ruolo: req.user.role,
@@ -416,32 +272,31 @@ router.post('/', authenticateToken, authorizeRoles('struttura', 'admin'), (req, 
     });
 
     res.status(201).json({ id: quoteId, numero, message: 'Preventivo creato con successo' });
-  } catch (err) {
+  })().catch((err) => {
     console.error('Error creating quote:', err);
     res.status(500).json({ error: 'Errore nella creazione del preventivo' });
-  }
+  });
 });
 
 router.put('/:id/assign', authenticateToken, authorizeRoles('supervisore', 'admin'), (req, res) => {
-  try {
+  (async () => {
     const { operatore_id } = req.body;
     if (!operatore_id) return res.status(400).json({ error: 'Operatore richiesto' });
 
-    const quote = db.prepare('SELECT * FROM quotes WHERE id = ?').get(req.params.id);
+    const quote = await getById('quotes', req.params.id);
     if (!quote) return res.status(404).json({ error: 'Preventivo non trovato' });
 
     const prevStato = quote.stato;
     const newStato = prevStato === 'PRESENTATA' ? 'ASSEGNATA' : prevStato;
 
-    db.prepare("UPDATE quotes SET operatore_id = ?, stato = ?, updated_at = datetime('now') WHERE id = ?").run(operatore_id, newStato, req.params.id);
+    await upsertById('quotes', req.params.id, { operatore_id, stato: newStato });
 
     if (prevStato !== newStato) {
-      db.prepare(`INSERT INTO quote_status_history (quote_id, stato_precedente, stato_nuovo, utente_id) VALUES (?, ?, ?, ?)`).run(req.params.id, prevStato, newStato, req.user.id);
+      await insert('quote_status_history', { quote_id: Number(req.params.id), stato_precedente: prevStato, stato_nuovo: newStato, utente_id: req.user.id });
     }
 
-    const op = db.prepare('SELECT nome, cognome FROM users WHERE id = ?').get(operatore_id);
-
-    logActivity({
+    const op = await getById('users', operatore_id);
+    await logActivity({
       utente_id: req.user.id,
       utente_nome: getUserDisplayName(req.user),
       ruolo: req.user.role,
@@ -453,18 +308,18 @@ router.put('/:id/assign', authenticateToken, authorizeRoles('supervisore', 'admi
     });
 
     res.json({ message: 'Preventivo assegnato con successo' });
-  } catch (err) {
+  })().catch((err) => {
     console.error('Error assigning quote:', err);
     res.status(500).json({ error: 'Errore nell\'assegnazione' });
-  }
+  });
 });
 
 router.put('/:id/status', authenticateToken, (req, res) => {
-  try {
+  (async () => {
     const { stato, motivo } = req.body;
     if (!stato) return res.status(400).json({ error: 'Stato richiesto' });
 
-    const quote = db.prepare('SELECT * FROM quotes WHERE id = ?').get(req.params.id);
+    const quote = await getById('quotes', req.params.id);
     if (!quote) return res.status(404).json({ error: 'Preventivo non trovato' });
 
     const validTransitions = {
@@ -484,12 +339,9 @@ router.put('/:id/status', authenticateToken, (req, res) => {
       return res.status(400).json({ error: 'Motivo standby obbligatorio' });
     }
 
-    db.prepare("UPDATE quotes SET stato = ?, updated_at = datetime('now') WHERE id = ?").run(stato, req.params.id);
-
-    db.prepare(`INSERT INTO quote_status_history (quote_id, stato_precedente, stato_nuovo, motivo, utente_id) VALUES (?, ?, ?, ?, ?)`)
-      .run(req.params.id, quote.stato, stato, motivo || null, req.user.id);
-
-    logActivity({
+    await upsertById('quotes', req.params.id, { stato });
+    await insert('quote_status_history', { quote_id: Number(req.params.id), stato_precedente: quote.stato, stato_nuovo: stato, motivo: motivo || null, utente_id: req.user.id });
+    await logActivity({
       utente_id: req.user.id,
       utente_nome: getUserDisplayName(req.user),
       ruolo: req.user.role,
@@ -501,32 +353,24 @@ router.put('/:id/status', authenticateToken, (req, res) => {
     });
 
     res.json({ message: 'Stato aggiornato con successo' });
-  } catch (err) {
+  })().catch((err) => {
     console.error('Error updating quote status:', err);
     res.status(500).json({ error: 'Errore nell\'aggiornamento stato' });
-  }
+  });
 });
 
 router.put('/:id', authenticateToken, (req, res) => {
-  try {
+  (async () => {
     const { dati_specifici, dati_preventivo, note_struttura } = req.body;
-    const quote = db.prepare('SELECT * FROM quotes WHERE id = ?').get(req.params.id);
+    const quote = await getById('quotes', req.params.id);
     if (!quote) return res.status(404).json({ error: 'Preventivo non trovato' });
 
-    const updates = [];
-    const params = [];
-
-    if (dati_specifici !== undefined) { updates.push('dati_specifici = ?'); params.push(JSON.stringify(dati_specifici)); }
-    if (dati_preventivo !== undefined) { updates.push('dati_preventivo = ?'); params.push(JSON.stringify(dati_preventivo)); }
-    if (note_struttura !== undefined) { updates.push('note_struttura = ?'); params.push(note_struttura); }
-
-    if (updates.length > 0) {
-      updates.push("updated_at = datetime('now')");
-      params.push(req.params.id);
-      db.prepare(`UPDATE quotes SET ${updates.join(', ')} WHERE id = ?`).run(...params);
-    }
-
-    logActivity({
+    const patch = {};
+    if (dati_specifici !== undefined) patch.dati_specifici = dati_specifici;
+    if (dati_preventivo !== undefined) patch.dati_preventivo = dati_preventivo;
+    if (note_struttura !== undefined) patch.note_struttura = note_struttura;
+    if (Object.keys(patch).length > 0) await upsertById('quotes', req.params.id, patch);
+    await logActivity({
       utente_id: req.user.id,
       utente_nome: getUserDisplayName(req.user),
       ruolo: req.user.role,
@@ -538,28 +382,26 @@ router.put('/:id', authenticateToken, (req, res) => {
     });
 
     res.json({ message: 'Preventivo aggiornato con successo' });
-  } catch (err) {
+  })().catch((err) => {
     console.error('Error updating quote:', err);
     res.status(500).json({ error: 'Errore nell\'aggiornamento preventivo' });
-  }
+  });
 });
 
 router.post('/:id/notes', authenticateToken, (req, res) => {
-  try {
+  (async () => {
     const { testo, tipo } = req.body;
     if (!testo) return res.status(400).json({ error: 'Testo nota richiesto' });
 
-    const quote = db.prepare('SELECT * FROM quotes WHERE id = ?').get(req.params.id);
+    const quote = await getById('quotes', req.params.id);
     if (!quote) return res.status(404).json({ error: 'Preventivo non trovato' });
 
-    const result = db.prepare(`INSERT INTO quote_notes (quote_id, utente_id, tipo, testo) VALUES (?, ?, ?, ?)`)
-      .run(req.params.id, req.user.id, tipo || 'interna', testo);
-
-    res.status(201).json({ id: result.lastInsertRowid, message: 'Nota aggiunta con successo' });
-  } catch (err) {
+    const result = await insert('quote_notes', { quote_id: Number(req.params.id), utente_id: req.user.id, tipo: tipo || 'interna', testo });
+    res.status(201).json({ id: result.id, message: 'Nota aggiunta con successo' });
+  })().catch((err) => {
     console.error('Error adding note:', err);
     res.status(500).json({ error: 'Errore nell\'aggiunta nota' });
-  }
+  });
 });
 
 module.exports = router;

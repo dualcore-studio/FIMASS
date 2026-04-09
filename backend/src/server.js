@@ -15,7 +15,9 @@ if (!fs.existsSync(uploadsDir)) {
 }
 
 initializeDatabase();
-bootstrapDatabaseIfEmpty();
+bootstrapDatabaseIfEmpty().catch((err) => {
+  console.error('Bootstrap error:', err);
+});
 
 function createApp() {
   const app = express();

@@ -1,171 +1,149 @@
 const express = require('express');
-const { db } = require('../config/database');
+const { list } = require('../data/store');
+const { loadContext } = require('../data/views');
 const { authenticateToken, authorizeRoles } = require('../middleware/auth');
 
 const router = express.Router();
 
 router.get('/overview', authenticateToken, authorizeRoles('admin', 'supervisore'), (req, res) => {
-  try {
+  (async () => {
     const { data_da, data_a } = req.query;
-    let dateFilter = '';
-    let params = [];
-
-    if (data_da && data_a) {
-      dateFilter = ' AND created_at BETWEEN ? AND ?';
-      params = [data_da, data_a + ' 23:59:59'];
+    try {
+      let quotes = await list('quotes');
+      let policies = await list('policies');
+      if (data_da && data_a) {
+        const end = `${data_a} 23:59:59`;
+        quotes = quotes.filter((q) => String(q.created_at || '') >= data_da && String(q.created_at || '') <= end);
+        policies = policies.filter((p) => String(p.created_at || '') >= data_da && String(p.created_at || '') <= end);
+      }
+      const quoteCounts = {};
+      ['PRESENTATA', 'ASSEGNATA', 'IN LAVORAZIONE', 'STANDBY', 'ELABORATA'].forEach((s) => { quoteCounts[s] = quotes.filter((q) => q.stato === s).length; });
+      const policyCounts = {};
+      ['RICHIESTA PRESENTATA', 'IN VERIFICA', 'DOCUMENTAZIONE MANCANTE', 'PRONTA PER EMISSIONE', 'EMESSA'].forEach((s) => { policyCounts[s] = policies.filter((p) => p.stato === s).length; });
+      const totalQuotes = Object.values(quoteCounts).reduce((a, b) => a + b, 0);
+      const totalPolicies = Object.values(policyCounts).reduce((a, b) => a + b, 0);
+      const conversionRate = totalQuotes > 0 ? ((totalPolicies / totalQuotes) * 100).toFixed(1) : 0;
+      res.json({ quoteCounts, policyCounts, totalQuotes, totalPolicies, conversionRate });
+    } catch (err) {
+      console.error('Error fetching overview:', err);
+      res.status(500).json({ error: 'Errore nel recupero report' });
     }
-
-    const quoteCounts = {};
-    ['PRESENTATA', 'ASSEGNATA', 'IN LAVORAZIONE', 'STANDBY', 'ELABORATA'].forEach(s => {
-      quoteCounts[s] = db.prepare(`SELECT COUNT(*) as c FROM quotes WHERE stato = ?${dateFilter}`).get(s, ...params).c;
-    });
-
-    const policyCounts = {};
-    ['RICHIESTA PRESENTATA', 'IN VERIFICA', 'DOCUMENTAZIONE MANCANTE', 'PRONTA PER EMISSIONE', 'EMESSA'].forEach(s => {
-      policyCounts[s] = db.prepare(`SELECT COUNT(*) as c FROM policies WHERE stato = ?${dateFilter}`).get(s, ...params).c;
-    });
-
-    const totalQuotes = Object.values(quoteCounts).reduce((a, b) => a + b, 0);
-    const totalPolicies = Object.values(policyCounts).reduce((a, b) => a + b, 0);
-    const conversionRate = totalQuotes > 0 ? ((totalPolicies / totalQuotes) * 100).toFixed(1) : 0;
-
-    res.json({ quoteCounts, policyCounts, totalQuotes, totalPolicies, conversionRate });
-  } catch (err) {
-    console.error('Error fetching overview:', err);
-    res.status(500).json({ error: 'Errore nel recupero report' });
-  }
+  })();
 });
 
 router.get('/by-type', authenticateToken, authorizeRoles('admin', 'supervisore'), (req, res) => {
-  try {
-    const { data_da, data_a } = req.query;
-    let dateFilter = '';
-    let params = [];
-    if (data_da && data_a) {
-      dateFilter = ' AND q.created_at BETWEEN ? AND ?';
-      params = [data_da, data_a + ' 23:59:59'];
+  (async () => {
+    try {
+      const { data_da, data_a } = req.query;
+      const ctx = await loadContext();
+      let quotes = [...ctx.quotes];
+      if (data_da && data_a) {
+        const end = `${data_a} 23:59:59`;
+        quotes = quotes.filter((q) => String(q.created_at || '') >= data_da && String(q.created_at || '') <= end);
+      }
+      const byType = ctx.insurance_types.map((it) => {
+        const q = quotes.filter((row) => Number(row.tipo_assicurazione_id) === Number(it.id));
+        return { nome: it.nome, codice: it.codice, preventivi: q.length, polizze: q.filter((x) => Number(x.has_policy) === 1).length };
+      }).sort((a, b) => b.preventivi - a.preventivi);
+      res.json(byType);
+    } catch (err) {
+      console.error('Error:', err);
+      res.status(500).json({ error: 'Errore' });
     }
-
-    const byType = db.prepare(`
-      SELECT it.nome, it.codice,
-        COUNT(q.id) as preventivi,
-        SUM(CASE WHEN q.has_policy = 1 THEN 1 ELSE 0 END) as polizze
-      FROM insurance_types it
-      LEFT JOIN quotes q ON q.tipo_assicurazione_id = it.id${dateFilter.replace('AND', 'AND')}
-      GROUP BY it.id
-      ORDER BY preventivi DESC
-    `).all(...params);
-
-    res.json(byType);
-  } catch (err) {
-    console.error('Error:', err);
-    res.status(500).json({ error: 'Errore' });
-  }
+  })();
 });
 
 router.get('/by-structure', authenticateToken, authorizeRoles('admin', 'supervisore'), (req, res) => {
-  try {
-    const { data_da, data_a } = req.query;
-    let dateFilter = '';
-    let params = [];
-    if (data_da && data_a) {
-      dateFilter = ' AND q.created_at BETWEEN ? AND ?';
-      params = [data_da, data_a + ' 23:59:59'];
+  (async () => {
+    try {
+      const { data_da, data_a } = req.query;
+      const ctx = await loadContext();
+      let quotes = [...ctx.quotes];
+      if (data_da && data_a) {
+        const end = `${data_a} 23:59:59`;
+        quotes = quotes.filter((q) => String(q.created_at || '') >= data_da && String(q.created_at || '') <= end);
+      }
+      const rows = ctx.users
+        .filter((u) => u.role === 'struttura')
+        .map((u) => {
+          const q = quotes.filter((x) => Number(x.struttura_id) === Number(u.id));
+          return { denominazione: u.denominazione, preventivi: q.length, elaborati: q.filter((x) => x.stato === 'ELABORATA').length, polizze: q.filter((x) => Number(x.has_policy) === 1).length };
+        })
+        .sort((a, b) => b.preventivi - a.preventivi);
+      res.json(rows);
+    } catch (err) {
+      console.error('Error:', err);
+      res.status(500).json({ error: 'Errore' });
     }
-
-    const byStructure = db.prepare(`
-      SELECT u.denominazione,
-        COUNT(q.id) as preventivi,
-        SUM(CASE WHEN q.stato = 'ELABORATA' THEN 1 ELSE 0 END) as elaborati,
-        SUM(CASE WHEN q.has_policy = 1 THEN 1 ELSE 0 END) as polizze
-      FROM users u
-      LEFT JOIN quotes q ON q.struttura_id = u.id${dateFilter}
-      WHERE u.role = 'struttura'
-      GROUP BY u.id
-      ORDER BY preventivi DESC
-    `).all(...params);
-
-    res.json(byStructure);
-  } catch (err) {
-    console.error('Error:', err);
-    res.status(500).json({ error: 'Errore' });
-  }
+  })();
 });
 
 router.get('/by-operator', authenticateToken, authorizeRoles('admin', 'supervisore'), (req, res) => {
-  try {
-    const { data_da, data_a } = req.query;
-    let dateFilter = '';
-    let params = [];
-    if (data_da && data_a) {
-      dateFilter = ' AND q.created_at BETWEEN ? AND ?';
-      params = [data_da, data_a + ' 23:59:59'];
+  (async () => {
+    try {
+      const { data_da, data_a } = req.query;
+      const ctx = await loadContext();
+      let quotes = [...ctx.quotes];
+      if (data_da && data_a) {
+        const end = `${data_a} 23:59:59`;
+        quotes = quotes.filter((q) => String(q.created_at || '') >= data_da && String(q.created_at || '') <= end);
+      }
+      const rows = ctx.users
+        .filter((u) => u.role === 'operatore')
+        .map((u) => {
+          const q = quotes.filter((x) => Number(x.operatore_id) === Number(u.id));
+          return { operatore: `${u.nome || ''} ${u.cognome || ''}`.trim(), totali: q.length, in_lavorazione: q.filter((x) => x.stato === 'IN LAVORAZIONE').length, elaborati: q.filter((x) => x.stato === 'ELABORATA').length, standby: q.filter((x) => x.stato === 'STANDBY').length };
+        })
+        .sort((a, b) => b.totali - a.totali);
+      res.json(rows);
+    } catch (err) {
+      console.error('Error:', err);
+      res.status(500).json({ error: 'Errore' });
     }
-
-    const byOperator = db.prepare(`
-      SELECT u.nome || ' ' || u.cognome as operatore,
-        COUNT(q.id) as totali,
-        SUM(CASE WHEN q.stato = 'IN LAVORAZIONE' THEN 1 ELSE 0 END) as in_lavorazione,
-        SUM(CASE WHEN q.stato = 'ELABORATA' THEN 1 ELSE 0 END) as elaborati,
-        SUM(CASE WHEN q.stato = 'STANDBY' THEN 1 ELSE 0 END) as standby
-      FROM users u
-      LEFT JOIN quotes q ON q.operatore_id = u.id${dateFilter}
-      WHERE u.role = 'operatore'
-      GROUP BY u.id
-      ORDER BY totali DESC
-    `).all(...params);
-
-    res.json(byOperator);
-  } catch (err) {
-    console.error('Error:', err);
-    res.status(500).json({ error: 'Errore' });
-  }
+  })();
 });
 
 router.get('/timeline', authenticateToken, authorizeRoles('admin', 'supervisore'), (req, res) => {
-  try {
-    const { periodo = '30' } = req.query;
-
-    const quoteTimeline = db.prepare(`
-      SELECT date(created_at) as data, COUNT(*) as conteggio
-      FROM quotes
-      WHERE created_at >= date('now', '-${parseInt(periodo)} days')
-      GROUP BY date(created_at)
-      ORDER BY data
-    `).all();
-
-    const policyTimeline = db.prepare(`
-      SELECT date(created_at) as data, COUNT(*) as conteggio
-      FROM policies
-      WHERE created_at >= date('now', '-${parseInt(periodo)} days')
-      GROUP BY date(created_at)
-      ORDER BY data
-    `).all();
-
-    res.json({ quoteTimeline, policyTimeline });
-  } catch (err) {
-    console.error('Error:', err);
-    res.status(500).json({ error: 'Errore' });
-  }
+  (async () => {
+    try {
+      const { periodo = '30' } = req.query;
+      const days = Number(periodo) || 30;
+      const minDate = new Date(Date.now() - days * 86400000).toISOString().slice(0, 10);
+      const group = (rows) => {
+        const m = new Map();
+        rows.forEach((r) => {
+          const d = String(r.created_at || '').slice(0, 10);
+          if (!d || d < minDate) return;
+          m.set(d, (m.get(d) || 0) + 1);
+        });
+        return [...m.entries()].sort((a, b) => a[0].localeCompare(b[0])).map(([data, conteggio]) => ({ data, conteggio }));
+      };
+      const quoteTimeline = group(await list('quotes'));
+      const policyTimeline = group(await list('policies'));
+      res.json({ quoteTimeline, policyTimeline });
+    } catch (err) {
+      console.error('Error:', err);
+      res.status(500).json({ error: 'Errore' });
+    }
+  })();
 });
 
 router.get('/alerts', authenticateToken, authorizeRoles('admin', 'supervisore'), (req, res) => {
-  try {
-    const unassigned = db.prepare("SELECT COUNT(*) as c FROM quotes WHERE stato = 'PRESENTATA' AND operatore_id IS NULL").get().c;
-    const standbyLong = db.prepare("SELECT COUNT(*) as c FROM quotes WHERE stato = 'STANDBY' AND updated_at <= datetime('now', '-3 days')").get().c;
-    const stalePolicies = db.prepare("SELECT COUNT(*) as c FROM policies WHERE stato IN ('RICHIESTA PRESENTATA','IN VERIFICA') AND updated_at <= datetime('now', '-5 days')").get().c;
-    const staleQuotes = db.prepare("SELECT COUNT(*) as c FROM quotes WHERE stato IN ('ASSEGNATA','IN LAVORAZIONE') AND updated_at <= datetime('now', '-7 days')").get().c;
-
-    res.json({
-      pratiche_non_assegnate: unassigned,
-      standby_prolungato: standbyLong,
-      polizze_senza_avanzamento: stalePolicies,
-      pratiche_ferme: staleQuotes
-    });
-  } catch (err) {
-    console.error('Error:', err);
-    res.status(500).json({ error: 'Errore' });
-  }
+  (async () => {
+    try {
+      const quotes = await list('quotes');
+      const policies = await list('policies');
+      const daysAgo = (d) => new Date(Date.now() - d * 86400000).toISOString().slice(0, 19).replace('T', ' ');
+      const unassigned = quotes.filter((q) => q.stato === 'PRESENTATA' && (q.operatore_id == null)).length;
+      const standbyLong = quotes.filter((q) => q.stato === 'STANDBY' && String(q.updated_at || '') <= daysAgo(3)).length;
+      const stalePolicies = policies.filter((p) => ['RICHIESTA PRESENTATA', 'IN VERIFICA'].includes(p.stato) && String(p.updated_at || '') <= daysAgo(5)).length;
+      const staleQuotes = quotes.filter((q) => ['ASSEGNATA', 'IN LAVORAZIONE'].includes(q.stato) && String(q.updated_at || '') <= daysAgo(7)).length;
+      res.json({ pratiche_non_assegnate: unassigned, standby_prolungato: standbyLong, polizze_senza_avanzamento: stalePolicies, pratiche_ferme: staleQuotes });
+    } catch (err) {
+      console.error('Error:', err);
+      res.status(500).json({ error: 'Errore' });
+    }
+  })();
 });
 
 module.exports = router;

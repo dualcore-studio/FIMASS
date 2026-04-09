@@ -3,7 +3,8 @@ const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
 const { v4: uuidv4 } = require('uuid');
-const { db } = require('../config/database');
+const { put, del } = require('@vercel/blob');
+const { insert, getById, removeById } = require('../data/store');
 const { authenticateToken } = require('../middleware/auth');
 const { logActivity } = require('./logs');
 
@@ -38,20 +39,41 @@ const upload = multer({
 });
 
 router.post('/upload', authenticateToken, upload.single('file'), (req, res) => {
-  try {
+  (async () => {
+    try {
     const { entity_type, entity_id, tipo } = req.body;
 
     if (!entity_type || !entity_id || !req.file) {
       return res.status(400).json({ error: 'Dati mancanti' });
     }
 
-    const result = db.prepare(`
-      INSERT INTO attachments (entity_type, entity_id, tipo, nome_file, nome_originale, mime_type, dimensione, caricato_da)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-    `).run(entity_type, entity_id, tipo || 'altro', req.file.filename, req.file.originalname, req.file.mimetype, req.file.size, req.user.id);
+    let downloadUrl = null;
+    let storageKey = req.file.filename;
+    if (process.env.BLOB_READ_WRITE_TOKEN) {
+      const blob = await put(`attachments/${req.file.filename}`, fs.createReadStream(req.file.path), {
+        access: 'public',
+        addRandomSuffix: false,
+        token: process.env.BLOB_READ_WRITE_TOKEN,
+      });
+      downloadUrl = blob.url;
+      storageKey = blob.pathname;
+      if (fs.existsSync(req.file.path)) fs.unlinkSync(req.file.path);
+    }
+
+    const result = await insert('attachments', {
+      entity_type,
+      entity_id: Number(entity_id),
+      tipo: tipo || 'altro',
+      nome_file: storageKey,
+      nome_originale: req.file.originalname,
+      mime_type: req.file.mimetype,
+      dimensione: req.file.size,
+      caricato_da: req.user.id,
+      url: downloadUrl,
+    });
 
     const displayName = req.user.role === 'struttura' ? req.user.denominazione : `${req.user.nome} ${req.user.cognome}`;
-    logActivity({
+    await logActivity({
       utente_id: req.user.id,
       utente_nome: displayName,
       ruolo: req.user.role,
@@ -63,48 +85,60 @@ router.post('/upload', authenticateToken, upload.single('file'), (req, res) => {
     });
 
     res.status(201).json({
-      id: result.lastInsertRowid,
-      nome_file: req.file.filename,
+      id: result.id,
+      nome_file: storageKey,
       nome_originale: req.file.originalname,
+      url: downloadUrl,
       message: 'File caricato con successo'
     });
-  } catch (err) {
-    console.error('Error uploading file:', err);
-    res.status(500).json({ error: 'Errore nel caricamento file' });
-  }
+    } catch (err) {
+      console.error('Error uploading file:', err);
+      res.status(500).json({ error: 'Errore nel caricamento file' });
+    }
+  })();
 });
 
 router.get('/download/:id', authenticateToken, (req, res) => {
-  try {
-    const attachment = db.prepare('SELECT * FROM attachments WHERE id = ?').get(req.params.id);
+  (async () => {
+    try {
+    const attachment = await getById('attachments', req.params.id);
     if (!attachment) return res.status(404).json({ error: 'Allegato non trovato' });
 
+    if (attachment.url) return res.redirect(302, attachment.url);
     const filePath = path.join(uploadsDir, attachment.nome_file);
     if (!fs.existsSync(filePath)) return res.status(404).json({ error: 'File non trovato sul server' });
 
     res.download(filePath, attachment.nome_originale);
-  } catch (err) {
-    console.error('Error downloading file:', err);
-    res.status(500).json({ error: 'Errore nel download file' });
-  }
+    } catch (err) {
+      console.error('Error downloading file:', err);
+      res.status(500).json({ error: 'Errore nel download file' });
+    }
+  })();
 });
 
 router.delete('/:id', authenticateToken, (req, res) => {
-  try {
-    const attachment = db.prepare('SELECT * FROM attachments WHERE id = ?').get(req.params.id);
+  (async () => {
+    try {
+    const attachment = await getById('attachments', req.params.id);
     if (!attachment) return res.status(404).json({ error: 'Allegato non trovato' });
 
-    const filePath = path.join(uploadsDir, attachment.nome_file);
-    if (fs.existsSync(filePath)) {
-      fs.unlinkSync(filePath);
+    if (attachment.url && process.env.BLOB_READ_WRITE_TOKEN) {
+      try {
+        await del(attachment.url, { token: process.env.BLOB_READ_WRITE_TOKEN });
+      } catch (e) {
+        console.warn('Blob delete failed:', e.message);
+      }
+    } else {
+      const filePath = path.join(uploadsDir, attachment.nome_file);
+      if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
     }
-
-    db.prepare('DELETE FROM attachments WHERE id = ?').run(req.params.id);
+    await removeById('attachments', req.params.id);
     res.json({ message: 'Allegato eliminato con successo' });
-  } catch (err) {
-    console.error('Error deleting attachment:', err);
-    res.status(500).json({ error: 'Errore nell\'eliminazione allegato' });
-  }
+    } catch (err) {
+      console.error('Error deleting attachment:', err);
+      res.status(500).json({ error: 'Errore nell\'eliminazione allegato' });
+    }
+  })();
 });
 
 module.exports = router;

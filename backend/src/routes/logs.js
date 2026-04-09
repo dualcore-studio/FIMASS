@@ -1,33 +1,28 @@
 const express = require('express');
-const { db } = require('../config/database');
+const { insert, list, like, sortBy: sortRows, paginate } = require('../data/store');
 const { authenticateToken, authorizeRoles } = require('../middleware/auth');
-const { resolveListOrder } = require('../utils/listSort');
-
-const LOG_SORT_MAP = {
-  created_at: 'created_at',
-  utente: 'LOWER(utente_nome)',
-  ruolo: 'LOWER(ruolo)',
-  azione: 'LOWER(azione)',
-  modulo: `LOWER(COALESCE(modulo, ''))`,
-  dettaglio: `LOWER(COALESCE(dettaglio, ''))`,
-};
-const DEFAULT_LOG_ORDER = 'ORDER BY created_at DESC';
 
 const router = express.Router();
 
-function logActivity({ utente_id, utente_nome, ruolo, azione, modulo, riferimento_id, riferimento_tipo, dettaglio }) {
+async function logActivity({ utente_id, utente_nome, ruolo, azione, modulo, riferimento_id, riferimento_tipo, dettaglio }) {
   try {
-    db.prepare(`
-      INSERT INTO activity_logs (utente_id, utente_nome, ruolo, azione, modulo, riferimento_id, riferimento_tipo, dettaglio)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-    `).run(utente_id, utente_nome, ruolo, azione, modulo, riferimento_id || null, riferimento_tipo || null, dettaglio || null);
+    await insert('activity_logs', {
+      utente_id,
+      utente_nome,
+      ruolo,
+      azione,
+      modulo,
+      riferimento_id: riferimento_id || null,
+      riferimento_tipo: riferimento_tipo || null,
+      dettaglio: dettaglio || null,
+    });
   } catch (err) {
     console.error('Error logging activity:', err);
   }
 }
 
 router.get('/', authenticateToken, authorizeRoles('admin', 'supervisore'), (req, res) => {
-  try {
+  (async () => {
     const {
       page = 1,
       limit = 50,
@@ -40,39 +35,51 @@ router.get('/', authenticateToken, authorizeRoles('admin', 'supervisore'), (req,
       sort_by: sortBy,
       sort_dir: sortDir,
     } = req.query;
-    const offset = (parseInt(page) - 1) * parseInt(limit);
+    try {
+      let rows = await list('activity_logs');
+      rows = rows.filter((row) => {
+        if (utente_id && Number(row.utente_id) !== Number(utente_id)) return false;
+        if (azione && row.azione !== azione) return false;
+        if (modulo && row.modulo !== modulo) return false;
+        if (data_da && String(row.created_at || '') < String(data_da)) return false;
+        if (data_a && String(row.created_at || '') > `${data_a} 23:59:59`) return false;
+        if (search && !(like(row.utente_nome, search) || like(row.dettaglio, search) || like(row.azione, search))) return false;
+        return true;
+      });
 
-    let where = ['1=1'];
-    let params = [];
-
-    if (utente_id) { where.push('utente_id = ?'); params.push(utente_id); }
-    if (azione) { where.push('azione = ?'); params.push(azione); }
-    if (modulo) { where.push('modulo = ?'); params.push(modulo); }
-    if (data_da) { where.push('created_at >= ?'); params.push(data_da); }
-    if (data_a) { where.push('created_at <= ?'); params.push(data_a + ' 23:59:59'); }
-    if (search) { where.push('(utente_nome LIKE ? OR dettaglio LIKE ? OR azione LIKE ?)'); params.push(`%${search}%`, `%${search}%`, `%${search}%`); }
-
-    const whereClause = where.join(' AND ');
-    const orderClause = resolveListOrder(LOG_SORT_MAP, sortBy, sortDir, DEFAULT_LOG_ORDER);
-
-    const total = db.prepare(`SELECT COUNT(*) as count FROM activity_logs WHERE ${whereClause}`).get(...params).count;
-    const logs = db.prepare(`SELECT * FROM activity_logs WHERE ${whereClause} ${orderClause} LIMIT ? OFFSET ?`).all(...params, parseInt(limit), offset);
-
-    res.json({ data: logs, total, page: parseInt(page), limit: parseInt(limit), totalPages: Math.ceil(total / parseInt(limit)) });
-  } catch (err) {
-    console.error('Error fetching logs:', err);
-    res.status(500).json({ error: 'Errore nel recupero dei log' });
-  }
+      const sortFieldMap = {
+        created_at: 'created_at',
+        utente: 'utente_nome',
+        ruolo: 'ruolo',
+        azione: 'azione',
+        modulo: 'modulo',
+        dettaglio: 'dettaglio',
+      };
+      const field = sortFieldMap[sortBy] || 'created_at';
+      rows = sortRows(rows, field, sortDir || 'desc');
+      const payload = paginate(rows, page, limit);
+      res.json(payload);
+    } catch (err) {
+      console.error('Error fetching logs:', err);
+      res.status(500).json({ error: 'Errore nel recupero dei log' });
+    }
+  })();
 });
 
 router.get('/actions', authenticateToken, authorizeRoles('admin', 'supervisore'), (req, res) => {
-  const actions = db.prepare('SELECT DISTINCT azione FROM activity_logs ORDER BY azione').all();
-  res.json(actions.map(a => a.azione));
+  (async () => {
+    const rows = await list('activity_logs');
+    const actions = [...new Set(rows.map((r) => r.azione).filter(Boolean))].sort((a, b) => String(a).localeCompare(String(b), 'it'));
+    res.json(actions);
+  })();
 });
 
 router.get('/modules', authenticateToken, authorizeRoles('admin', 'supervisore'), (req, res) => {
-  const modules = db.prepare('SELECT DISTINCT modulo FROM activity_logs WHERE modulo IS NOT NULL ORDER BY modulo').all();
-  res.json(modules.map(m => m.modulo));
+  (async () => {
+    const rows = await list('activity_logs');
+    const modules = [...new Set(rows.map((r) => r.modulo).filter(Boolean))].sort((a, b) => String(a).localeCompare(String(b), 'it'));
+    res.json(modules);
+  })();
 });
 
 module.exports = router;

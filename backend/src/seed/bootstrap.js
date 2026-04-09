@@ -1,46 +1,32 @@
 const bcrypt = require('bcryptjs');
-const { db } = require('../config/database');
+const { findOne, insert } = require('../data/store');
+const { isInstantConfigured } = require('../lib/instantdb');
 
-function bootstrapDatabaseIfEmpty() {
-  const existingAdmin = db.prepare("SELECT id FROM users WHERE username = 'admin'").get();
+async function bootstrapDatabaseIfEmpty() {
+  if (!isInstantConfigured()) {
+    console.warn('InstantDB non configurato: bootstrap saltato.');
+    return;
+  }
+  const existingAdmin = await findOne('users', (u) => u.username === 'admin');
   if (existingAdmin) return;
 
   const hash = (value) => bcrypt.hashSync(value, 10);
 
-  const insertUser = db.prepare(`
-    INSERT INTO users (username, password, role, nome, cognome, denominazione, email, stato, enabled_types)
-    VALUES (?, ?, ?, ?, ?, ?, ?, 'attivo', ?)
-  `);
-
-  const insertType = db.prepare(`
-    INSERT INTO insurance_types (nome, codice, stato, ordine, campi_specifici, checklist_allegati)
-    VALUES (?, ?, 'attivo', ?, ?, ?)
-  `);
-
-  const insertSetting = db.prepare(`
-    INSERT INTO settings (chiave, valore) VALUES (?, ?)
-  `);
-
-  const tx = db.transaction(() => {
-    insertUser.run('admin', hash('admin123'), 'admin', 'Marco', 'Rossi', null, 'admin@fimass.it', null);
-    insertUser.run('supervisore1', hash('super123'), 'supervisore', 'Laura', 'Bianchi', null, 'supervisore@fimass.it', null);
-    insertUser.run('operatore1', hash('oper123'), 'operatore', 'Anna', 'Ferraro', null, 'operatore@fimass.it', null);
-    insertUser.run('struttura1', hash('strut123'), 'struttura', null, null, 'Agenzia Demo', 'struttura@fimass.it', JSON.stringify(['all']));
-
-    insertType.run(
-      'RC Auto / Moto / Autocarri',
-      'rc_auto',
-      1,
-      JSON.stringify([{ nome: 'targa', label: 'Targa o Telaio', tipo: 'text', obbligatorio: true }]),
-      JSON.stringify([{ nome: 'Documento Identita', obbligatorio: true }])
-    );
-
-    insertSetting.run('nome_portale', 'Fimass Sportello Amico');
-    insertSetting.run('colore_primario', '#1e40af');
-    insertSetting.run('colore_secondario', '#3b82f6');
+  await insert('users', { username: 'admin', password: hash('admin123'), role: 'admin', nome: 'Marco', cognome: 'Rossi', denominazione: null, email: 'admin@fimass.it', stato: 'attivo', enabled_types: null });
+  await insert('users', { username: 'supervisore1', password: hash('super123'), role: 'supervisore', nome: 'Laura', cognome: 'Bianchi', denominazione: null, email: 'supervisore@fimass.it', stato: 'attivo', enabled_types: null });
+  await insert('users', { username: 'operatore1', password: hash('oper123'), role: 'operatore', nome: 'Anna', cognome: 'Ferraro', denominazione: null, email: 'operatore@fimass.it', stato: 'attivo', enabled_types: null });
+  await insert('users', { username: 'struttura1', password: hash('strut123'), role: 'struttura', nome: null, cognome: null, denominazione: 'Agenzia Demo', email: 'struttura@fimass.it', stato: 'attivo', enabled_types: ['all'] });
+  await insert('insurance_types', {
+    nome: 'RC Auto / Moto / Autocarri',
+    codice: 'rc_auto',
+    stato: 'attivo',
+    ordine: 1,
+    campi_specifici: [{ nome: 'targa', label: 'Targa o Telaio', tipo: 'text', obbligatorio: true }],
+    checklist_allegati: [{ nome: 'Documento Identita', obbligatorio: true }],
   });
-
-  tx();
+  await insert('settings', { chiave: 'nome_portale', valore: 'Fimass Sportello Amico' });
+  await insert('settings', { chiave: 'colore_primario', valore: '#1e40af' });
+  await insert('settings', { chiave: 'colore_secondario', valore: '#3b82f6' });
   console.log('Bootstrap DB eseguito: creati utenti e dati base.');
 }
 

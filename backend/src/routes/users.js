@@ -1,20 +1,8 @@
 const express = require('express');
 const bcrypt = require('bcryptjs');
-const { db } = require('../config/database');
+const { list, getById, findOne, insert, upsertById, like, sortBy: sortRecords, paginate } = require('../data/store');
 const { authenticateToken, authorizeRoles } = require('../middleware/auth');
 const { logActivity } = require('./logs');
-const { resolveListOrder } = require('../utils/listSort');
-
-const USER_SORT_MAP = {
-  nome: `LOWER(TRIM(COALESCE(NULLIF(TRIM(denominazione), ''), COALESCE(nome, '') || ' ' || COALESCE(cognome, ''))))`,
-  ruolo: 'role',
-  email: 'LOWER(email)',
-  username: 'LOWER(username)',
-  stato: 'stato',
-  ultimo_accesso: '(last_login IS NULL), last_login',
-  created_at: 'created_at',
-};
-const DEFAULT_USER_ORDER = 'ORDER BY created_at DESC';
 
 const router = express.Router();
 
@@ -23,111 +11,127 @@ function getUserDisplayName(user) {
 }
 
 router.get('/', authenticateToken, authorizeRoles('admin', 'supervisore'), (req, res) => {
-  try {
+  (async () => {
     const { page = 1, limit = 25, role, stato, search, sort_by: sortBy, sort_dir: sortDir } = req.query;
-    const offset = (parseInt(page) - 1) * parseInt(limit);
-
-    let where = ['1=1'];
-    let params = [];
-
-    if (role) { where.push('role = ?'); params.push(role); }
-    if (stato) { where.push('stato = ?'); params.push(stato); }
-    if (search) {
-      where.push('(username LIKE ? OR email LIKE ? OR nome LIKE ? OR cognome LIKE ? OR denominazione LIKE ?)');
-      params.push(`%${search}%`, `%${search}%`, `%${search}%`, `%${search}%`, `%${search}%`);
+    try {
+      let users = await list('users');
+      if (role) users = users.filter((u) => u.role === role);
+      if (stato) users = users.filter((u) => u.stato === stato);
+      if (search) {
+        users = users.filter((u) => like(u.username, search) || like(u.email, search) || like(u.nome, search) || like(u.cognome, search) || like(u.denominazione, search));
+      }
+      const sortMap = {
+        nome: 'denominazione',
+        ruolo: 'role',
+        email: 'email',
+        username: 'username',
+        stato: 'stato',
+        ultimo_accesso: 'last_login',
+        created_at: 'created_at',
+      };
+      users = sortRecords(users, sortMap[sortBy] || 'created_at', sortDir || 'desc');
+      const payload = paginate(users, page, limit);
+      payload.data = payload.data.map((u) => ({
+        ...u,
+        enabled_types: typeof u.enabled_types === 'string' ? JSON.parse(u.enabled_types) : (u.enabled_types || null),
+      }));
+      res.json(payload);
+    } catch (err) {
+      console.error('Error fetching users:', err);
+      res.status(500).json({ error: 'Errore nel recupero utenti' });
     }
-
-    const whereClause = where.join(' AND ');
-    const orderClause = resolveListOrder(USER_SORT_MAP, sortBy, sortDir, DEFAULT_USER_ORDER);
-    const total = db.prepare(`SELECT COUNT(*) as count FROM users WHERE ${whereClause}`).get(...params).count;
-    const users = db.prepare(`
-      SELECT id, username, role, nome, cognome, denominazione, email, telefono, stato, enabled_types, last_login, created_at
-      FROM users WHERE ${whereClause} ${orderClause} LIMIT ? OFFSET ?
-    `).all(...params, parseInt(limit), offset);
-
-    res.json({
-      data: users.map(u => ({ ...u, enabled_types: u.enabled_types ? JSON.parse(u.enabled_types) : null })),
-      total,
-      page: parseInt(page),
-      limit: parseInt(limit),
-      totalPages: Math.ceil(total / parseInt(limit))
-    });
-  } catch (err) {
-    console.error('Error fetching users:', err);
-    res.status(500).json({ error: 'Errore nel recupero utenti' });
-  }
+  })();
 });
 
 router.get('/operators', authenticateToken, authorizeRoles('admin', 'supervisore'), (req, res) => {
-  const operators = db.prepare("SELECT id, nome, cognome, email FROM users WHERE role = 'operatore' AND stato = 'attivo' ORDER BY cognome, nome").all();
-  res.json(operators);
+  (async () => {
+    const operators = (await list('users', (u) => u.role === 'operatore' && u.stato === 'attivo'))
+      .sort((a, b) => `${a.cognome || ''} ${a.nome || ''}`.localeCompare(`${b.cognome || ''} ${b.nome || ''}`, 'it'))
+      .map((u) => ({ id: u.id, nome: u.nome, cognome: u.cognome, email: u.email }));
+    res.json(operators);
+  })();
 });
 
 router.get('/structures', authenticateToken, authorizeRoles('admin', 'supervisore', 'operatore'), (req, res) => {
-  const structures = db.prepare("SELECT id, denominazione, email FROM users WHERE role = 'struttura' AND stato = 'attivo' ORDER BY denominazione").all();
-  res.json(structures);
+  (async () => {
+    const structures = (await list('users', (u) => u.role === 'struttura' && u.stato === 'attivo'))
+      .sort((a, b) => String(a.denominazione || '').localeCompare(String(b.denominazione || ''), 'it'))
+      .map((u) => ({ id: u.id, denominazione: u.denominazione, email: u.email }));
+    res.json(structures);
+  })();
 });
 
 router.get('/:id', authenticateToken, authorizeRoles('admin', 'supervisore'), (req, res) => {
-  const user = db.prepare('SELECT id, username, role, nome, cognome, denominazione, email, telefono, stato, enabled_types, last_login, created_at, updated_at FROM users WHERE id = ?').get(req.params.id);
-  if (!user) return res.status(404).json({ error: 'Utente non trovato' });
-  user.enabled_types = user.enabled_types ? JSON.parse(user.enabled_types) : null;
-  res.json(user);
+  (async () => {
+    const user = await getById('users', req.params.id);
+    if (!user) return res.status(404).json({ error: 'Utente non trovato' });
+    user.enabled_types = typeof user.enabled_types === 'string' ? JSON.parse(user.enabled_types) : (user.enabled_types || null);
+    res.json(user);
+  })();
 });
 
 router.post('/', authenticateToken, authorizeRoles('admin'), (req, res) => {
-  try {
+  (async () => {
     const { username, password, role, nome, cognome, denominazione, email, telefono, stato, enabled_types } = req.body;
 
     if (!username || !password || !role || !email) {
       return res.status(400).json({ error: 'Campi obbligatori mancanti' });
     }
 
-    const existing = db.prepare('SELECT id FROM users WHERE username = ?').get(username);
+    const existing = await findOne('users', (u) => u.username === username);
     if (existing) return res.status(409).json({ error: 'Username già in uso' });
 
     const hashedPassword = bcrypt.hashSync(password, 10);
-    const enabledTypesJson = enabled_types ? JSON.stringify(enabled_types) : null;
+    const result = await insert('users', {
+      username,
+      password: hashedPassword,
+      role,
+      nome: nome || null,
+      cognome: cognome || null,
+      denominazione: denominazione || null,
+      email,
+      telefono: telefono || null,
+      stato: stato || 'attivo',
+      enabled_types: enabled_types || null,
+    });
 
-    const result = db.prepare(`
-      INSERT INTO users (username, password, role, nome, cognome, denominazione, email, telefono, stato, enabled_types)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    `).run(username, hashedPassword, role, nome || null, cognome || null, denominazione || null, email, telefono || null, stato || 'attivo', enabledTypesJson);
-
-    logActivity({
+    await logActivity({
       utente_id: req.user.id,
       utente_nome: getUserDisplayName(req.user),
       ruolo: req.user.role,
       azione: 'CREAZIONE_UTENTE',
       modulo: 'utenti',
-      riferimento_id: result.lastInsertRowid,
+      riferimento_id: result.id,
       riferimento_tipo: 'user',
       dettaglio: `Creato utente ${username} con ruolo ${role}`
     });
 
-    res.status(201).json({ id: result.lastInsertRowid, message: 'Utente creato con successo' });
-  } catch (err) {
+    res.status(201).json({ id: result.id, message: 'Utente creato con successo' });
+  })().catch((err) => {
     console.error('Error creating user:', err);
     res.status(500).json({ error: 'Errore nella creazione utente' });
-  }
+  });
 });
 
 router.put('/:id', authenticateToken, authorizeRoles('admin'), (req, res) => {
-  try {
+  (async () => {
     const { nome, cognome, denominazione, email, telefono, stato, enabled_types, role } = req.body;
     const userId = req.params.id;
 
-    const user = db.prepare('SELECT * FROM users WHERE id = ?').get(userId);
+    const user = await getById('users', userId);
     if (!user) return res.status(404).json({ error: 'Utente non trovato' });
+    await upsertById('users', userId, {
+      nome: nome || null,
+      cognome: cognome || null,
+      denominazione: denominazione || null,
+      email,
+      telefono: telefono || null,
+      stato: stato || 'attivo',
+      enabled_types: enabled_types || null,
+      role: role || user.role,
+    });
 
-    const enabledTypesJson = enabled_types ? JSON.stringify(enabled_types) : null;
-
-    db.prepare(`
-      UPDATE users SET nome = ?, cognome = ?, denominazione = ?, email = ?, telefono = ?, stato = ?, enabled_types = ?, role = ?, updated_at = datetime('now')
-      WHERE id = ?
-    `).run(nome || null, cognome || null, denominazione || null, email, telefono || null, stato || 'attivo', enabledTypesJson, role || user.role, userId);
-
-    logActivity({
+    await logActivity({
       utente_id: req.user.id,
       utente_nome: getUserDisplayName(req.user),
       ruolo: req.user.role,
@@ -139,24 +143,24 @@ router.put('/:id', authenticateToken, authorizeRoles('admin'), (req, res) => {
     });
 
     res.json({ message: 'Utente aggiornato con successo' });
-  } catch (err) {
+  })().catch((err) => {
     console.error('Error updating user:', err);
     res.status(500).json({ error: 'Errore nell\'aggiornamento utente' });
-  }
+  });
 });
 
 router.post('/:id/reset-password', authenticateToken, authorizeRoles('admin'), (req, res) => {
-  try {
+  (async () => {
     const { password } = req.body;
     if (!password) return res.status(400).json({ error: 'Nuova password richiesta' });
 
-    const user = db.prepare('SELECT * FROM users WHERE id = ?').get(req.params.id);
+    const user = await getById('users', req.params.id);
     if (!user) return res.status(404).json({ error: 'Utente non trovato' });
 
     const hashedPassword = bcrypt.hashSync(password, 10);
-    db.prepare("UPDATE users SET password = ?, updated_at = datetime('now') WHERE id = ?").run(hashedPassword, req.params.id);
+    await upsertById('users', req.params.id, { password: hashedPassword });
 
-    logActivity({
+    await logActivity({
       utente_id: req.user.id,
       utente_nome: getUserDisplayName(req.user),
       ruolo: req.user.role,
@@ -168,21 +172,21 @@ router.post('/:id/reset-password', authenticateToken, authorizeRoles('admin'), (
     });
 
     res.json({ message: 'Password reimpostata con successo' });
-  } catch (err) {
+  })().catch((err) => {
     console.error('Error resetting password:', err);
     res.status(500).json({ error: 'Errore nel reset password' });
-  }
+  });
 });
 
 router.post('/:id/toggle-status', authenticateToken, authorizeRoles('admin'), (req, res) => {
-  try {
-    const user = db.prepare('SELECT * FROM users WHERE id = ?').get(req.params.id);
+  (async () => {
+    const user = await getById('users', req.params.id);
     if (!user) return res.status(404).json({ error: 'Utente non trovato' });
 
     const newStato = user.stato === 'attivo' ? 'disattivo' : 'attivo';
-    db.prepare("UPDATE users SET stato = ?, updated_at = datetime('now') WHERE id = ?").run(newStato, req.params.id);
+    await upsertById('users', req.params.id, { stato: newStato });
 
-    logActivity({
+    await logActivity({
       utente_id: req.user.id,
       utente_nome: getUserDisplayName(req.user),
       ruolo: req.user.role,
@@ -194,10 +198,10 @@ router.post('/:id/toggle-status', authenticateToken, authorizeRoles('admin'), (r
     });
 
     res.json({ message: `Utente ${newStato === 'attivo' ? 'riattivato' : 'disattivato'} con successo`, stato: newStato });
-  } catch (err) {
+  })().catch((err) => {
     console.error('Error toggling user status:', err);
     res.status(500).json({ error: 'Errore nel cambio stato utente' });
-  }
+  });
 });
 
 module.exports = router;

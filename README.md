@@ -5,9 +5,9 @@ Portale interno per la gestione di richieste di preventivo assicurativo e richie
 ## Stack Tecnologico
 
 - **Frontend**: React 19 + TypeScript + Vite + Tailwind CSS 4
-- **Backend**: Node.js + Express + better-sqlite3
+- **Backend**: Node.js + Express + InstantDB Admin SDK
 - **Autenticazione**: JWT
-- **Database**: SQLite (facilmente migrabile a PostgreSQL)
+- **Database**: InstantDB (persistente in cloud)
 
 ## Avvio Rapido
 
@@ -18,13 +18,21 @@ cd backend && npm install
 cd ../frontend && npm install
 ```
 
-### 2. Inizializzare il database con dati seed
+### 2. Configurare variabili ambiente backend
+
+Nel progetto Vercel (o in `.env` locale):
 
 ```bash
-cd backend && npm run seed
+INSTANT_APP_ID=...
+INSTANT_ADMIN_TOKEN=...
+JWT_SECRET=...
 ```
 
-### 3. Avviare i server
+### 3. Inizializzare i dati base (bootstrap automatico)
+
+Il backend crea automaticamente utenti e impostazioni minime al primo avvio se il database InstantDB è vuoto.
+
+### 4. Avviare i server
 
 In due terminali separati:
 
@@ -36,7 +44,7 @@ cd backend && npm run dev
 cd frontend && npm run dev
 ```
 
-### 4. Accedere al portale
+### 5. Accedere al portale
 
 Aprire http://localhost:5173
 
@@ -63,6 +71,24 @@ Aprire http://localhost:5173
 3. L'**operatore** la lavora e la segna come elaborata
 4. La **struttura** richiede l'emissione della polizza dal preventivo elaborato
 5. La polizza viene gestita internamente (verifica, emissione)
+
+## Migrazione dati storici da SQLite
+
+1. Esporta dal vecchio DB SQLite:
+
+```bash
+cd backend
+npm run export:sqlite -- ../sqlite-export.json
+```
+
+2. Importa in InstantDB:
+
+```bash
+cd backend
+npm run import:instantdb -- ../sqlite-export.json
+```
+
+Viene generato anche un report `instantdb-import-report.json`.
 
 ## Struttura Progetto
 

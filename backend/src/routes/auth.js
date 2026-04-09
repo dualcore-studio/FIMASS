@@ -1,20 +1,20 @@
 const express = require('express');
 const bcrypt = require('bcryptjs');
-const { db } = require('../config/database');
+const { findOne, getById, upsertById } = require('../data/store');
 const { generateToken, authenticateToken } = require('../middleware/auth');
 const { logActivity } = require('./logs');
 
 const router = express.Router();
 
 router.post('/login', (req, res) => {
-  try {
+  (async () => {
     const { username, password } = req.body;
 
     if (!username || !password) {
       return res.status(400).json({ error: 'Username e password richiesti' });
     }
 
-    const user = db.prepare('SELECT * FROM users WHERE username = ?').get(username);
+    const user = await findOne('users', (row) => row.username === username);
 
     if (!user) {
       return res.status(401).json({ error: 'Credenziali non valide' });
@@ -29,13 +29,13 @@ router.post('/login', (req, res) => {
       return res.status(401).json({ error: 'Credenziali non valide' });
     }
 
-    db.prepare('UPDATE users SET last_login = datetime(\'now\') WHERE id = ?').run(user.id);
+    await upsertById('users', user.id, { last_login: new Date().toISOString().slice(0, 19).replace('T', ' ') });
 
     const token = generateToken(user);
 
     const displayName = user.role === 'struttura' ? user.denominazione : `${user.nome} ${user.cognome}`;
 
-    logActivity({
+    await logActivity({
       utente_id: user.id,
       utente_nome: displayName,
       ruolo: user.role,
@@ -55,23 +55,26 @@ router.post('/login', (req, res) => {
         denominazione: user.denominazione,
         email: user.email,
         telefono: user.telefono,
-        enabled_types: user.enabled_types ? JSON.parse(user.enabled_types) : null
+        enabled_types: typeof user.enabled_types === 'string' ? JSON.parse(user.enabled_types) : (user.enabled_types || null)
       }
     });
-  } catch (err) {
+  })().catch((err) => {
     console.error('Login error:', err);
     res.status(500).json({ error: 'Errore del server' });
-  }
+  });
 });
 
 router.get('/me', authenticateToken, (req, res) => {
-  const user = db.prepare('SELECT id, username, role, nome, cognome, denominazione, email, telefono, enabled_types, stato, last_login FROM users WHERE id = ?').get(req.user.id);
-
-  if (!user) return res.status(404).json({ error: 'Utente non trovato' });
-
-  res.json({
-    ...user,
-    enabled_types: user.enabled_types ? JSON.parse(user.enabled_types) : null
+  (async () => {
+    const user = await getById('users', req.user.id);
+    if (!user) return res.status(404).json({ error: 'Utente non trovato' });
+    res.json({
+      ...user,
+      enabled_types: typeof user.enabled_types === 'string' ? JSON.parse(user.enabled_types) : (user.enabled_types || null),
+    });
+  })().catch((err) => {
+    console.error('Get me error:', err);
+    res.status(500).json({ error: 'Errore del server' });
   });
 });
 

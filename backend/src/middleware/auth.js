@@ -1,6 +1,6 @@
 const jwt = require('jsonwebtoken');
 const crypto = require('crypto');
-const { db } = require('../config/database');
+const { getById } = require('../data/store');
 
 let JWT_SECRET = process.env.JWT_SECRET;
 if (!JWT_SECRET) {
@@ -16,7 +16,7 @@ function generateToken(user) {
   );
 }
 
-function authenticateToken(req, res, next) {
+async function authenticateToken(req, res, next) {
   const authHeader = req.headers['authorization'];
   const token = authHeader && authHeader.split(' ')[1];
 
@@ -26,7 +26,7 @@ function authenticateToken(req, res, next) {
 
   try {
     const decoded = jwt.verify(token, JWT_SECRET);
-    const user = db.prepare('SELECT id, username, role, nome, cognome, denominazione, email, stato FROM users WHERE id = ?').get(decoded.id);
+    const user = await getById('users', decoded.id);
 
     if (!user || user.stato !== 'attivo') {
       return res.status(401).json({ error: 'Account non valido o disattivato' });
