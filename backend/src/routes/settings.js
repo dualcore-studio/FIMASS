@@ -4,6 +4,13 @@ const { authenticateToken, authorizeRoles } = require('../middleware/auth');
 
 const router = express.Router();
 
+/** InstantDB / imported rows may omit `stato`; treat missing as attivo. */
+function isInsuranceTypeActive(t) {
+  const s = t?.stato;
+  if (s == null || s === '') return true;
+  return String(s).toLowerCase().trim() === 'attivo';
+}
+
 router.get('/general', authenticateToken, (req, res) => {
   (async () => {
     const settings = await list('settings');
@@ -52,7 +59,7 @@ router.get('/insurance-types', authenticateToken, (req, res) => {
 
 router.get('/insurance-types/active', authenticateToken, (req, res) => {
   (async () => {
-    let types = await list('insurance_types', (t) => t.stato === 'attivo');
+    let types = await list('insurance_types', (t) => isInsuranceTypeActive(t));
     types = sortBy(types, 'ordine', 'asc');
     types = sortBy(types, 'nome', 'asc');
 
@@ -70,7 +77,7 @@ router.get('/insurance-types/active', authenticateToken, (req, res) => {
         const normalized = enabledTypes
           .map((v) => String(v || '').trim().toLowerCase())
           .filter(Boolean);
-        if (!normalized.includes('all')) {
+        if (normalized.length > 0 && !normalized.includes('all')) {
           types = types.filter((t) => normalized.includes(String(t.codice || '').trim().toLowerCase()));
         }
       }
