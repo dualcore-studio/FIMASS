@@ -97,6 +97,15 @@ function initializeDatabase() {
       created_at TEXT DEFAULT (datetime('now'))
     );
 
+    CREATE TABLE IF NOT EXISTS quote_reminders (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      quote_id INTEGER NOT NULL REFERENCES quotes(id),
+      operatore_id INTEGER NOT NULL REFERENCES users(id),
+      created_by INTEGER NOT NULL REFERENCES users(id),
+      created_at TEXT DEFAULT (datetime('now')),
+      read_at TEXT
+    );
+
     CREATE TABLE IF NOT EXISTS policies (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       numero TEXT UNIQUE NOT NULL,
@@ -159,6 +168,8 @@ function initializeDatabase() {
     CREATE INDEX IF NOT EXISTS idx_quotes_stato ON quotes(stato);
     CREATE INDEX IF NOT EXISTS idx_quotes_struttura ON quotes(struttura_id);
     CREATE INDEX IF NOT EXISTS idx_quotes_operatore ON quotes(operatore_id);
+    CREATE INDEX IF NOT EXISTS idx_quote_reminders_operatore ON quote_reminders(operatore_id, read_at, created_at);
+    CREATE INDEX IF NOT EXISTS idx_quote_reminders_quote ON quote_reminders(quote_id, created_at);
     CREATE INDEX IF NOT EXISTS idx_policies_stato ON policies(stato);
     CREATE INDEX IF NOT EXISTS idx_policies_quote ON policies(quote_id);
     CREATE INDEX IF NOT EXISTS idx_attachments_entity ON attachments(entity_type, entity_id);

@@ -5,7 +5,7 @@ import type { LucideIcon } from 'lucide-react';
 import { api } from '../../utils/api';
 import { getUserDisplayName } from '../../utils/helpers';
 import { useAuth } from '../../context/AuthContext';
-import type { PaginatedResponse, Quote } from '../../types';
+import type { InProgressQuoteRow } from '../../types';
 import DashboardPageHeader from '../../components/dashboard/DashboardPageHeader';
 
 interface QuoteStats {
@@ -38,9 +38,12 @@ export default function AdminDashboard() {
   const [quoteStats, setQuoteStats] = useState<QuoteStats | null>(null);
   const [policyStats, setPolicyStats] = useState<PolicyStats | null>(null);
   const [alerts, setAlerts] = useState<AlertsReport | null>(null);
-  const [recentQuotes, setRecentQuotes] = useState<Quote[]>([]);
+  const [inProgressQuotes, setInProgressQuotes] = useState<InProgressQuoteRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [selectedInProgressId, setSelectedInProgressId] = useState<number | null>(null);
+  const [sendingReminderFor, setSendingReminderFor] = useState<number | null>(null);
+  const [reminderFeedback, setReminderFeedback] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -49,17 +52,17 @@ export default function AdminDashboard() {
       setError(null);
       setLoading(true);
       try {
-        const [q, p, a, recent] = await Promise.all([
+        const [q, p, a, inProgress] = await Promise.all([
           api.get<QuoteStats>('/quotes/stats'),
           api.get<PolicyStats>('/policies/stats'),
           api.get<AlertsReport>('/reports/alerts'),
-          api.get<PaginatedResponse<Quote>>('/quotes?limit=80'),
+          api.get<InProgressQuoteRow[]>('/quotes/in-progress?limit=10'),
         ]);
         if (!cancelled) {
           setQuoteStats(q);
           setPolicyStats(p);
           setAlerts(a);
-          setRecentQuotes(recent.data ?? []);
+          setInProgressQuotes(inProgress);
         }
       } catch {
         if (!cancelled) {
@@ -106,14 +109,26 @@ export default function AdminDashboard() {
 
   const richieste = policyStats['RICHIESTA PRESENTATA'] ?? 0;
   const emesse = policyStats.EMESSA ?? 0;
-  const inLavorazioneRows = recentQuotes
-    .filter((quote) => quote.stato === 'IN LAVORAZIONE')
-    .slice(0, 10)
-    .map((quote) => ({
-      id: quote.id,
-      numero: quote.numero,
-      operatore: [quote.operatore_nome, quote.operatore_cognome].filter(Boolean).join(' ') || 'Operatore non assegnato',
-    }));
+  const inLavorazioneRows = inProgressQuotes.map((quote) => ({
+    id: quote.id,
+    numero: quote.numero,
+    operatore: [quote.operatore_nome, quote.operatore_cognome].filter(Boolean).join(' ') || 'Operatore non assegnato',
+    inLavorazioneDal: quote.in_lavorazione_dal,
+  }));
+  const selectedInLavorazioneRow = inLavorazioneRows.find((row) => row.id === selectedInProgressId) ?? null;
+
+  async function handleSollecito(quoteId: number) {
+    setReminderFeedback(null);
+    setSendingReminderFor(quoteId);
+    try {
+      await api.post(`/quotes/${quoteId}/reminders`);
+      setReminderFeedback('Sollecito inviato con successo all’operatore.');
+    } catch {
+      setReminderFeedback('Invio non riuscito. Riprova tra qualche secondo.');
+    } finally {
+      setSendingReminderFor(null);
+    }
+  }
 
   return (
     <div className="mx-auto w-full max-w-[74rem] space-y-7">
@@ -153,6 +168,11 @@ export default function AdminDashboard() {
             value={quoteStats['IN LAVORAZIONE']}
             icon={Clock3}
             rows={inLavorazioneRows}
+            selectedRow={selectedInLavorazioneRow}
+            onSelectRow={setSelectedInProgressId}
+            onSollecito={handleSollecito}
+            isSubmittingSollecitoFor={sendingReminderFor}
+            feedback={reminderFeedback}
           />
           <DashboardWorkColumn title="Polizze richieste" value={richieste} icon={Shield} />
           <DashboardWorkColumn title="Polizze emesse" value={emesse} icon={ReceiptText} />
@@ -184,10 +204,25 @@ interface DashboardWorkColumnProps {
   title: string;
   value: number;
   icon: LucideIcon;
-  rows?: Array<{ id: number; numero: string; operatore: string }>;
+  rows?: Array<{ id: number; numero: string; operatore: string; inLavorazioneDal?: string }>;
+  selectedRow?: { id: number; numero: string; operatore: string; inLavorazioneDal?: string } | null;
+  onSelectRow?: (id: number) => void;
+  onSollecito?: (id: number) => void;
+  isSubmittingSollecitoFor?: number | null;
+  feedback?: string | null;
 }
 
-function DashboardWorkColumn({ title, value, icon: Icon, rows = [] }: DashboardWorkColumnProps) {
+function DashboardWorkColumn({
+  title,
+  value,
+  icon: Icon,
+  rows = [],
+  selectedRow = null,
+  onSelectRow,
+  onSollecito,
+  isSubmittingSollecitoFor = null,
+  feedback = null,
+}: DashboardWorkColumnProps) {
   return (
     <article className="min-h-[27rem] rounded-xl border border-slate-200/90 bg-white px-4 py-4 shadow-[0_1px_3px_rgba(15,23,42,0.05)]">
       <div className="flex items-start justify-between gap-3">
@@ -206,14 +241,53 @@ function DashboardWorkColumn({ title, value, icon: Icon, rows = [] }: DashboardW
         ) : (
           <ul className="space-y-2">
             {rows.map((row) => (
-              <li key={row.id} className="rounded-lg border border-slate-200/80 bg-slate-50/60 px-3 py-2">
-                <p className="text-xs font-semibold text-slate-700">ID Preventivo: {row.numero}</p>
-                <p className="mt-0.5 text-xs text-slate-500">Operatore: {row.operatore}</p>
+              <li key={row.id}>
+                <button
+                  type="button"
+                  onClick={() => onSelectRow?.(row.id)}
+                  className="w-full rounded-lg border border-slate-200/80 bg-slate-50/60 px-3 py-2 text-left transition-colors hover:bg-slate-100/80"
+                >
+                  <p className="text-xs font-semibold text-slate-700">ID Preventivo: {row.numero}</p>
+                  <p className="mt-0.5 text-xs text-slate-500">Operatore: {row.operatore}</p>
+                </button>
               </li>
             ))}
           </ul>
         )}
       </div>
+
+      {selectedRow && onSollecito && (
+        <div className="mt-3 rounded-lg border border-amber-200 bg-amber-50/70 p-3">
+          <p className="text-xs font-semibold text-amber-900">Preventivo {selectedRow.numero}</p>
+          <p className="mt-1 text-xs text-amber-800">
+            In lavorazione da: <span className="font-semibold">{formatElapsedTime(selectedRow.inLavorazioneDal)}</span>
+          </p>
+          <button
+            type="button"
+            onClick={() => onSollecito(selectedRow.id)}
+            disabled={isSubmittingSollecitoFor === selectedRow.id}
+            className="mt-2 inline-flex items-center rounded-md bg-amber-600 px-3 py-1.5 text-xs font-semibold text-white transition-colors hover:bg-amber-700 disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            {isSubmittingSollecitoFor === selectedRow.id ? 'Invio in corso…' : 'Sollecita'}
+          </button>
+          {feedback && <p className="mt-2 text-xs text-amber-900">{feedback}</p>}
+        </div>
+      )}
     </article>
   );
+}
+
+function formatElapsedTime(dateString?: string): string {
+  if (!dateString) return 'dato non disponibile';
+  const from = new Date(dateString);
+  const diffMs = Date.now() - from.getTime();
+  if (Number.isNaN(diffMs) || diffMs <= 0) return 'meno di 1 ora';
+
+  const totalHours = Math.floor(diffMs / (1000 * 60 * 60));
+  const days = Math.floor(totalHours / 24);
+  const hours = totalHours % 24;
+
+  if (days === 0) return `${hours}h`;
+  if (hours === 0) return `${days}g`;
+  return `${days}g ${hours}h`;
 }

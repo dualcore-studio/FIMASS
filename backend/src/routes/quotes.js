@@ -150,6 +150,122 @@ router.get('/stats', authenticateToken, (req, res) => {
   }
 });
 
+router.get('/in-progress', authenticateToken, authorizeRoles('admin', 'supervisore'), (req, res) => {
+  try {
+    const { limit = 10 } = req.query;
+    const safeLimit = Math.max(1, Math.min(parseInt(limit, 10) || 10, 50));
+
+    const rows = db.prepare(`
+      SELECT
+        q.id,
+        q.numero,
+        q.operatore_id,
+        q.updated_at,
+        u.nome as operatore_nome,
+        u.cognome as operatore_cognome,
+        COALESCE((
+          SELECT qsh.created_at
+          FROM quote_status_history qsh
+          WHERE qsh.quote_id = q.id AND qsh.stato_nuovo = 'IN LAVORAZIONE'
+          ORDER BY qsh.created_at DESC
+          LIMIT 1
+        ), q.updated_at) as in_lavorazione_dal
+      FROM quotes q
+      LEFT JOIN users u ON q.operatore_id = u.id
+      WHERE q.stato = 'IN LAVORAZIONE'
+      ORDER BY datetime(in_lavorazione_dal) ASC, q.id ASC
+      LIMIT ?
+    `).all(safeLimit);
+
+    res.json(rows);
+  } catch (err) {
+    console.error('Error fetching in-progress quotes:', err);
+    res.status(500).json({ error: 'Errore nel recupero pratiche in lavorazione' });
+  }
+});
+
+router.post('/:id/reminders', authenticateToken, authorizeRoles('admin', 'supervisore'), (req, res) => {
+  try {
+    const quote = db.prepare(`
+      SELECT id, numero, stato, operatore_id
+      FROM quotes
+      WHERE id = ?
+    `).get(req.params.id);
+
+    if (!quote) return res.status(404).json({ error: 'Preventivo non trovato' });
+    if (quote.stato !== 'IN LAVORAZIONE') {
+      return res.status(400).json({ error: 'Il sollecito è disponibile solo per pratiche in lavorazione' });
+    }
+    if (!quote.operatore_id) {
+      return res.status(400).json({ error: 'La pratica non ha un operatore assegnato' });
+    }
+
+    db.prepare(`
+      INSERT INTO quote_reminders (quote_id, operatore_id, created_by)
+      VALUES (?, ?, ?)
+    `).run(quote.id, quote.operatore_id, req.user.id);
+
+    logActivity({
+      utente_id: req.user.id,
+      utente_nome: getUserDisplayName(req.user),
+      ruolo: req.user.role,
+      azione: 'SOLLECITO_PREVENTIVO',
+      modulo: 'preventivi',
+      riferimento_id: quote.id,
+      riferimento_tipo: 'quote',
+      dettaglio: `Sollecito inviato per preventivo ${quote.numero}`
+    });
+
+    res.status(201).json({ message: 'Sollecito inviato all\'operatore' });
+  } catch (err) {
+    console.error('Error creating quote reminder:', err);
+    res.status(500).json({ error: 'Errore nell\'invio del sollecito' });
+  }
+});
+
+router.get('/reminders/mine', authenticateToken, authorizeRoles('operatore'), (req, res) => {
+  try {
+    const reminders = db.prepare(`
+      SELECT
+        qr.id,
+        qr.quote_id,
+        qr.created_at,
+        qr.read_at,
+        q.numero as quote_numero,
+        u.role as created_by_role,
+        u.nome as created_by_nome,
+        u.cognome as created_by_cognome,
+        u.denominazione as created_by_denominazione
+      FROM quote_reminders qr
+      INNER JOIN quotes q ON q.id = qr.quote_id
+      INNER JOIN users u ON u.id = qr.created_by
+      WHERE qr.operatore_id = ?
+      ORDER BY datetime(qr.created_at) DESC
+      LIMIT 50
+    `).all(req.user.id);
+
+    res.json(reminders);
+  } catch (err) {
+    console.error('Error fetching operator reminders:', err);
+    res.status(500).json({ error: 'Errore nel recupero solleciti' });
+  }
+});
+
+router.put('/reminders/:id/read', authenticateToken, authorizeRoles('operatore'), (req, res) => {
+  try {
+    const reminder = db.prepare('SELECT id, operatore_id, read_at FROM quote_reminders WHERE id = ?').get(req.params.id);
+    if (!reminder) return res.status(404).json({ error: 'Sollecito non trovato' });
+    if (reminder.operatore_id !== req.user.id) return res.status(403).json({ error: 'Accesso non autorizzato' });
+    if (reminder.read_at) return res.json({ message: 'Sollecito già letto' });
+
+    db.prepare("UPDATE quote_reminders SET read_at = datetime('now') WHERE id = ?").run(reminder.id);
+    res.json({ message: 'Sollecito segnato come letto' });
+  } catch (err) {
+    console.error('Error marking reminder as read:', err);
+    res.status(500).json({ error: 'Errore nell\'aggiornamento del sollecito' });
+  }
+});
+
 router.get('/:id', authenticateToken, (req, res) => {
   try {
     const quote = db.prepare(`

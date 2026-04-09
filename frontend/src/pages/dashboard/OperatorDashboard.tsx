@@ -3,9 +3,9 @@ import { Link } from 'react-router-dom';
 import { UserCheck, Clock, AlertTriangle, CheckCircle, ExternalLink } from 'lucide-react';
 import { api } from '../../utils/api';
 import StatusBadge from '../../components/common/StatusBadge';
-import { formatDate, getUserDisplayName } from '../../utils/helpers';
+import { formatDate, formatDateTime, getUserDisplayName } from '../../utils/helpers';
 import { useAuth } from '../../context/AuthContext';
-import type { Quote, PaginatedResponse } from '../../types';
+import type { Quote, PaginatedResponse, QuoteReminder } from '../../types';
 import DashboardPageHeader from '../../components/dashboard/DashboardPageHeader';
 import DashboardPrimaryKpi from '../../components/dashboard/DashboardPrimaryKpi';
 import DashboardPanel from '../../components/dashboard/DashboardPanel';
@@ -23,6 +23,7 @@ export default function OperatorDashboard() {
   const { user } = useAuth();
   const [quoteStats, setQuoteStats] = useState<QuoteStats | null>(null);
   const [quotes, setQuotes] = useState<Quote[]>([]);
+  const [reminders, setReminders] = useState<QuoteReminder[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -33,13 +34,15 @@ export default function OperatorDashboard() {
       setError(null);
       setLoading(true);
       try {
-        const [stats, list] = await Promise.all([
+        const [stats, list, remindersData] = await Promise.all([
           api.get<QuoteStats>('/quotes/stats'),
           api.get<PaginatedResponse<Quote>>('/quotes?limit=10'),
+          api.get<QuoteReminder[]>('/quotes/reminders/mine'),
         ]);
         if (!cancelled) {
           setQuoteStats(stats);
           setQuotes(list.data);
+          setReminders(remindersData.filter((r) => !r.read_at));
         }
       } catch {
         if (!cancelled) {
@@ -92,6 +95,15 @@ export default function OperatorDashboard() {
     { label: 'Totale visibile al tuo profilo', value: quoteStats.totale },
   ];
 
+  async function markReminderAsRead(reminderId: number) {
+    try {
+      await api.put(`/quotes/reminders/${reminderId}/read`);
+      setReminders((current) => current.filter((r) => r.id !== reminderId));
+    } catch {
+      // Non bloccare l'operatore: in caso di errore resta visibile nell'elenco.
+    }
+  }
+
   return (
     <div className="mx-auto w-full max-w-[88rem] space-y-6 lg:space-y-7">
       <DashboardPageHeader
@@ -120,6 +132,48 @@ export default function OperatorDashboard() {
           <DashboardPrimaryKpi label="Elaborate" value={quoteStats.ELABORATA} icon={CheckCircle} />
         </div>
       </section>
+
+      {reminders.length > 0 && (
+        <section aria-label="Solleciti ricevuti">
+          <DashboardPanel
+            title="Solleciti da supervisore/admin"
+            description="Promemoria sulle pratiche in lavorazione che richiedono attenzione."
+          >
+            <ul className="divide-y divide-slate-100 px-4 py-2 sm:px-5">
+              {reminders.map((reminder) => (
+                <li key={reminder.id} className="flex flex-wrap items-center justify-between gap-3 py-3">
+                  <div className="min-w-0">
+                    <p className="text-sm font-medium text-slate-800">
+                      Preventivo {reminder.quote_numero}
+                    </p>
+                    <p className="text-xs text-slate-500">
+                      {`Sollecito da ${reminder.created_by_role} `}
+                      {[reminder.created_by_nome, reminder.created_by_cognome].filter(Boolean).join(' ') || ''}
+                      {' · '}
+                      {formatDateTime(reminder.created_at)}
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Link
+                      to={`/preventivi/${reminder.quote_id}`}
+                      className="text-xs font-semibold text-blue-700 hover:text-blue-800"
+                    >
+                      Apri pratica
+                    </Link>
+                    <button
+                      type="button"
+                      onClick={() => markReminderAsRead(reminder.id)}
+                      className="rounded-md border border-slate-200 px-2.5 py-1 text-xs font-medium text-slate-600 transition-colors hover:bg-slate-50"
+                    >
+                      Segna letto
+                    </button>
+                  </div>
+                </li>
+              ))}
+            </ul>
+          </DashboardPanel>
+        </section>
+      )}
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-12 lg:gap-5">
         <div className="lg:col-span-7">

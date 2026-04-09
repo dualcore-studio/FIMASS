@@ -182,3 +182,25 @@ export interface PaginatedResponse<T> {
   limit: number;
   totalPages: number;
 }
+
+export interface InProgressQuoteRow {
+  id: number;
+  numero: string;
+  operatore_id: number | null;
+  operatore_nome?: string;
+  operatore_cognome?: string;
+  in_lavorazione_dal: string;
+  updated_at: string;
+}
+
+export interface QuoteReminder {
+  id: number;
+  quote_id: number;
+  quote_numero: string;
+  created_at: string;
+  read_at: string | null;
+  created_by_role: 'admin' | 'supervisore' | 'operatore' | 'struttura';
+  created_by_nome?: string | null;
+  created_by_cognome?: string | null;
+  created_by_denominazione?: string | null;
+}
