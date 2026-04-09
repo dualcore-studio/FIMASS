@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import {
   Search,
   Plus,
@@ -30,6 +30,7 @@ function buildQuery(params: {
   operatore: string;
   search: string;
   assegnata: string;
+  alert: string;
   sortBy: string | null;
   sortDir: 'asc' | 'desc';
 }): string {
@@ -42,6 +43,7 @@ function buildQuery(params: {
   if (params.operatore) qs.set('operatore_id', params.operatore);
   if (params.search.trim()) qs.set('search', params.search.trim());
   if (params.assegnata) qs.set('assegnata', params.assegnata);
+  if (params.alert) qs.set('alert', params.alert);
   if (params.sortBy) {
     qs.set('sort_by', params.sortBy);
     qs.set('sort_dir', params.sortDir);
@@ -51,15 +53,19 @@ function buildQuery(params: {
 
 export default function QuotesList() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const { user: currentUser } = useAuth();
   const role = currentUser?.role;
+  const alertFilter = searchParams.get('alert') ?? '';
+  const initialStatoFilter = searchParams.get('stato') ?? (alertFilter === 'unassigned' ? 'PRESENTATA' : alertFilter === 'standby_long' ? 'STANDBY' : '');
+  const initialAssegnataFilter = searchParams.get('assegnata') ?? (alertFilter === 'unassigned' ? 'no' : '');
 
   const [page, setPage] = useState(1);
-  const [statoFilter, setStatoFilter] = useState('');
+  const [statoFilter, setStatoFilter] = useState(initialStatoFilter);
   const [tipoFilter, setTipoFilter] = useState('');
   const [strutturaFilter, setStrutturaFilter] = useState('');
   const [operatoreFilter, setOperatoreFilter] = useState('');
-  const [assegnataFilter, setAssegnataFilter] = useState('');
+  const [assegnataFilter, setAssegnataFilter] = useState(initialAssegnataFilter);
   const [searchInput, setSearchInput] = useState('');
   const [debouncedSearch, setDebouncedSearch] = useState('');
 
@@ -118,6 +124,7 @@ export default function QuotesList() {
           operatore: operatoreFilter,
           search: debouncedSearch,
           assegnata: assegnataFilter,
+          alert: alertFilter,
           sortBy: tableSort.sortBy,
           sortDir: tableSort.sortDir,
         }),
@@ -136,6 +143,7 @@ export default function QuotesList() {
     strutturaFilter,
     operatoreFilter,
     assegnataFilter,
+    alertFilter,
     debouncedSearch,
     tableSort.sortBy,
     tableSort.sortDir,

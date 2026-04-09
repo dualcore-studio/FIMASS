@@ -35,6 +35,7 @@ router.get('/', authenticateToken, (req, res) => {
       data_da,
       data_a,
       assegnata,
+      alert,
       sort_by: sortByParam,
       sort_dir: sortDir,
     } = req.query;
@@ -51,6 +52,10 @@ router.get('/', authenticateToken, (req, res) => {
       if (data_a) quotes = quotes.filter((q) => String(q.created_at || '') <= `${data_a} 23:59:59`);
       if (assegnata === 'si') quotes = quotes.filter((q) => q.operatore_id != null);
       if (assegnata === 'no') quotes = quotes.filter((q) => q.operatore_id == null);
+      const daysAgo = (d) => new Date(Date.now() - d * 86400000).toISOString().slice(0, 19).replace('T', ' ');
+      if (alert === 'unassigned') quotes = quotes.filter((q) => q.stato === 'PRESENTATA' && q.operatore_id == null);
+      if (alert === 'standby_long') quotes = quotes.filter((q) => q.stato === 'STANDBY' && String(q.updated_at || '') <= daysAgo(7));
+      if (alert === 'stale_quotes') quotes = quotes.filter((q) => ['ASSEGNATA', 'IN LAVORAZIONE'].includes(q.stato) && String(q.updated_at || '') <= daysAgo(7));
       if (search) quotes = quotes.filter((q) => like(q.numero, search) || like(q.assistito_nome, search) || like(q.assistito_cognome, search) || like(q.assistito_cf, search));
       const sortMap = { numero: 'numero', assistito: 'assistito_cognome', tipo: 'tipo_nome', struttura: 'struttura_nome', operatore: 'operatore_cognome', stato: 'stato', created_at: 'created_at', data_decorrenza: 'data_decorrenza' };
       quotes = sortRecords(quotes, sortMap[sortByParam] || 'created_at', sortDir || 'desc');

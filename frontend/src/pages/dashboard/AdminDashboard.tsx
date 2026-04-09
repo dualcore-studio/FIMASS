@@ -193,19 +193,19 @@ export default function AdminDashboard() {
           <DashboardSummaryCard
             label="Pratiche non assegnate"
             value={alerts.pratiche_non_assegnate}
-            to="/preventivi"
+            to="/preventivi?alert=unassigned"
           />
           <DashboardSummaryCard
             label="Polizze senza avanzamento"
             value={alerts.polizze_senza_avanzamento}
-            to="/polizze"
+            to="/polizze?alert=stale_policies"
           />
           <DashboardSummaryCard
             label="Stand-by prolungato"
             value={alerts.standby_prolungato}
-            to="/preventivi"
+            to="/preventivi?alert=standby_long"
           />
-          <DashboardSummaryCard label="Pratiche ferme" value={alerts.pratiche_ferme} to="/preventivi" />
+          <DashboardSummaryCard label="Pratiche ferme" value={alerts.pratiche_ferme} to="/preventivi?alert=stale_quotes" />
         </div>
       </section>
 

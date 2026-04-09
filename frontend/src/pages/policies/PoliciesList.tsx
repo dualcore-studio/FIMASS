@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import {
   Search,
   Eye,
@@ -31,6 +31,7 @@ function buildQuery(params: {
   struttura: string;
   operatore: string;
   search: string;
+  alert: string;
   sortBy: string | null;
   sortDir: 'asc' | 'desc';
 }): string {
@@ -42,6 +43,7 @@ function buildQuery(params: {
   if (params.struttura) qs.set('struttura_id', params.struttura);
   if (params.operatore) qs.set('operatore_id', params.operatore);
   if (params.search.trim()) qs.set('search', params.search.trim());
+  if (params.alert) qs.set('alert', params.alert);
   if (params.sortBy) {
     qs.set('sort_by', params.sortBy);
     qs.set('sort_dir', params.sortDir);
@@ -50,8 +52,10 @@ function buildQuery(params: {
 }
 
 export default function PoliciesList() {
+  const [searchParams] = useSearchParams();
   const { user: currentUser } = useAuth();
   const role = currentUser?.role;
+  const alertFilter = searchParams.get('alert') ?? '';
 
   const [page, setPage] = useState(1);
   const [statoFilter, setStatoFilter] = useState('');
@@ -108,6 +112,7 @@ export default function PoliciesList() {
           struttura: strutturaFilter,
           operatore: operatoreFilter,
           search: debouncedSearch,
+          alert: alertFilter,
           sortBy: tableSort.sortBy,
           sortDir: tableSort.sortDir,
         }),
@@ -125,6 +130,7 @@ export default function PoliciesList() {
     tipoFilter,
     strutturaFilter,
     operatoreFilter,
+    alertFilter,
     debouncedSearch,
     tableSort.sortBy,
     tableSort.sortDir,

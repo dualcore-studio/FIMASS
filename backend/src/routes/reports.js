@@ -135,7 +135,7 @@ router.get('/alerts', authenticateToken, authorizeRoles('admin', 'supervisore'),
       const policies = await list('policies');
       const daysAgo = (d) => new Date(Date.now() - d * 86400000).toISOString().slice(0, 19).replace('T', ' ');
       const unassigned = quotes.filter((q) => q.stato === 'PRESENTATA' && (q.operatore_id == null)).length;
-      const standbyLong = quotes.filter((q) => q.stato === 'STANDBY' && String(q.updated_at || '') <= daysAgo(3)).length;
+      const standbyLong = quotes.filter((q) => q.stato === 'STANDBY' && String(q.updated_at || '') <= daysAgo(7)).length;
       const stalePolicies = policies.filter((p) => ['RICHIESTA PRESENTATA', 'IN VERIFICA'].includes(p.stato) && String(p.updated_at || '') <= daysAgo(5)).length;
       const staleQuotes = quotes.filter((q) => ['ASSEGNATA', 'IN LAVORAZIONE'].includes(q.stato) && String(q.updated_at || '') <= daysAgo(7)).length;
       res.json({ pratiche_non_assegnate: unassigned, standby_prolungato: standbyLong, polizze_senza_avanzamento: stalePolicies, pratiche_ferme: staleQuotes });

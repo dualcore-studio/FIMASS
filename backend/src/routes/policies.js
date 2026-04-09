@@ -34,6 +34,7 @@ router.get('/', authenticateToken, (req, res) => {
       struttura_id,
       operatore_id,
       search,
+      alert,
       sort_by: sortByParam,
       sort_dir: sortDir,
     } = req.query;
@@ -46,6 +47,10 @@ router.get('/', authenticateToken, (req, res) => {
       if (tipo_assicurazione_id) policies = policies.filter((p) => Number(p.tipo_assicurazione_id) === Number(tipo_assicurazione_id));
       if (struttura_id) policies = policies.filter((p) => Number(p.struttura_id) === Number(struttura_id));
       if (operatore_id) policies = policies.filter((p) => Number(p.operatore_id) === Number(operatore_id));
+      if (alert === 'stale_policies') {
+        const threshold = new Date(Date.now() - 5 * 86400000).toISOString().slice(0, 19).replace('T', ' ');
+        policies = policies.filter((p) => ['RICHIESTA PRESENTATA', 'IN VERIFICA'].includes(p.stato) && String(p.updated_at || '') <= threshold);
+      }
       if (search) policies = policies.filter((p) => like(p.numero, search) || like(p.assistito_nome, search) || like(p.assistito_cognome, search));
       const sortMap = { numero: 'numero', preventivo: 'preventivo_numero', assistito: 'assistito_cognome', tipo: 'tipo_nome', struttura: 'struttura_nome', stato: 'stato', created_at: 'created_at' };
       policies = sortRecords(policies, sortMap[sortByParam] || 'created_at', sortDir || 'desc');
