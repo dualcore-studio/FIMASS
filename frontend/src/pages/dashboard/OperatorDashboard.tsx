@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { UserCheck, Clock, AlertTriangle, CheckCircle, ExternalLink } from 'lucide-react';
+import { UserCheck, Clock, AlertTriangle, CheckCircle, ExternalLink, Bell } from 'lucide-react';
 import { api } from '../../utils/api';
 import StatusBadge from '../../components/common/StatusBadge';
 import { formatDate, formatDateTime, getUserDisplayName } from '../../utils/helpers';
@@ -132,11 +132,12 @@ export default function OperatorDashboard() {
 
       <section aria-label="Indicatori primari">
         <p className="mb-3 text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-500">Le tue attività</p>
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4 lg:gap-4">
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 lg:gap-4">
           <DashboardPrimaryKpi label="Assegnate" value={quoteStats.ASSEGNATA} icon={UserCheck} />
           <DashboardPrimaryKpi label="In lavorazione" value={quoteStats['IN LAVORAZIONE']} icon={Clock} />
           <DashboardPrimaryKpi label="Stand-by" value={quoteStats.STANDBY} icon={AlertTriangle} />
           <DashboardPrimaryKpi label="Elaborate" value={quoteStats.ELABORATA} icon={CheckCircle} />
+          <DashboardPrimaryKpi label="Solleciti da leggere" value={reminders.length} icon={Bell} />
         </div>
       </section>
 

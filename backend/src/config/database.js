@@ -177,6 +177,24 @@ function initializeDatabase() {
     CREATE INDEX IF NOT EXISTS idx_activity_logs_created ON activity_logs(created_at);
     CREATE INDEX IF NOT EXISTS idx_assisted_cf ON assisted_people(codice_fiscale);
   `);
+
+  // Migrazione difensiva: DB esistenti creati prima dell'introduzione dei solleciti
+  try {
+    db.exec(`
+      CREATE TABLE IF NOT EXISTS quote_reminders (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        quote_id INTEGER NOT NULL REFERENCES quotes(id),
+        operatore_id INTEGER NOT NULL REFERENCES users(id),
+        created_by INTEGER NOT NULL REFERENCES users(id),
+        created_at TEXT DEFAULT (datetime('now')),
+        read_at TEXT
+      );
+      CREATE INDEX IF NOT EXISTS idx_quote_reminders_operatore ON quote_reminders(operatore_id, read_at, created_at);
+      CREATE INDEX IF NOT EXISTS idx_quote_reminders_quote ON quote_reminders(quote_id, created_at);
+    `);
+  } catch (e) {
+    console.error('ensure quote_reminders migration:', e);
+  }
 }
 
 module.exports = { db, initializeDatabase };

@@ -2,11 +2,12 @@ import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { FileText, Clock3, Shield, ReceiptText } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
-import { api } from '../../utils/api';
+import { api, ApiError } from '../../utils/api';
 import { getUserDisplayName } from '../../utils/helpers';
 import { useAuth } from '../../context/AuthContext';
 import type { InProgressQuoteRow, PaginatedResponse, Quote } from '../../types';
 import DashboardPageHeader from '../../components/dashboard/DashboardPageHeader';
+import Modal from '../../components/ui/Modal';
 
 interface QuoteStats {
   PRESENTATA: number;
@@ -41,6 +42,7 @@ export default function AdminDashboard() {
   const [inProgressQuotes, setInProgressQuotes] = useState<InProgressQuoteRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [sollecitoModalOpen, setSollecitoModalOpen] = useState(false);
   const [selectedInProgressId, setSelectedInProgressId] = useState<number | null>(null);
   const [sendingReminderFor, setSendingReminderFor] = useState<number | null>(null);
   const [reminderFeedback, setReminderFeedback] = useState<string | null>(null);
@@ -137,14 +139,41 @@ export default function AdminDashboard() {
   }));
   const selectedInLavorazioneRow = inLavorazioneRows.find((row) => row.id === selectedInProgressId) ?? null;
 
+  function openSollecitoModal(rowId: number) {
+    setSelectedInProgressId(rowId);
+    setReminderFeedback(null);
+    setSollecitoModalOpen(true);
+  }
+
+  function closeSollecitoModal() {
+    setSollecitoModalOpen(false);
+    setSelectedInProgressId(null);
+    setReminderFeedback(null);
+  }
+
   async function handleSollecito(quoteId: number) {
     setReminderFeedback(null);
     setSendingReminderFor(quoteId);
     try {
-      await api.post(`/quotes/${quoteId}/reminders`);
+      try {
+        await api.post('/quotes/sollecito', { quote_id: quoteId });
+      } catch (e) {
+        if (e instanceof ApiError && e.status === 404) {
+          await api.post(`/quotes/${quoteId}/reminders`, {});
+        } else {
+          throw e;
+        }
+      }
       setReminderFeedback('Sollecito inviato con successo all’operatore.');
-    } catch {
-      setReminderFeedback('Invio non riuscito. Riprova tra qualche secondo.');
+      window.setTimeout(() => {
+        closeSollecitoModal();
+      }, 1200);
+    } catch (e) {
+      const msg =
+        e instanceof ApiError
+          ? e.message
+          : 'Invio non riuscito. Riprova tra qualche secondo.';
+      setReminderFeedback(msg);
     } finally {
       setSendingReminderFor(null);
     }
@@ -188,16 +217,59 @@ export default function AdminDashboard() {
             value={quoteStats['IN LAVORAZIONE']}
             icon={Clock3}
             rows={inLavorazioneRows}
-            selectedRow={selectedInLavorazioneRow}
-            onSelectRow={setSelectedInProgressId}
-            onSollecito={handleSollecito}
-            isSubmittingSollecitoFor={sendingReminderFor}
-            feedback={reminderFeedback}
+            onOpenSollecito={openSollecitoModal}
           />
           <DashboardWorkColumn title="Polizze richieste" value={richieste} icon={Shield} />
           <DashboardWorkColumn title="Polizze emesse" value={emesse} icon={ReceiptText} />
         </div>
       </section>
+
+      <Modal
+        isOpen={sollecitoModalOpen && selectedInLavorazioneRow != null}
+        onClose={closeSollecitoModal}
+        title="Sollecita operatore"
+        size="sm"
+      >
+        {selectedInLavorazioneRow && (
+          <div className="space-y-4">
+            <div className="rounded-lg border border-slate-200 bg-slate-50/80 px-4 py-3 text-sm">
+              <p className="font-medium text-slate-900">Preventivo {selectedInLavorazioneRow.numero}</p>
+              <p className="mt-1 text-slate-600">
+                Operatore: <span className="font-medium text-slate-800">{selectedInLavorazioneRow.operatore}</span>
+              </p>
+              <p className="mt-2 text-xs text-slate-500">
+                In lavorazione da:{' '}
+                <span className="font-semibold text-slate-700">
+                  {formatElapsedTime(selectedInLavorazioneRow.inLavorazioneDal)}
+                </span>
+              </p>
+            </div>
+            <p className="text-sm text-slate-600">
+              Verrà inviato un sollecito all’operatore assegnato: comparirà nella sua dashboard tra i solleciti da leggere.
+            </p>
+            <div className="flex flex-wrap items-center justify-end gap-2 pt-1">
+              <button type="button" onClick={closeSollecitoModal} className="btn-secondary px-4 py-2 text-sm">
+                Annulla
+              </button>
+              <button
+                type="button"
+                onClick={() => handleSollecito(selectedInLavorazioneRow.id)}
+                disabled={sendingReminderFor === selectedInLavorazioneRow.id}
+                className="btn-primary px-4 py-2 text-sm disabled:opacity-60"
+              >
+                {sendingReminderFor === selectedInLavorazioneRow.id ? 'Invio…' : 'Sollecita'}
+              </button>
+            </div>
+            {reminderFeedback && (
+              <p
+                className={`text-sm ${reminderFeedback.toLowerCase().includes('successo') ? 'text-emerald-700' : 'text-red-700'}`}
+              >
+                {reminderFeedback}
+              </p>
+            )}
+          </div>
+        )}
+      </Modal>
     </div>
   );
 }
@@ -225,11 +297,7 @@ interface DashboardWorkColumnProps {
   value: number;
   icon: LucideIcon;
   rows?: Array<{ id: number; numero: string; operatore: string; inLavorazioneDal?: string }>;
-  selectedRow?: { id: number; numero: string; operatore: string; inLavorazioneDal?: string } | null;
-  onSelectRow?: (id: number) => void;
-  onSollecito?: (id: number) => void;
-  isSubmittingSollecitoFor?: number | null;
-  feedback?: string | null;
+  onOpenSollecito?: (id: number) => void;
 }
 
 function DashboardWorkColumn({
@@ -237,11 +305,7 @@ function DashboardWorkColumn({
   value,
   icon: Icon,
   rows = [],
-  selectedRow = null,
-  onSelectRow,
-  onSollecito,
-  isSubmittingSollecitoFor = null,
-  feedback = null,
+  onOpenSollecito,
 }: DashboardWorkColumnProps) {
   return (
     <article className="min-h-[27rem] rounded-xl border border-slate-200/90 bg-white px-4 py-4 shadow-[0_1px_3px_rgba(15,23,42,0.05)]">
@@ -264,7 +328,7 @@ function DashboardWorkColumn({
               <li key={row.id}>
                 <button
                   type="button"
-                  onClick={() => onSelectRow?.(row.id)}
+                  onClick={() => onOpenSollecito?.(row.id)}
                   className="w-full rounded-lg border border-slate-200/80 bg-slate-50/60 px-3 py-2 text-left transition-colors hover:bg-slate-100/80"
                 >
                   <p className="text-xs font-semibold text-slate-700">ID Preventivo: {row.numero}</p>
@@ -275,24 +339,6 @@ function DashboardWorkColumn({
           </ul>
         )}
       </div>
-
-      {selectedRow && onSollecito && (
-        <div className="mt-3 rounded-lg border border-amber-200 bg-amber-50/70 p-3">
-          <p className="text-xs font-semibold text-amber-900">Preventivo {selectedRow.numero}</p>
-          <p className="mt-1 text-xs text-amber-800">
-            In lavorazione da: <span className="font-semibold">{formatElapsedTime(selectedRow.inLavorazioneDal)}</span>
-          </p>
-          <button
-            type="button"
-            onClick={() => onSollecito(selectedRow.id)}
-            disabled={isSubmittingSollecitoFor === selectedRow.id}
-            className="mt-2 inline-flex items-center rounded-md bg-amber-600 px-3 py-1.5 text-xs font-semibold text-white transition-colors hover:bg-amber-700 disabled:cursor-not-allowed disabled:opacity-60"
-          >
-            {isSubmittingSollecitoFor === selectedRow.id ? 'Invio in corso…' : 'Sollecita'}
-          </button>
-          {feedback && <p className="mt-2 text-xs text-amber-900">{feedback}</p>}
-        </div>
-      )}
     </article>
   );
 }

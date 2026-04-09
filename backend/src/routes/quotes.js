@@ -184,22 +184,22 @@ router.get('/in-progress', authenticateToken, authorizeRoles('admin', 'superviso
   }
 });
 
-router.post('/:id/reminders', authenticateToken, authorizeRoles('admin', 'supervisore'), (req, res) => {
+function insertQuoteReminder(quoteId, req, res) {
+  const quote = db.prepare(`
+    SELECT id, numero, stato, operatore_id
+    FROM quotes
+    WHERE id = ?
+  `).get(quoteId);
+
+  if (!quote) return res.status(404).json({ error: 'Preventivo non trovato' });
+  if (quote.stato !== 'IN LAVORAZIONE') {
+    return res.status(400).json({ error: 'Il sollecito è disponibile solo per pratiche in lavorazione' });
+  }
+  if (!quote.operatore_id) {
+    return res.status(400).json({ error: 'La pratica non ha un operatore assegnato' });
+  }
+
   try {
-    const quote = db.prepare(`
-      SELECT id, numero, stato, operatore_id
-      FROM quotes
-      WHERE id = ?
-    `).get(req.params.id);
-
-    if (!quote) return res.status(404).json({ error: 'Preventivo non trovato' });
-    if (quote.stato !== 'IN LAVORAZIONE') {
-      return res.status(400).json({ error: 'Il sollecito è disponibile solo per pratiche in lavorazione' });
-    }
-    if (!quote.operatore_id) {
-      return res.status(400).json({ error: 'La pratica non ha un operatore assegnato' });
-    }
-
     db.prepare(`
       INSERT INTO quote_reminders (quote_id, operatore_id, created_by)
       VALUES (?, ?, ?)
@@ -216,11 +216,29 @@ router.post('/:id/reminders', authenticateToken, authorizeRoles('admin', 'superv
       dettaglio: `Sollecito inviato per preventivo ${quote.numero}`
     });
 
-    res.status(201).json({ message: 'Sollecito inviato all\'operatore' });
+    return res.status(201).json({ message: 'Sollecito inviato all\'operatore' });
   } catch (err) {
     console.error('Error creating quote reminder:', err);
-    res.status(500).json({ error: 'Errore nell\'invio del sollecito' });
+    return res.status(500).json({ error: 'Errore nell\'invio del sollecito' });
   }
+}
+
+/** Body: { quote_id } — percorso esplicito (evita ambiguità con proxy o versioni vecchie del client). */
+router.post('/sollecito', authenticateToken, authorizeRoles('admin', 'supervisore'), (req, res) => {
+  const raw = req.body?.quote_id ?? req.body?.quoteId;
+  const quoteId = parseInt(raw, 10);
+  if (!raw || Number.isNaN(quoteId)) {
+    return res.status(400).json({ error: 'quote_id richiesto' });
+  }
+  return insertQuoteReminder(quoteId, req, res);
+});
+
+router.post('/:id/reminders', authenticateToken, authorizeRoles('admin', 'supervisore'), (req, res) => {
+  const quoteId = parseInt(req.params.id, 10);
+  if (Number.isNaN(quoteId)) {
+    return res.status(400).json({ error: 'ID preventivo non valido' });
+  }
+  return insertQuoteReminder(quoteId, req, res);
 });
 
 router.get('/reminders/mine', authenticateToken, authorizeRoles('operatore'), (req, res) => {
