@@ -283,18 +283,14 @@ export default function AdminDashboard() {
             value={quoteStats.PRESENTATA}
             icon={FileText}
             rows={presentedRows}
-            actionLabel="Assegna"
-            onAction={openAssignModal}
-            actionLoadingId={assignSubmitting ? selectedPresentedId : null}
+            onRowClick={openAssignModal}
           />
           <DashboardWorkColumn
             title="In lavorazione"
             value={quoteStats['IN LAVORAZIONE']}
             icon={Clock3}
             rows={inLavorazioneRows}
-            actionLabel="Sollecita"
-            onAction={openSollecitoModal}
-            actionLoadingId={sendingReminderFor}
+            onRowClick={openSollecitoModal}
           />
           <DashboardWorkColumn title="Polizze richieste" value={richieste} icon={Shield} rows={richiesteRows} />
           <DashboardWorkColumn title="Polizze emesse" value={emesse} icon={ReceiptText} rows={emesseRows} />
@@ -434,9 +430,7 @@ interface DashboardWorkColumnProps {
   value: number;
   icon: LucideIcon;
   rows?: Array<{ id: number; title: string; subtitle?: string; meta?: string }>;
-  actionLabel?: string;
-  onAction?: (id: number) => void;
-  actionLoadingId?: number | null;
+  onRowClick?: (id: number) => void;
 }
 
 function DashboardWorkColumn({
@@ -444,9 +438,7 @@ function DashboardWorkColumn({
   value,
   icon: Icon,
   rows = [],
-  actionLabel,
-  onAction,
-  actionLoadingId = null,
+  onRowClick,
 }: DashboardWorkColumnProps) {
   return (
     <article className="min-h-[27rem] rounded-xl border border-slate-200/90 bg-white px-4 py-4 shadow-[0_1px_3px_rgba(15,23,42,0.05)]">
@@ -467,23 +459,24 @@ function DashboardWorkColumn({
           <ul className="space-y-2">
             {rows.map((row) => (
               <li key={row.id}>
-                <div className="rounded-lg border border-slate-200/80 bg-slate-50/60 px-3 py-2">
-                  <p className="text-xs font-semibold text-slate-700">{row.title}</p>
-                  {row.subtitle && <p className="mt-0.5 text-xs text-slate-500">{row.subtitle}</p>}
-                  {row.meta && <p className="mt-0.5 text-[11px] text-slate-400">{row.meta}</p>}
-                  {actionLabel && onAction && (
-                    <div className="mt-2 flex justify-end">
-                      <button
-                        type="button"
-                        onClick={() => onAction(row.id)}
-                        disabled={actionLoadingId === row.id}
-                        className="rounded-md border border-slate-200 bg-white px-2.5 py-1 text-[11px] font-medium text-slate-700 transition hover:border-blue-300 hover:bg-blue-50 hover:text-blue-700 disabled:opacity-60"
-                      >
-                        {actionLoadingId === row.id ? 'Invio…' : actionLabel}
-                      </button>
-                    </div>
-                  )}
-                </div>
+                {onRowClick ? (
+                  <button
+                    type="button"
+                    onClick={() => onRowClick(row.id)}
+                    className="w-full rounded-lg border border-slate-200/80 bg-slate-50/60 px-3 py-2 text-left transition-colors hover:bg-slate-100/80 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600"
+                    aria-label={`${row.title}. ${row.subtitle ?? ''}`}
+                  >
+                    <p className="text-xs font-semibold text-slate-700">{row.title}</p>
+                    {row.subtitle && <p className="mt-0.5 text-xs text-slate-500">{row.subtitle}</p>}
+                    {row.meta && <p className="mt-0.5 text-[11px] text-slate-400">{row.meta}</p>}
+                  </button>
+                ) : (
+                  <div className="rounded-lg border border-slate-200/80 bg-slate-50/60 px-3 py-2">
+                    <p className="text-xs font-semibold text-slate-700">{row.title}</p>
+                    {row.subtitle && <p className="mt-0.5 text-xs text-slate-500">{row.subtitle}</p>}
+                    {row.meta && <p className="mt-0.5 text-[11px] text-slate-400">{row.meta}</p>}
+                  </div>
+                )}
               </li>
             ))}
           </ul>
