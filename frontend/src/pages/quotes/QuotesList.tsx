@@ -360,6 +360,14 @@ export default function QuotesList() {
               <thead>
                 <tr>
                   <SortableTh
+                    sortKey="stato"
+                    activeKey={tableSort.sortBy}
+                    direction={tableSort.sortDir}
+                    onRequestSort={tableSort.requestSort}
+                  >
+                    Stato
+                  </SortableTh>
+                  <SortableTh
                     sortKey="numero"
                     activeKey={tableSort.sortBy}
                     direction={tableSort.sortDir}
@@ -400,14 +408,6 @@ export default function QuotesList() {
                     Operatore
                   </SortableTh>
                   <SortableTh
-                    sortKey="stato"
-                    activeKey={tableSort.sortBy}
-                    direction={tableSort.sortDir}
-                    onRequestSort={tableSort.requestSort}
-                  >
-                    Stato
-                  </SortableTh>
-                  <SortableTh
                     sortKey="created_at"
                     activeKey={tableSort.sortBy}
                     direction={tableSort.sortDir}
@@ -429,9 +429,12 @@ export default function QuotesList() {
                   rows.map((q) => (
                     <tr key={q.id}>
                       <td className="px-4 py-3">
+                        <StatusBadge stato={q.stato} />
+                      </td>
+                      <td className="px-4 py-3">
                         <Link
                           to={`/preventivi/${q.id}`}
-                          className="font-medium text-blue-700 hover:text-blue-800 hover:underline"
+                          className="cursor-pointer font-medium text-blue-700 hover:text-blue-800 hover:underline"
                         >
                           {q.numero}
                         </Link>
@@ -446,9 +449,6 @@ export default function QuotesList() {
                           ? [q.operatore_nome, q.operatore_cognome].filter(Boolean).join(' ')
                           : <span className="text-gray-400 italic">Non assegnato</span>}
                       </td>
-                      <td className="px-4 py-3">
-                        <StatusBadge stato={q.stato} />
-                      </td>
                       <td className="px-4 py-3 whitespace-nowrap text-gray-600">
                         {formatDate(q.created_at)}
                       </td>
@@ -456,7 +456,7 @@ export default function QuotesList() {
                         <div className="flex flex-wrap items-center justify-end gap-1">
                           <Link
                             to={`/preventivi/${q.id}`}
-                            className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-gray-200 bg-white px-3 text-xs font-medium text-gray-600 transition hover:border-blue-300 hover:bg-blue-50 hover:text-blue-700"
+                            className="inline-flex h-9 cursor-pointer items-center gap-1.5 rounded-lg border border-gray-200 bg-white px-3 text-xs font-medium text-gray-600 transition hover:border-blue-300 hover:bg-blue-50 hover:text-blue-700"
                             title="Apri"
                           >
                             <Eye className="h-3.5 w-3.5" />
@@ -471,7 +471,7 @@ export default function QuotesList() {
                                 setAssignOperatorId(q.operatore_id ? String(q.operatore_id) : '');
                                 setAssignError(null);
                               }}
-                              className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-gray-200 bg-white px-3 text-xs font-medium text-gray-600 transition hover:border-amber-300 hover:bg-amber-50 hover:text-amber-800"
+                              className="inline-flex h-9 cursor-pointer items-center gap-1.5 rounded-lg border border-gray-200 bg-white px-3 text-xs font-medium text-gray-600 transition hover:border-amber-300 hover:bg-amber-50 hover:text-amber-800 disabled:cursor-not-allowed"
                               title="Assegna"
                             >
                               <UserCheck className="h-3.5 w-3.5" />
@@ -482,7 +482,7 @@ export default function QuotesList() {
                           {role === 'struttura' && q.stato === 'ELABORATA' && q.has_policy === 0 && (
                             <Link
                               to={`/polizze/nuova?quote_id=${q.id}`}
-                              className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-emerald-200 bg-emerald-50 px-3 text-xs font-medium text-emerald-700 transition hover:border-emerald-300 hover:bg-emerald-100"
+                              className="inline-flex h-9 cursor-pointer items-center gap-1.5 rounded-lg border border-emerald-200 bg-emerald-50 px-3 text-xs font-medium text-emerald-700 transition hover:border-emerald-300 hover:bg-emerald-100"
                               title="Richiedi emissione polizza"
                             >
                               <FileText className="h-3.5 w-3.5" />
@@ -493,7 +493,7 @@ export default function QuotesList() {
                           {role === 'struttura' && q.has_policy === 1 && q.policy && (
                             <Link
                               to={`/polizze/${q.policy.id}`}
-                              className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-blue-200 bg-blue-50 px-3 text-xs font-medium text-blue-700 transition hover:border-blue-300 hover:bg-blue-100"
+                              className="inline-flex h-9 cursor-pointer items-center gap-1.5 rounded-lg border border-blue-200 bg-blue-50 px-3 text-xs font-medium text-blue-700 transition hover:border-blue-300 hover:bg-blue-100"
                               title="Vai alla polizza"
                             >
                               <ExternalLink className="h-3.5 w-3.5" />
