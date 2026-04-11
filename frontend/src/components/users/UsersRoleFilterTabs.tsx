@@ -7,9 +7,9 @@ import type {
 const TABS: { role: UsersListRoleFilter; label: string; countKey: UsersRoleCountKey }[] = [
   { role: '', label: 'Tutti', countKey: 'tutti' },
   { role: 'admin', label: 'Admin', countKey: 'admin' },
-  { role: 'supervisore', label: 'Supervisori', countKey: 'supervisore' },
-  { role: 'struttura', label: 'Strutture', countKey: 'struttura' },
-  { role: 'operatore', label: 'Operatori', countKey: 'operatore' },
+  { role: 'supervisore', label: 'Supervisore', countKey: 'supervisore' },
+  { role: 'struttura', label: 'Struttura', countKey: 'struttura' },
+  { role: 'operatore', label: 'Operatore', countKey: 'operatore' },
 ];
 
 interface UsersRoleFilterTabsProps {

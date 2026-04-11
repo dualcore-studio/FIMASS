@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import {
-  Search,
   Plus,
   Eye,
   UserCheck,
@@ -28,8 +27,10 @@ function buildQuery(params: {
   tipo: string;
   struttura: string;
   operatore: string;
-  search: string;
-  assegnata: string;
+  numero: string;
+  assistito: string;
+  dataDa: string;
+  dataAl: string;
   alert: string;
   sortBy: string | null;
   sortDir: 'asc' | 'desc';
@@ -41,8 +42,10 @@ function buildQuery(params: {
   if (params.tipo) qs.set('tipo_assicurazione_id', params.tipo);
   if (params.struttura) qs.set('struttura_id', params.struttura);
   if (params.operatore) qs.set('operatore_id', params.operatore);
-  if (params.search.trim()) qs.set('search', params.search.trim());
-  if (params.assegnata) qs.set('assegnata', params.assegnata);
+  if (params.numero.trim()) qs.set('numero', params.numero.trim());
+  if (params.assistito.trim()) qs.set('assistito', params.assistito.trim());
+  if (params.dataDa) qs.set('data_da', params.dataDa);
+  if (params.dataAl) qs.set('data_a', params.dataAl);
   if (params.alert) qs.set('alert', params.alert);
   if (params.sortBy) {
     qs.set('sort_by', params.sortBy);
@@ -57,17 +60,18 @@ export default function QuotesList() {
   const { user: currentUser } = useAuth();
   const role = currentUser?.role;
   const alertFilter = searchParams.get('alert') ?? '';
-  const initialStatoFilter = searchParams.get('stato') ?? (alertFilter === 'unassigned' ? 'PRESENTATA' : alertFilter === 'standby_long' ? 'STANDBY' : '');
-  const initialAssegnataFilter = searchParams.get('assegnata') ?? (alertFilter === 'unassigned' ? 'no' : '');
 
   const [page, setPage] = useState(1);
-  const [statoFilter, setStatoFilter] = useState(initialStatoFilter);
+  const [statoFilter, setStatoFilter] = useState('');
   const [tipoFilter, setTipoFilter] = useState('');
   const [strutturaFilter, setStrutturaFilter] = useState('');
   const [operatoreFilter, setOperatoreFilter] = useState('');
-  const [assegnataFilter, setAssegnataFilter] = useState(initialAssegnataFilter);
-  const [searchInput, setSearchInput] = useState('');
-  const [debouncedSearch, setDebouncedSearch] = useState('');
+  const [dataDal, setDataDal] = useState('');
+  const [dataAl, setDataAl] = useState('');
+  const [numeroInput, setNumeroInput] = useState('');
+  const [assistitoInput, setAssistitoInput] = useState('');
+  const [debouncedNumero, setDebouncedNumero] = useState('');
+  const [debouncedAssistito, setDebouncedAssistito] = useState('');
 
   const [result, setResult] = useState<PaginatedResponse<Quote> | null>(null);
   const [loading, setLoading] = useState(true);
@@ -94,9 +98,14 @@ export default function QuotesList() {
   }, [role]);
 
   useEffect(() => {
-    const t = window.setTimeout(() => setDebouncedSearch(searchInput), 350);
+    const t = window.setTimeout(() => setDebouncedNumero(numeroInput), 350);
     return () => window.clearTimeout(t);
-  }, [searchInput]);
+  }, [numeroInput]);
+
+  useEffect(() => {
+    const t = window.setTimeout(() => setDebouncedAssistito(assistitoInput), 350);
+    return () => window.clearTimeout(t);
+  }, [assistitoInput]);
 
   useEffect(() => {
     setPage(1);
@@ -105,8 +114,10 @@ export default function QuotesList() {
     tipoFilter,
     strutturaFilter,
     operatoreFilter,
-    assegnataFilter,
-    debouncedSearch,
+    dataDal,
+    dataAl,
+    debouncedNumero,
+    debouncedAssistito,
     tableSort.sortBy,
     tableSort.sortDir,
   ]);
@@ -122,8 +133,10 @@ export default function QuotesList() {
           tipo: tipoFilter,
           struttura: strutturaFilter,
           operatore: operatoreFilter,
-          search: debouncedSearch,
-          assegnata: assegnataFilter,
+          numero: debouncedNumero,
+          assistito: debouncedAssistito,
+          dataDa: dataDal,
+          dataAl: dataAl,
           alert: alertFilter,
           sortBy: tableSort.sortBy,
           sortDir: tableSort.sortDir,
@@ -142,9 +155,11 @@ export default function QuotesList() {
     tipoFilter,
     strutturaFilter,
     operatoreFilter,
-    assegnataFilter,
+    dataDal,
+    dataAl,
     alertFilter,
-    debouncedSearch,
+    debouncedNumero,
+    debouncedAssistito,
     tableSort.sortBy,
     tableSort.sortDir,
   ]);
@@ -220,31 +235,40 @@ export default function QuotesList() {
           Filtri
         </div>
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-          <div className="sm:col-span-2 lg:col-span-1 xl:col-span-2">
-            <div className="relative">
-              <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
-              <input
-                type="search"
-                placeholder="Cerca per nome assistito, CF, numero preventivo…"
-                value={searchInput}
-                onChange={(e) => setSearchInput(e.target.value)}
-                className="input-field pl-10"
-              />
-            </div>
+          <div>
+            <label htmlFor="filter-id-preventivo" className="mb-1 block text-xs font-medium text-gray-500">
+              ID Preventivo
+            </label>
+            <input
+              id="filter-id-preventivo"
+              type="text"
+              inputMode="search"
+              autoComplete="off"
+              placeholder="Es. PRV-2026-…"
+              value={numeroInput}
+              onChange={(e) => setNumeroInput(e.target.value)}
+              className="input-field"
+            />
           </div>
 
           <div>
-            <label htmlFor="filter-stato" className="mb-1 block text-xs font-medium text-gray-500">Stato</label>
-            <select id="filter-stato" value={statoFilter} onChange={(e) => setStatoFilter(e.target.value)} className="input-field">
-              <option value="">Tutti gli stati</option>
-              {STATI.map((s) => (
-                <option key={s} value={s}>{s}</option>
-              ))}
-            </select>
+            <label htmlFor="filter-assistito" className="mb-1 block text-xs font-medium text-gray-500">
+              Assistito
+            </label>
+            <input
+              id="filter-assistito"
+              type="search"
+              placeholder="Nome, cognome o CF…"
+              value={assistitoInput}
+              onChange={(e) => setAssistitoInput(e.target.value)}
+              className="input-field"
+            />
           </div>
 
           <div>
-            <label htmlFor="filter-tipo" className="mb-1 block text-xs font-medium text-gray-500">Tipologia</label>
+            <label htmlFor="filter-tipo" className="mb-1 block text-xs font-medium text-gray-500">
+              Tipologia
+            </label>
             <select id="filter-tipo" value={tipoFilter} onChange={(e) => setTipoFilter(e.target.value)} className="input-field">
               <option value="">Tutte le tipologie</option>
               {insuranceTypes.map((t) => (
@@ -255,7 +279,9 @@ export default function QuotesList() {
 
           {canFilterStruttura && (
             <div>
-              <label htmlFor="filter-struttura" className="mb-1 block text-xs font-medium text-gray-500">Struttura</label>
+              <label htmlFor="filter-struttura" className="mb-1 block text-xs font-medium text-gray-500">
+                Struttura
+              </label>
               <select id="filter-struttura" value={strutturaFilter} onChange={(e) => setStrutturaFilter(e.target.value)} className="input-field">
                 <option value="">Tutte le strutture</option>
                 {structures.map((s) => (
@@ -267,7 +293,9 @@ export default function QuotesList() {
 
           {canFilterStruttura && (
             <div>
-              <label htmlFor="filter-operatore" className="mb-1 block text-xs font-medium text-gray-500">Operatore</label>
+              <label htmlFor="filter-operatore" className="mb-1 block text-xs font-medium text-gray-500">
+                Operatore
+              </label>
               <select id="filter-operatore" value={operatoreFilter} onChange={(e) => setOperatoreFilter(e.target.value)} className="input-field">
                 <option value="">Tutti gli operatori</option>
                 {operators.map((o) => (
@@ -278,12 +306,41 @@ export default function QuotesList() {
           )}
 
           <div>
-            <label htmlFor="filter-assegnata" className="mb-1 block text-xs font-medium text-gray-500">Assegnata</label>
-            <select id="filter-assegnata" value={assegnataFilter} onChange={(e) => setAssegnataFilter(e.target.value)} className="input-field">
-              <option value="">Tutte</option>
-              <option value="si">Sì</option>
-              <option value="no">No</option>
+            <label htmlFor="filter-stato" className="mb-1 block text-xs font-medium text-gray-500">
+              Stato
+            </label>
+            <select id="filter-stato" value={statoFilter} onChange={(e) => setStatoFilter(e.target.value)} className="input-field">
+              <option value="">Tutti gli stati</option>
+              {STATI.map((s) => (
+                <option key={s} value={s}>{s}</option>
+              ))}
             </select>
+          </div>
+
+          <div>
+            <label htmlFor="filter-data-dal" className="mb-1 block text-xs font-medium text-gray-500">
+              Data dal
+            </label>
+            <input
+              id="filter-data-dal"
+              type="date"
+              value={dataDal}
+              onChange={(e) => setDataDal(e.target.value)}
+              className="input-field"
+            />
+          </div>
+
+          <div>
+            <label htmlFor="filter-data-al" className="mb-1 block text-xs font-medium text-gray-500">
+              Data al
+            </label>
+            <input
+              id="filter-data-al"
+              type="date"
+              value={dataAl}
+              onChange={(e) => setDataAl(e.target.value)}
+              className="input-field"
+            />
           </div>
         </div>
       </div>

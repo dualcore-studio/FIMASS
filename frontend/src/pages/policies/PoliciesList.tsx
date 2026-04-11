@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import {
-  Search,
   Eye,
   Filter,
   Shield,
@@ -30,7 +29,10 @@ function buildQuery(params: {
   tipo: string;
   struttura: string;
   operatore: string;
-  search: string;
+  numero: string;
+  assistito: string;
+  dataDa: string;
+  dataAl: string;
   alert: string;
   sortBy: string | null;
   sortDir: 'asc' | 'desc';
@@ -42,7 +44,10 @@ function buildQuery(params: {
   if (params.tipo) qs.set('tipo_assicurazione_id', params.tipo);
   if (params.struttura) qs.set('struttura_id', params.struttura);
   if (params.operatore) qs.set('operatore_id', params.operatore);
-  if (params.search.trim()) qs.set('search', params.search.trim());
+  if (params.numero.trim()) qs.set('numero', params.numero.trim());
+  if (params.assistito.trim()) qs.set('assistito', params.assistito.trim());
+  if (params.dataDa) qs.set('data_da', params.dataDa);
+  if (params.dataAl) qs.set('data_a', params.dataAl);
   if (params.alert) qs.set('alert', params.alert);
   if (params.sortBy) {
     qs.set('sort_by', params.sortBy);
@@ -62,8 +67,12 @@ export default function PoliciesList() {
   const [tipoFilter, setTipoFilter] = useState('');
   const [strutturaFilter, setStrutturaFilter] = useState('');
   const [operatoreFilter, setOperatoreFilter] = useState('');
-  const [searchInput, setSearchInput] = useState('');
-  const [debouncedSearch, setDebouncedSearch] = useState('');
+  const [dataDal, setDataDal] = useState('');
+  const [dataAl, setDataAl] = useState('');
+  const [numeroInput, setNumeroInput] = useState('');
+  const [assistitoInput, setAssistitoInput] = useState('');
+  const [debouncedNumero, setDebouncedNumero] = useState('');
+  const [debouncedAssistito, setDebouncedAssistito] = useState('');
 
   const [result, setResult] = useState<PaginatedResponse<Policy> | null>(null);
   const [loading, setLoading] = useState(true);
@@ -84,9 +93,14 @@ export default function PoliciesList() {
   }, [role]);
 
   useEffect(() => {
-    const t = window.setTimeout(() => setDebouncedSearch(searchInput), 350);
+    const t = window.setTimeout(() => setDebouncedNumero(numeroInput), 350);
     return () => window.clearTimeout(t);
-  }, [searchInput]);
+  }, [numeroInput]);
+
+  useEffect(() => {
+    const t = window.setTimeout(() => setDebouncedAssistito(assistitoInput), 350);
+    return () => window.clearTimeout(t);
+  }, [assistitoInput]);
 
   useEffect(() => {
     setPage(1);
@@ -95,7 +109,10 @@ export default function PoliciesList() {
     tipoFilter,
     strutturaFilter,
     operatoreFilter,
-    debouncedSearch,
+    dataDal,
+    dataAl,
+    debouncedNumero,
+    debouncedAssistito,
     tableSort.sortBy,
     tableSort.sortDir,
   ]);
@@ -111,7 +128,10 @@ export default function PoliciesList() {
           tipo: tipoFilter,
           struttura: strutturaFilter,
           operatore: operatoreFilter,
-          search: debouncedSearch,
+          numero: debouncedNumero,
+          assistito: debouncedAssistito,
+          dataDa: dataDal,
+          dataAl: dataAl,
           alert: alertFilter,
           sortBy: tableSort.sortBy,
           sortDir: tableSort.sortDir,
@@ -130,8 +150,11 @@ export default function PoliciesList() {
     tipoFilter,
     strutturaFilter,
     operatoreFilter,
+    dataDal,
+    dataAl,
     alertFilter,
-    debouncedSearch,
+    debouncedNumero,
+    debouncedAssistito,
     tableSort.sortBy,
     tableSort.sortDir,
   ]);
@@ -164,32 +187,41 @@ export default function PoliciesList() {
           Filtri
         </div>
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-          <div className="sm:col-span-2 lg:col-span-1 xl:col-span-2">
-            <div className="relative">
-              <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
-              <input
-                type="search"
-                placeholder="Cerca per nome assistito, CF, numero polizza…"
-                value={searchInput}
-                onChange={(e) => setSearchInput(e.target.value)}
-                className="input-field pl-10"
-              />
-            </div>
+          <div>
+            <label htmlFor="filter-id-polizza" className="mb-1 block text-xs font-medium text-gray-500">
+              ID Polizza
+            </label>
+            <input
+              id="filter-id-polizza"
+              type="text"
+              inputMode="search"
+              autoComplete="off"
+              placeholder="Es. POL-2026-…"
+              value={numeroInput}
+              onChange={(e) => setNumeroInput(e.target.value)}
+              className="input-field"
+            />
           </div>
 
           <div>
-            <label htmlFor="filter-stato" className="mb-1 block text-xs font-medium text-gray-500">Stato</label>
-            <select id="filter-stato" value={statoFilter} onChange={(e) => setStatoFilter(e.target.value)} className="input-field">
-              <option value="">Tutti gli stati</option>
-              {STATI.map((s) => (
-                <option key={s} value={s}>{s}</option>
-              ))}
-            </select>
+            <label htmlFor="filter-assistito-pol" className="mb-1 block text-xs font-medium text-gray-500">
+              Assistito
+            </label>
+            <input
+              id="filter-assistito-pol"
+              type="search"
+              placeholder="Nome, cognome o CF…"
+              value={assistitoInput}
+              onChange={(e) => setAssistitoInput(e.target.value)}
+              className="input-field"
+            />
           </div>
 
           <div>
-            <label htmlFor="filter-tipo" className="mb-1 block text-xs font-medium text-gray-500">Tipologia</label>
-            <select id="filter-tipo" value={tipoFilter} onChange={(e) => setTipoFilter(e.target.value)} className="input-field">
+            <label htmlFor="filter-tipo-pol" className="mb-1 block text-xs font-medium text-gray-500">
+              Tipologia
+            </label>
+            <select id="filter-tipo-pol" value={tipoFilter} onChange={(e) => setTipoFilter(e.target.value)} className="input-field">
               <option value="">Tutte le tipologie</option>
               {insuranceTypes.map((t) => (
                 <option key={t.id} value={String(t.id)}>{t.nome}</option>
@@ -199,8 +231,10 @@ export default function PoliciesList() {
 
           {canFilterStruttura && (
             <div>
-              <label htmlFor="filter-struttura" className="mb-1 block text-xs font-medium text-gray-500">Struttura</label>
-              <select id="filter-struttura" value={strutturaFilter} onChange={(e) => setStrutturaFilter(e.target.value)} className="input-field">
+              <label htmlFor="filter-struttura-pol" className="mb-1 block text-xs font-medium text-gray-500">
+                Struttura
+              </label>
+              <select id="filter-struttura-pol" value={strutturaFilter} onChange={(e) => setStrutturaFilter(e.target.value)} className="input-field">
                 <option value="">Tutte le strutture</option>
                 {structures.map((s) => (
                   <option key={s.id} value={String(s.id)}>{s.denominazione || getUserDisplayName(s)}</option>
@@ -211,8 +245,10 @@ export default function PoliciesList() {
 
           {canFilterStruttura && (
             <div>
-              <label htmlFor="filter-operatore" className="mb-1 block text-xs font-medium text-gray-500">Operatore</label>
-              <select id="filter-operatore" value={operatoreFilter} onChange={(e) => setOperatoreFilter(e.target.value)} className="input-field">
+              <label htmlFor="filter-operatore-pol" className="mb-1 block text-xs font-medium text-gray-500">
+                Operatore
+              </label>
+              <select id="filter-operatore-pol" value={operatoreFilter} onChange={(e) => setOperatoreFilter(e.target.value)} className="input-field">
                 <option value="">Tutti gli operatori</option>
                 {operators.map((o) => (
                   <option key={o.id} value={String(o.id)}>{getUserDisplayName(o)}</option>
@@ -220,6 +256,44 @@ export default function PoliciesList() {
               </select>
             </div>
           )}
+
+          <div>
+            <label htmlFor="filter-stato-pol" className="mb-1 block text-xs font-medium text-gray-500">
+              Stato
+            </label>
+            <select id="filter-stato-pol" value={statoFilter} onChange={(e) => setStatoFilter(e.target.value)} className="input-field">
+              <option value="">Tutti gli stati</option>
+              {STATI.map((s) => (
+                <option key={s} value={s}>{s}</option>
+              ))}
+            </select>
+          </div>
+
+          <div>
+            <label htmlFor="filter-data-dal-pol" className="mb-1 block text-xs font-medium text-gray-500">
+              Data dal
+            </label>
+            <input
+              id="filter-data-dal-pol"
+              type="date"
+              value={dataDal}
+              onChange={(e) => setDataDal(e.target.value)}
+              className="input-field"
+            />
+          </div>
+
+          <div>
+            <label htmlFor="filter-data-al-pol" className="mb-1 block text-xs font-medium text-gray-500">
+              Data al
+            </label>
+            <input
+              id="filter-data-al-pol"
+              type="date"
+              value={dataAl}
+              onChange={(e) => setDataAl(e.target.value)}
+              className="input-field"
+            />
+          </div>
         </div>
       </div>
 
@@ -245,7 +319,7 @@ export default function PoliciesList() {
                     direction={tableSort.sortDir}
                     onRequestSort={tableSort.requestSort}
                   >
-                    Numero Polizza
+                    ID Polizza
                   </SortableTh>
                   <SortableTh
                     sortKey="preventivo"
@@ -280,6 +354,14 @@ export default function PoliciesList() {
                     Struttura
                   </SortableTh>
                   <SortableTh
+                    sortKey="operatore"
+                    activeKey={tableSort.sortBy}
+                    direction={tableSort.sortDir}
+                    onRequestSort={tableSort.requestSort}
+                  >
+                    Operatore
+                  </SortableTh>
+                  <SortableTh
                     sortKey="stato"
                     activeKey={tableSort.sortBy}
                     direction={tableSort.sortDir}
@@ -301,7 +383,7 @@ export default function PoliciesList() {
               <tbody>
                 {rows.length === 0 ? (
                   <tr>
-                    <td colSpan={8} className="px-4 py-12 text-center text-gray-500">
+                    <td colSpan={9} className="px-4 py-12 text-center text-gray-500">
                       <Shield className="mx-auto mb-3 h-10 w-10 text-gray-300" />
                       Nessuna polizza trovata con i filtri selezionati.
                     </td>
@@ -334,6 +416,11 @@ export default function PoliciesList() {
                       </td>
                       <td className="px-4 py-3 text-gray-600">{p.tipo_nome || '-'}</td>
                       <td className="px-4 py-3 text-gray-600">{p.struttura_nome || '-'}</td>
+                      <td className="px-4 py-3 text-gray-600">
+                        {p.operatore_id
+                          ? [p.operatore_nome, p.operatore_cognome].filter(Boolean).join(' ')
+                          : <span className="text-gray-400 italic">—</span>}
+                      </td>
                       <td className="px-4 py-3">
                         <StatusBadge stato={p.stato} type="policy" />
                       </td>
