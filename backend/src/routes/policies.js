@@ -1,6 +1,7 @@
 const express = require('express');
-const { list, getById, insert, upsertById, like, sortBy: sortRecords, paginate } = require('../data/store');
+const { list, getById, insert, upsertById, like, paginate } = require('../data/store');
 const { loadContext, enrichPolicy } = require('../data/views');
+const { sortPoliciesForList } = require('../utils/practiceListSort');
 const { authenticateToken, authorizeRoles } = require('../middleware/auth');
 const { logActivity } = require('./logs');
 
@@ -77,7 +78,7 @@ router.get('/', authenticateToken, (req, res) => {
         stato: 'stato',
         created_at: 'created_at',
       };
-      policies = sortRecords(policies, sortMap[sortByParam] || 'created_at', sortDir || 'desc');
+      policies = sortPoliciesForList(policies, sortByParam, sortDir || 'desc', sortMap);
       res.json(paginate(policies, page, limit));
     } catch (err) {
       console.error('Error fetching policies:', err);

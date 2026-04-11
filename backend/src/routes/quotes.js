@@ -1,8 +1,9 @@
 const express = require('express');
 const { authenticateToken, authorizeRoles } = require('../middleware/auth');
 const { logActivity } = require('./logs');
-const { list, getById, findOne, insert, upsertById, like, sortBy: sortRecords, paginate } = require('../data/store');
+const { list, getById, findOne, insert, upsertById, like, paginate } = require('../data/store');
 const { loadContext, enrichQuote } = require('../data/views');
+const { sortQuotesForList } = require('../utils/practiceListSort');
 
 const router = express.Router();
 
@@ -69,7 +70,7 @@ router.get('/', authenticateToken, (req, res) => {
       }
       if (search) quotes = quotes.filter((q) => like(q.numero, search) || like(q.assistito_nome, search) || like(q.assistito_cognome, search) || like(q.assistito_cf, search));
       const sortMap = { numero: 'numero', assistito: 'assistito_cognome', tipo: 'tipo_nome', struttura: 'struttura_nome', operatore: 'operatore_cognome', stato: 'stato', created_at: 'created_at', data_decorrenza: 'data_decorrenza' };
-      quotes = sortRecords(quotes, sortMap[sortByParam] || 'created_at', sortDir || 'desc');
+      quotes = sortQuotesForList(quotes, sortByParam, sortDir || 'desc', sortMap);
       res.json(paginate(quotes, page, limit));
     } catch (err) {
       console.error('Error fetching quotes:', err);

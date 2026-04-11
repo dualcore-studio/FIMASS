@@ -1,6 +1,7 @@
 const express = require('express');
 const { list, getById, upsertById, like, sortBy: sortRecords, paginate } = require('../data/store');
 const { loadContext } = require('../data/views');
+const { sortQuotesForList, sortPoliciesForList } = require('../utils/practiceListSort');
 const { authenticateToken, authorizeRoles } = require('../middleware/auth');
 
 const router = express.Router();
@@ -50,26 +51,32 @@ router.get('/:id', authenticateToken, (req, res) => {
         quotes = quotes.filter((q) => Number(q.struttura_id) === Number(req.user.id));
         policies = policies.filter((p) => Number(p.struttura_id) === Number(req.user.id));
       }
-      quotes = quotes
-        .map((q) => ({
+      quotes = sortQuotesForList(
+        quotes.map((q) => ({
           id: q.id,
           numero: q.numero,
           stato: q.stato,
           created_at: q.created_at,
           tipo_nome: ctx.typesById.get(Number(q.tipo_assicurazione_id))?.nome,
           struttura_nome: ctx.usersById.get(Number(q.struttura_id))?.denominazione,
-        }))
-        .sort((a, b) => String(b.created_at || '').localeCompare(String(a.created_at || '')));
-      policies = policies
-        .map((p) => ({
+        })),
+        undefined,
+        'desc',
+        {},
+      );
+      policies = sortPoliciesForList(
+        policies.map((p) => ({
           id: p.id,
           numero: p.numero,
           stato: p.stato,
           created_at: p.created_at,
           tipo_nome: ctx.typesById.get(Number(p.tipo_assicurazione_id))?.nome,
           struttura_nome: ctx.usersById.get(Number(p.struttura_id))?.denominazione,
-        }))
-        .sort((a, b) => String(b.created_at || '').localeCompare(String(a.created_at || '')));
+        })),
+        undefined,
+        'desc',
+        {},
+      );
       const attachments = ctx.attachments
         .filter((a) => a.entity_type === 'assisted' && Number(a.entity_id) === Number(req.params.id))
         .sort((a, b) => String(b.created_at || '').localeCompare(String(a.created_at || '')));
