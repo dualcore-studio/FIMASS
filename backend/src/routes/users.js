@@ -150,7 +150,7 @@ router.put('/:id', authenticateToken, authorizeRoles('admin'), (req, res) => {
   });
 });
 
-router.post('/:id/reset-password', authenticateToken, authorizeRoles('admin'), (req, res) => {
+router.post('/:id/reset-password', authenticateToken, authorizeRoles('admin', 'supervisore'), (req, res) => {
   (async () => {
     const { password } = req.body;
     if (!password) return res.status(400).json({ error: 'Nuova password richiesta' });
@@ -179,7 +179,7 @@ router.post('/:id/reset-password', authenticateToken, authorizeRoles('admin'), (
   });
 });
 
-router.post('/:id/toggle-status', authenticateToken, authorizeRoles('admin'), (req, res) => {
+router.post('/:id/toggle-status', authenticateToken, authorizeRoles('admin', 'supervisore'), (req, res) => {
   (async () => {
     const user = await getById('users', req.params.id);
     if (!user) return res.status(404).json({ error: 'Utente non trovato' });
@@ -205,9 +205,12 @@ router.post('/:id/toggle-status', authenticateToken, authorizeRoles('admin'), (r
   });
 });
 
-router.delete('/:id', authenticateToken, authorizeRoles('admin'), (req, res) => {
+router.delete('/:id', authenticateToken, authorizeRoles('admin', 'supervisore'), (req, res) => {
   (async () => {
     const userId = Number(req.params.id);
+    if (!Number.isFinite(userId)) {
+      return res.status(400).json({ error: 'ID utente non valido' });
+    }
     const user = await getById('users', userId);
     if (!user) return res.status(404).json({ error: 'Utente non trovato' });
 

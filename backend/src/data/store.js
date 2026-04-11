@@ -101,7 +101,12 @@ async function upsertById(namespace, id, patch) {
 async function removeById(namespace, id) {
   const db = getInstantClient();
   const current = await getById(namespace, id);
-  if (!current?._instant_id) return;
+  if (!current) {
+    throw new Error(`removeById: record not found in ${namespace} for id ${id}`);
+  }
+  if (!current._instant_id) {
+    throw new Error(`removeById: missing Instant id for ${namespace}#${id}`);
+  }
   await db.transact([db.tx[namespace][current._instant_id].delete()]);
 }
 
