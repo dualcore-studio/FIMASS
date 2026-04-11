@@ -169,6 +169,12 @@ export default function PoliciesList() {
   const rows = result?.data ?? [];
   const canFilterStruttura = role === 'admin' || role === 'supervisore';
 
+  const policiesFilterGridClass = canFilterStruttura
+    ? 'grid grid-cols-1 gap-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid xl:grid-cols-none xl:[grid-template-columns:minmax(4.5rem,0.5fr)_minmax(7rem,1.2fr)_minmax(5.25rem,0.72fr)_minmax(5.25rem,0.72fr)_minmax(5.25rem,0.72fr)_minmax(6.25rem,0.68fr)_minmax(7rem,0.62fr)_minmax(7rem,0.62fr)]'
+    : 'grid grid-cols-1 gap-2 sm:grid-cols-2 md:grid-cols-3 xl:grid xl:grid-cols-none xl:[grid-template-columns:minmax(4.5rem,0.52fr)_minmax(7rem,1.35fr)_minmax(5.5rem,0.88fr)_minmax(6.25rem,0.78fr)_minmax(7rem,0.65fr)_minmax(7rem,0.65fr)]';
+
+  const filterControlClass = 'input-field h-9 min-w-0 py-1.5 text-sm';
+
   return (
     <div className="space-y-6">
       <header className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
@@ -181,13 +187,13 @@ export default function PoliciesList() {
       </header>
 
       {/* Filters */}
-      <div className="card p-4">
-        <div className="flex items-center gap-2 mb-3 text-sm font-medium text-gray-700">
-          <Filter className="h-4 w-4" />
+      <div className="card overflow-x-auto p-3 sm:p-4">
+        <div className="mb-2 flex items-center gap-2 text-sm font-medium text-gray-700">
+          <Filter className="h-4 w-4 shrink-0 text-gray-500" />
           Filtri
         </div>
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-          <div>
+        <div className={policiesFilterGridClass}>
+          <div className="min-w-0">
             <label htmlFor="filter-id-polizza" className="mb-1 block text-xs font-medium text-gray-500">
               ID Polizza
             </label>
@@ -199,11 +205,11 @@ export default function PoliciesList() {
               placeholder="Es. POL-2026-…"
               value={numeroInput}
               onChange={(e) => setNumeroInput(e.target.value)}
-              className="input-field"
+              className={filterControlClass}
             />
           </div>
 
-          <div>
+          <div className="min-w-0">
             <label htmlFor="filter-assistito-pol" className="mb-1 block text-xs font-medium text-gray-500">
               Assistito
             </label>
@@ -213,15 +219,15 @@ export default function PoliciesList() {
               placeholder="Nome, cognome o CF…"
               value={assistitoInput}
               onChange={(e) => setAssistitoInput(e.target.value)}
-              className="input-field"
+              className={filterControlClass}
             />
           </div>
 
-          <div>
+          <div className="min-w-0">
             <label htmlFor="filter-tipo-pol" className="mb-1 block text-xs font-medium text-gray-500">
               Tipologia
             </label>
-            <select id="filter-tipo-pol" value={tipoFilter} onChange={(e) => setTipoFilter(e.target.value)} className="input-field">
+            <select id="filter-tipo-pol" value={tipoFilter} onChange={(e) => setTipoFilter(e.target.value)} className={filterControlClass}>
               <option value="">Tutte le tipologie</option>
               {insuranceTypes.map((t) => (
                 <option key={t.id} value={String(t.id)}>{t.nome}</option>
@@ -230,11 +236,11 @@ export default function PoliciesList() {
           </div>
 
           {canFilterStruttura && (
-            <div>
+            <div className="min-w-0">
               <label htmlFor="filter-struttura-pol" className="mb-1 block text-xs font-medium text-gray-500">
                 Struttura
               </label>
-              <select id="filter-struttura-pol" value={strutturaFilter} onChange={(e) => setStrutturaFilter(e.target.value)} className="input-field">
+              <select id="filter-struttura-pol" value={strutturaFilter} onChange={(e) => setStrutturaFilter(e.target.value)} className={filterControlClass}>
                 <option value="">Tutte le strutture</option>
                 {structures.map((s) => (
                   <option key={s.id} value={String(s.id)}>{s.denominazione || getUserDisplayName(s)}</option>
@@ -244,11 +250,11 @@ export default function PoliciesList() {
           )}
 
           {canFilterStruttura && (
-            <div>
+            <div className="min-w-0">
               <label htmlFor="filter-operatore-pol" className="mb-1 block text-xs font-medium text-gray-500">
                 Operatore
               </label>
-              <select id="filter-operatore-pol" value={operatoreFilter} onChange={(e) => setOperatoreFilter(e.target.value)} className="input-field">
+              <select id="filter-operatore-pol" value={operatoreFilter} onChange={(e) => setOperatoreFilter(e.target.value)} className={filterControlClass}>
                 <option value="">Tutti gli operatori</option>
                 {operators.map((o) => (
                   <option key={o.id} value={String(o.id)}>{getUserDisplayName(o)}</option>
@@ -257,11 +263,11 @@ export default function PoliciesList() {
             </div>
           )}
 
-          <div>
+          <div className="min-w-0">
             <label htmlFor="filter-stato-pol" className="mb-1 block text-xs font-medium text-gray-500">
               Stato
             </label>
-            <select id="filter-stato-pol" value={statoFilter} onChange={(e) => setStatoFilter(e.target.value)} className="input-field">
+            <select id="filter-stato-pol" value={statoFilter} onChange={(e) => setStatoFilter(e.target.value)} className={filterControlClass}>
               <option value="">Tutti gli stati</option>
               {STATI.map((s) => (
                 <option key={s} value={s}>{s}</option>
@@ -269,7 +275,7 @@ export default function PoliciesList() {
             </select>
           </div>
 
-          <div>
+          <div className="min-w-0">
             <label htmlFor="filter-data-dal-pol" className="mb-1 block text-xs font-medium text-gray-500">
               Data dal
             </label>
@@ -278,11 +284,11 @@ export default function PoliciesList() {
               type="date"
               value={dataDal}
               onChange={(e) => setDataDal(e.target.value)}
-              className="input-field"
+              className={filterControlClass}
             />
           </div>
 
-          <div>
+          <div className="min-w-0">
             <label htmlFor="filter-data-al-pol" className="mb-1 block text-xs font-medium text-gray-500">
               Data al
             </label>
@@ -291,7 +297,7 @@ export default function PoliciesList() {
               type="date"
               value={dataAl}
               onChange={(e) => setDataAl(e.target.value)}
-              className="input-field"
+              className={filterControlClass}
             />
           </div>
         </div>

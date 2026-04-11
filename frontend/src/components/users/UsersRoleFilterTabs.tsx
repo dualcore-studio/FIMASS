@@ -25,7 +25,6 @@ export default function UsersRoleFilterTabs({
 }: UsersRoleFilterTabsProps) {
   return (
     <div className="min-w-0">
-      <p className="mb-2 text-xs font-medium uppercase tracking-wide text-slate-500">Ruolo</p>
       <div className="-mx-1 flex min-w-0 flex-wrap items-center gap-2 sm:flex-nowrap sm:overflow-x-auto sm:pb-1 sm:[scrollbar-width:thin]">
         <div
           className="inline-flex min-w-0 flex-wrap items-center gap-1 rounded-xl border border-slate-200/90 bg-slate-100/90 p-1 shadow-[inset_0_1px_2px_rgba(15,23,42,0.04)] sm:flex-nowrap sm:justify-start"

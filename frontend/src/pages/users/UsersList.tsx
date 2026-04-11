@@ -222,35 +222,37 @@ export default function UsersList() {
         </div>
       ) : null}
 
-      <div className="card p-4">
-        <div className="mb-3 flex items-center gap-2 text-sm font-medium text-gray-700">
-          <Filter className="h-4 w-4" aria-hidden />
-          Filtri
-        </div>
-        <div className="max-w-md">
-          <label htmlFor="users-search" className="mb-1 block text-xs font-medium text-gray-500">
+      <div className="card p-3 sm:p-4">
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-3">
+          <div className="flex shrink-0 items-center gap-2 text-sm font-medium text-gray-700">
+            <Search className="h-4 w-4 text-gray-500" aria-hidden />
             Cerca
-          </label>
-          <div className="relative">
-            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+          </div>
+          <div className="relative min-w-0 flex-1 sm:max-w-xl">
+            <Search className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
             <input
               id="users-search"
               type="search"
               placeholder="Nome, email o username…"
               value={searchInput}
               onChange={(e) => setSearchInput(e.target.value)}
-              className="input-field pl-10"
+              className="input-field h-9 py-1.5 pl-9 text-sm"
               aria-label="Cerca utenti"
             />
           </div>
         </div>
-        <div className="mt-4 rounded-xl border border-slate-200/90 bg-slate-50/80 px-3 py-3 sm:px-4 sm:py-4">
-          <UsersRoleFilterTabs
-            activeRole={roleFilter}
-            onRoleChange={setRoleFilter}
-            counts={roleTabCounts}
-          />
+      </div>
+
+      <div className="card p-3 sm:p-4">
+        <div className="mb-2 flex items-center gap-2 text-sm font-medium text-gray-700">
+          <Filter className="h-4 w-4 text-gray-500" aria-hidden />
+          Ruoli
         </div>
+        <UsersRoleFilterTabs
+          activeRole={roleFilter}
+          onRoleChange={setRoleFilter}
+          counts={roleTabCounts}
+        />
       </div>
 
       <div className="card overflow-hidden">
