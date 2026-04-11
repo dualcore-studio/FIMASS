@@ -88,6 +88,9 @@ async function sendHtmlEmail({ to, subject, html }) {
     console.error('[FIMASS email] Errore API Resend:', error);
     return;
   }
+  if (data?.id) {
+    console.log(`[FIMASS email] Inviata correttamente (Resend id: ${data.id})`);
+  }
   return data;
 }
 

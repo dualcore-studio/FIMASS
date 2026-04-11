@@ -339,7 +339,8 @@ router.put('/:id/assign', authenticateToken, authorizeRoles('supervisore', 'admi
     if (!opMail) {
       console.warn(`[FIMASS email] Operatore id=${operatore_id} senza email: notifica assegnazione saltata.`);
     } else {
-      void sendQuoteAssignedToOperatorMail({
+      // Su Vercel le serverless function si congelano subito dopo res.json: await obbligatorio affinché Resend completi.
+      await sendQuoteAssignedToOperatorMail({
         to: opMail,
         operatorName: `${op.nome || ''} ${op.cognome || ''}`.trim() || op.username || 'Operatore',
         quoteId: enrichedAssign.id,
@@ -356,7 +357,7 @@ router.put('/:id/assign', authenticateToken, authorizeRoles('supervisore', 'admi
       if (!strutturaMail) {
         console.warn(`[FIMASS email] Struttura id=${enrichedAssign.struttura_id} senza email: notifica cambio stato (assegnazione) saltata.`);
       } else {
-        void sendQuoteStatusChangeToStructureMail({
+        await sendQuoteStatusChangeToStructureMail({
           to: strutturaMail,
           strutturaNome: enrichedAssign.struttura_nome || 'Struttura',
           quoteId: enrichedAssign.id,
@@ -435,7 +436,7 @@ router.put('/:id/status', authenticateToken, (req, res) => {
     if (!strutturaMailStatus) {
       console.warn(`[FIMASS email] Struttura id=${enrichedStatus.struttura_id} senza email: notifica cambio stato saltata.`);
     } else {
-      void sendQuoteStatusChangeToStructureMail({
+      await sendQuoteStatusChangeToStructureMail({
         to: strutturaMailStatus,
         strutturaNome: enrichedStatus.struttura_nome || 'Struttura',
         quoteId: enrichedStatus.id,
