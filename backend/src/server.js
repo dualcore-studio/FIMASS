@@ -38,7 +38,18 @@ function createApp() {
   app.use('/api/attachments', require('./routes/attachments'));
 
   app.get('/api/health', (req, res) => {
-    res.json({ status: 'ok' });
+    const { getMailEnv } = require('./lib/resend');
+    const { apiKey, from, appUrl } = getMailEnv();
+    res.json({
+      status: 'ok',
+      vercel: isVercel,
+      commit: process.env.VERCEL_GIT_COMMIT_SHA || null,
+      email: {
+        resendApiKeyConfigured: Boolean(apiKey && String(apiKey).trim()),
+        resendFromConfigured: Boolean(from && String(from).trim()),
+        appUrlConfigured: Boolean(appUrl && String(appUrl).trim()),
+      },
+    });
   });
 
   app.use('/api/*', (req, res) => {

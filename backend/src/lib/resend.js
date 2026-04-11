@@ -66,7 +66,31 @@ function row(label, value) {
   </tr>`;
 }
 
-async function sendHtmlEmail({ to, subject, html }) {
+/** Versione testuale minimale per client che privilegiano text/plain. */
+function htmlToText(html) {
+  return String(html || '')
+    .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, ' ')
+    .replace(/<[^>]+>/g, ' ')
+    .replace(/&nbsp;/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .slice(0, 12000);
+}
+
+function logResendError(error) {
+  try {
+    console.error('[FIMASS email] Errore API Resend:', typeof error === 'string' ? error : JSON.stringify(error));
+  } catch {
+    console.error('[FIMASS email] Errore API Resend (oggetto non serializzabile):', error);
+  }
+  if (error && typeof error === 'object' && error.name === 'invalid_from_address') {
+    console.error(
+      '[FIMASS email] Il mittente RESEND_FROM_EMAIL non è autorizzato: verifica un dominio su https://resend.com/domains e usa un indirizzo di quel dominio (es. Notifiche <noreply@tuo-dominio.it>).',
+    );
+  }
+}
+
+async function sendHtmlEmail({ to, subject, html, text }) {
   const { apiKey, from } = getMailEnv();
   if (!apiKey || !from) {
     console.warn('[FIMASS email] RESEND_API_KEY o RESEND_FROM_EMAIL mancanti: invio saltato.');
@@ -78,18 +102,22 @@ async function sendHtmlEmail({ to, subject, html }) {
     return;
   }
   const resend = new Resend(apiKey);
+  const plain = text || htmlToText(html);
   const { data, error } = await resend.emails.send({
     from,
     to: [addr],
     subject,
     html,
+    text: plain,
   });
   if (error) {
-    console.error('[FIMASS email] Errore API Resend:', error);
+    logResendError(error);
     return;
   }
   if (data?.id) {
-    console.log(`[FIMASS email] Inviata correttamente (Resend id: ${data.id})`);
+    console.log(`[FIMASS email] Inviata correttamente (Resend id: ${data.id}, destinatario: ${addr})`);
+  } else {
+    console.warn('[FIMASS email] Risposta Resend senza id email; controlla la dashboard Resend → Logs.');
   }
   return data;
 }

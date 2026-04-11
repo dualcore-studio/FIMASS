@@ -301,8 +301,9 @@ router.post('/', authenticateToken, authorizeRoles('struttura', 'admin'), (req, 
 
 router.put('/:id/assign', authenticateToken, authorizeRoles('supervisore', 'admin'), (req, res) => {
   (async () => {
+    const operatoreIdNum = Number(req.body.operatore_id);
     const { operatore_id } = req.body;
-    if (!operatore_id) return res.status(400).json({ error: 'Operatore richiesto' });
+    if (!operatore_id || Number.isNaN(operatoreIdNum)) return res.status(400).json({ error: 'Operatore richiesto' });
 
     const quote = await getById('quotes', req.params.id);
     if (!quote) return res.status(404).json({ error: 'Preventivo non trovato' });
@@ -313,13 +314,14 @@ router.put('/:id/assign', authenticateToken, authorizeRoles('supervisore', 'admi
     const prevStato = quote.stato;
     const newStato = prevStato === 'PRESENTATA' ? 'ASSEGNATA' : prevStato;
 
-    await upsertById('quotes', req.params.id, { operatore_id, stato: newStato });
+    await upsertById('quotes', req.params.id, { operatore_id: operatoreIdNum, stato: newStato });
 
     if (prevStato !== newStato) {
       await insert('quote_status_history', { quote_id: Number(req.params.id), stato_precedente: prevStato, stato_nuovo: newStato, utente_id: req.user.id });
     }
 
-    const op = await getById('users', operatore_id);
+    const op = await getById('users', operatoreIdNum);
+    if (!op) return res.status(400).json({ error: 'Operatore non trovato' });
     await logActivity({
       utente_id: req.user.id,
       utente_nome: getUserDisplayName(req.user),
@@ -337,8 +339,11 @@ router.put('/:id/assign', authenticateToken, authorizeRoles('supervisore', 'admi
     const dataAssegnazione = enrichedAssign.updated_at || new Date().toISOString().slice(0, 19).replace('T', ' ');
     const opMail = op.email && String(op.email).trim();
     if (!opMail) {
-      console.warn(`[FIMASS email] Operatore id=${operatore_id} senza email: notifica assegnazione saltata.`);
+      console.warn(`[FIMASS email] Operatore id=${operatoreIdNum} senza email in DB: notifica assegnazione saltata.`);
     } else {
+      console.log(
+        `[FIMASS email] Assegnazione preventivo ${enrichedAssign.numero} (id ${enrichedAssign.id}) → operatore id ${operatoreIdNum}, invio a ${opMail}`,
+      );
       // Su Vercel le serverless function si congelano subito dopo res.json: await obbligatorio affinché Resend completi.
       await sendQuoteAssignedToOperatorMail({
         to: opMail,
