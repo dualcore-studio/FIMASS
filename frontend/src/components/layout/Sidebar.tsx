@@ -48,7 +48,7 @@ export default function Sidebar({ collapsed, onCollapsedChange }: SidebarProps) 
     <aside
       className={`fixed left-0 top-20 z-40 flex h-[calc(100vh-5rem)] flex-col border-r border-[var(--portal-sidebar-border)] bg-[var(--portal-sidebar-bg)] shadow-[2px_0_16px_-6px_rgba(15,23,42,0.22)] transition-all duration-200 ${widthClass}`}
     >
-      <nav className="flex flex-1 flex-col overflow-hidden px-2 py-3">
+      <nav className="flex flex-1 flex-col overflow-hidden px-2 pb-3 pt-2">
         <div className="min-h-0 flex-1 space-y-0.5 overflow-y-auto">
           {filteredItems.map((item) => (
             <NavLink

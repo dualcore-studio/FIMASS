@@ -54,15 +54,15 @@ export default function DashboardPrimaryKpi({
 
   return (
     <div
-      className={`group relative overflow-hidden rounded-xl border border-slate-200/90 bg-white px-4 py-4 shadow-[0_1px_2px_rgba(15,23,42,0.04),0_6px_16px_-8px_rgba(15,23,42,0.08)] sm:px-5 sm:py-5 ${
+      className={`group relative overflow-hidden rounded-2xl border border-slate-200/85 bg-white px-4 py-4 shadow-[0_1px_2px_rgba(30,45,77,0.05),0_8px_28px_-12px_rgba(30,45,77,0.1)] sm:px-5 sm:py-5 ${
         accentTopClass[topAccent]
-      } ${isAttention ? 'ring-1 ring-amber-200/70' : ''}`}
+      } ${isAttention ? 'ring-1 ring-amber-200/65' : ''}`}
     >
       <div className="relative flex items-start justify-between gap-3">
         <div className="min-w-0 flex-1">
           <p
-            className={`text-[11px] font-semibold uppercase tracking-[0.12em] ${
-              isAttention ? 'text-amber-900/75' : 'text-slate-500'
+            className={`text-[11px] font-semibold uppercase tracking-[0.14em] ${
+              isAttention ? 'text-amber-900/75' : 'text-slate-600'
             }`}
           >
             {label}
@@ -76,10 +76,10 @@ export default function DashboardPrimaryKpi({
           </p>
         </div>
         <div
-          className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border transition-colors duration-150 ${
+          className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border transition-colors duration-150 ${
             isAttention
               ? 'border-amber-200/80 bg-[#faf8f0] text-[#7a6220] group-hover:border-amber-300/90'
-              : 'border-slate-100 bg-slate-50 text-slate-400 group-hover:border-slate-200 group-hover:text-slate-500'
+              : 'border-slate-100/95 bg-slate-50/95 text-slate-400 group-hover:border-slate-200 group-hover:bg-white group-hover:text-slate-500'
           }`}
           aria-hidden
         >

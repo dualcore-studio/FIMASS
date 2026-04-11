@@ -26,10 +26,10 @@
     --portal-surface-raised: #ffffff;
     --portal-border: #e5e9f0;
 
-    /* Topbar / logo strip: always light for FIMASS wordmark legibility */
+    /* Topbar: area centrale/destra chiara; colonna sinistra = stesso blu sidebar (logo con glow) */
     --portal-nav-surface: #ffffff;
-    --portal-nav-surface-logo: #ffffff;
-    --portal-nav-surface-logo-hover: #f6f8fb;
+    --portal-nav-surface-logo: var(--sa-navy);
+    --portal-nav-surface-logo-hover: rgba(255, 255, 255, 0.055);
     --portal-nav-border: #e5e9f0;
     --portal-topbar-hover: rgba(15, 23, 42, 0.055);
 
@@ -179,6 +179,12 @@
   }
   .kpi-value-neutral {
     color: var(--portal-text-primary);
+  }
+
+  /** Halo chiaro sotto il wordmark FIMASS su fondo blu sidebar */
+  .fimass-wordmark-glow {
+    filter: drop-shadow(0 3px 14px rgba(255, 255, 255, 0.78)) drop-shadow(0 0 28px rgba(255, 255, 255, 0.48))
+      drop-shadow(0 8px 22px rgba(255, 255, 255, 0.22));
   }
 }
 

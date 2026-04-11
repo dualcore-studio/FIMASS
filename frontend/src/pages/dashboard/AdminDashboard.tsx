@@ -246,7 +246,7 @@ export default function AdminDashboard() {
   }
 
   return (
-    <div className="mx-auto w-full max-w-[74rem] space-y-7">
+    <div className="mx-auto w-full max-w-[74rem] space-y-8">
       <DashboardPageHeader
         title="Dashboard"
         welcomeLine={user ? `Bentornato, ${getUserDisplayName(user)}` : undefined}
@@ -255,6 +255,7 @@ export default function AdminDashboard() {
       />
 
       <section aria-label="Alert principali" className="pt-1">
+        <p className="mb-3 text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-600">Alert principali</p>
         <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-4">
           <DashboardSummaryCard
             label="Pratiche non assegnate"
@@ -288,6 +289,7 @@ export default function AdminDashboard() {
       </section>
 
       <section aria-label="Stato lavorazioni" className="pt-0.5">
+        <p className="mb-3 text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-600">Stato lavorazioni</p>
         <div className="grid grid-cols-1 gap-4 lg:grid-cols-2 xl:grid-cols-4">
           <DashboardWorkColumn
             title="Preventivi presentati"
@@ -447,7 +449,7 @@ const summaryValueClass: Record<SummaryAccent, string> = {
 function DashboardSummaryCard({ label, value, to, accent, valueTone }: DashboardSummaryCardProps) {
   return (
     <article
-      className={`rounded-xl border border-slate-200/90 bg-white px-5 py-4 text-center shadow-[0_1px_2px_rgba(15,23,42,0.04),0_6px_16px_-8px_rgba(15,23,42,0.07)] ${summaryAccentClass[accent]}`}
+      className={`rounded-2xl border border-slate-200/85 bg-white px-5 py-4 text-center shadow-[0_1px_2px_rgba(30,45,77,0.05),0_8px_28px_-12px_rgba(30,45,77,0.09)] ${summaryAccentClass[accent]}`}
     >
       <h2 className="text-xs font-semibold uppercase tracking-wide text-slate-600">{label}</h2>
       <p className={`mt-1 text-[2rem] font-semibold leading-none tabular-nums ${summaryValueClass[valueTone]}`}>{value}</p>
@@ -489,7 +491,7 @@ function DashboardWorkColumn({
 }: DashboardWorkColumnProps) {
   return (
     <article
-      className={`min-h-[27rem] rounded-xl border border-slate-200/90 bg-white px-4 py-4 shadow-[0_1px_2px_rgba(15,23,42,0.04),0_6px_16px_-8px_rgba(15,23,42,0.07)] ${workColumnAccentClass[accent]}`}
+      className={`min-h-[27rem] rounded-2xl border border-slate-200/85 bg-white px-4 py-4 shadow-[0_1px_2px_rgba(30,45,77,0.05),0_8px_28px_-12px_rgba(30,45,77,0.09)] ${workColumnAccentClass[accent]}`}
     >
       <div className="flex items-start justify-between gap-3">
         <div className="flex items-center gap-2">

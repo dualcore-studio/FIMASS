@@ -149,7 +149,7 @@ export default function StructureDashboard() {
   ];
 
   return (
-    <div className="mx-auto w-full max-w-[88rem] space-y-6 lg:space-y-7">
+    <div className="mx-auto w-full max-w-[88rem] space-y-7 lg:space-y-8">
       <DashboardPageHeader
         title="Dashboard"
         welcomeLine={user ? `Area struttura — ${getUserDisplayName(user)}` : undefined}

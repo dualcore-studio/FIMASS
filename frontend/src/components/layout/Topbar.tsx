@@ -45,25 +45,26 @@ export default function Topbar({ sidebarCollapsed }: TopbarProps) {
   return (
     <header className="fixed left-0 right-0 top-0 z-30 flex h-20 items-stretch border-b border-[var(--portal-nav-border)] bg-[var(--portal-nav-surface)] shadow-[0_1px_2px_rgba(15,23,42,0.04)]">
       {/* Wordmark: un solo link a tutta area, hover uniforme (niente opacity su layer separati) */}
-      <Link
+           <Link
         to="/"
         title="Torna alla dashboard"
-        className={`box-border flex h-full min-w-0 shrink-0 cursor-pointer items-center justify-center border-r border-[var(--portal-nav-border)] bg-[var(--portal-nav-surface-logo)] outline-none transition-colors duration-200 hover:bg-[var(--portal-nav-surface-logo-hover)] focus-visible:ring-2 focus-visible:ring-[var(--ui-focus-ring)] focus-visible:ring-inset ${sidebarWidthClass} ${
+        className={`box-border flex h-full min-w-0 shrink-0 cursor-pointer items-center justify-center border-r border-[var(--portal-sidebar-border)] bg-[var(--portal-sidebar-bg)] outline-none transition-colors duration-200 hover:bg-[var(--portal-nav-surface-logo-hover)] focus-visible:ring-2 focus-visible:ring-white/30 focus-visible:ring-inset ${sidebarWidthClass} ${
           sidebarCollapsed ? 'px-3' : 'px-4'
         }`}
       >
-        <img
-          src="/fimass-logo-wordmark.png"
-          alt="FIMASS — Sportello Amico"
-          width={1800}
-          height={420}
-          draggable={false}
-          className={`pointer-events-none block w-auto max-w-full select-none object-contain object-center [image-rendering:auto] ${
-            sidebarCollapsed ? 'h-7' : 'h-9'
-          }`}
-          style={{ opacity: 1, filter: 'none', mixBlendMode: 'normal' }}
-          decoding="async"
-        />
+        <span className="relative flex w-full max-w-full items-center justify-center">
+          <img
+            src="/fimass-logo-wordmark.png"
+            alt="FIMASS — Sportello Amico"
+            width={1800}
+            height={420}
+            draggable={false}
+            className={`fimass-wordmark-glow pointer-events-none relative z-[1] block w-auto max-w-full select-none object-contain object-center [image-rendering:auto] ${
+              sidebarCollapsed ? 'h-7' : 'h-9'
+            }`}
+            decoding="async"
+          />
+        </span>
       </Link>
 
       <div className="flex min-w-0 flex-1 items-center px-4 lg:px-6">

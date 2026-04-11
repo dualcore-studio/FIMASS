@@ -112,7 +112,7 @@ export default function OperatorDashboard() {
   }
 
   return (
-    <div className="mx-auto w-full max-w-[88rem] space-y-6 lg:space-y-7">
+    <div className="mx-auto w-full max-w-[88rem] space-y-7 lg:space-y-8">
       <DashboardPageHeader
         title="Dashboard"
         welcomeLine={user ? `I miei preventivi — ${getUserDisplayName(user)}` : undefined}
@@ -134,7 +134,7 @@ export default function OperatorDashboard() {
         <section
           aria-label="Solleciti ricevuti"
           aria-live="polite"
-          className="kpi-accent-attention overflow-hidden rounded-xl border border-slate-200/90 bg-white shadow-[0_1px_2px_rgba(15,23,42,0.04),0_8px_24px_-10px_rgba(15,23,42,0.1)]"
+          className="kpi-accent-attention overflow-hidden rounded-2xl border border-slate-200/85 bg-white shadow-[0_1px_2px_rgba(30,45,77,0.05),0_10px_32px_-12px_rgba(30,45,77,0.11)]"
         >
           <div className="border-b border-[var(--portal-border-subtle)] bg-[linear-gradient(to_bottom,#fffefb,#faf8f2)] px-4 py-4 sm:px-5 sm:py-5">
             <div className="flex flex-wrap items-start justify-between gap-3">
