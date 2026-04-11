@@ -15,7 +15,7 @@ export default function Topbar({ sidebarCollapsed }: TopbarProps) {
   const [searchQuery, setSearchQuery] = useState('');
   const profileRef = useRef<HTMLDivElement>(null);
 
-  const sidebarWidthClass = sidebarCollapsed ? 'w-16' : 'w-52';
+  const sidebarWidthClass = sidebarCollapsed ? 'w-16' : 'w-48';
 
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
@@ -43,13 +43,13 @@ export default function Topbar({ sidebarCollapsed }: TopbarProps) {
   if (!user) return null;
 
   return (
-    <header className="fixed left-0 right-0 top-0 z-30 flex h-20 items-stretch border-b border-[var(--portal-nav-border)] bg-[var(--portal-nav-surface)] shadow-[0_1px_3px_rgba(15,23,42,0.06)]">
+    <header className="fixed left-0 right-0 top-0 z-30 flex h-20 items-stretch border-b border-[var(--portal-nav-border)] bg-[var(--portal-nav-surface)] shadow-[0_1px_2px_rgba(15,23,42,0.04)]">
       {/* Wordmark: un solo link a tutta area, hover uniforme (niente opacity su layer separati) */}
       <Link
         to="/"
         title="Torna alla dashboard"
-        className={`box-border flex h-full min-w-0 shrink-0 cursor-pointer items-center justify-center border-r border-[var(--portal-nav-border)] bg-[var(--portal-nav-surface)] outline-none transition-colors duration-200 hover:bg-[var(--portal-nav-hover)] focus-visible:ring-2 focus-visible:ring-blue-500/50 focus-visible:ring-inset ${sidebarWidthClass} ${
-          sidebarCollapsed ? 'px-3' : 'px-5'
+        className={`box-border flex h-full min-w-0 shrink-0 cursor-pointer items-center justify-center border-r border-[var(--portal-nav-border)] bg-[var(--portal-nav-surface-logo)] outline-none transition-colors duration-200 hover:bg-[var(--portal-nav-surface-logo-hover)] focus-visible:ring-2 focus-visible:ring-[var(--ui-focus-ring)] focus-visible:ring-inset ${sidebarWidthClass} ${
+          sidebarCollapsed ? 'px-3' : 'px-4'
         }`}
       >
         <img
@@ -71,13 +71,13 @@ export default function Topbar({ sidebarCollapsed }: TopbarProps) {
           <div className="hidden min-w-[1rem] flex-1 sm:block" aria-hidden />
           <form onSubmit={handleSearch} className="w-full max-w-2xl shrink-0 sm:mx-auto">
             <div className="relative">
-              <Search size={18} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" />
+              <Search size={18} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
               <input
                 type="text"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 placeholder="Cerca preventivi, polizze, assistiti..."
-                className="input-field border-[var(--portal-nav-border)] bg-[#F8FAFC] py-2.5 pl-10 placeholder:text-slate-500"
+                className="input-field border-[var(--portal-border-subtle)] bg-[#f8fafc] py-2.5 pl-10 placeholder:text-slate-400"
               />
             </div>
           </form>
@@ -86,9 +86,9 @@ export default function Topbar({ sidebarCollapsed }: TopbarProps) {
               <button
                 type="button"
                 onClick={() => setShowProfile(!showProfile)}
-                className="flex items-center gap-2 rounded-lg px-2 py-1.5 transition-colors hover:bg-[var(--portal-nav-hover)] sm:px-3"
+                className="flex items-center gap-2 rounded-lg px-2 py-1.5 transition-colors hover:bg-[var(--portal-topbar-hover)] sm:px-3"
               >
-                <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-blue-500/15 text-blue-800">
+                <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[rgba(42,77,126,0.12)] text-[var(--ui-primary)]">
                   <User size={16} />
                 </div>
                 <div className="hidden text-left sm:block">

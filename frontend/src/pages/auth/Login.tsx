@@ -4,7 +4,7 @@ import { Eye, EyeOff } from 'lucide-react';
 import { PortalBackgroundLayers } from '../../components/layout/PortalBackground';
 
 const inputClass =
-  'w-full rounded-xl border border-gray-200/95 bg-white px-3.5 py-2.5 text-sm text-gray-900 shadow-[0_1px_2px_rgba(15,17,21,0.04)] placeholder:text-gray-400/75 transition-[border-color,box-shadow] duration-200 focus:outline-none focus:border-[#0B4EA2] focus:ring-[3px] focus:ring-[#0B4EA2]/18';
+  'w-full rounded-xl border border-gray-200/95 bg-white px-3.5 py-2.5 text-sm text-gray-900 shadow-[0_1px_2px_rgba(15,17,21,0.04)] placeholder:text-gray-400/75 transition-[border-color,box-shadow] duration-200 focus:outline-none focus:border-[var(--ui-primary)] focus:ring-[3px] focus:ring-[var(--ui-focus-ring)]';
 
 export default function Login() {
   const { login } = useAuth();

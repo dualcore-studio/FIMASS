@@ -1,61 +1,89 @@
 import type { LucideIcon } from 'lucide-react';
 
+export type DashboardKpiAccent =
+  | 'default'
+  | 'info'
+  | 'institutional'
+  | 'work'
+  | 'standby'
+  | 'risk'
+  | 'done'
+  | 'attention';
+
 interface DashboardPrimaryKpiProps {
   label: string;
   value: number | string;
   icon: LucideIcon;
-  /** Evidenzia la card (es. solleciti da leggere). */
+  /** Accento cromatico superiore (stile Sportello Amico). */
+  accent?: DashboardKpiAccent;
+  /** Evidenzia la card (es. solleciti): variante sobria su card bianca. */
   variant?: 'default' | 'attention';
 }
+
+const accentTopClass: Record<DashboardKpiAccent, string> = {
+  default: 'kpi-accent-default',
+  info: 'kpi-accent-info',
+  institutional: 'kpi-accent-institutional',
+  work: 'kpi-accent-work',
+  standby: 'kpi-accent-standby',
+  risk: 'kpi-accent-risk',
+  done: 'kpi-accent-done',
+  attention: 'kpi-accent-attention',
+};
+
+const valueToneClass: Record<DashboardKpiAccent, string> = {
+  default: 'kpi-value-neutral',
+  info: 'kpi-value-info',
+  institutional: 'kpi-value-institutional',
+  work: 'kpi-value-work',
+  standby: 'kpi-value-standby',
+  risk: 'kpi-value-risk',
+  done: 'kpi-value-done',
+  attention: 'kpi-value-attention',
+};
 
 export default function DashboardPrimaryKpi({
   label,
   value,
   icon: Icon,
+  accent = 'institutional',
   variant = 'default',
 }: DashboardPrimaryKpiProps) {
   const isAttention = variant === 'attention';
+  const topAccent = isAttention ? 'attention' : accent;
 
   return (
     <div
-      className={`dashboard-primary-kpi group relative overflow-hidden rounded-xl px-4 py-4 sm:px-5 sm:py-5 ${
-        isAttention
-          ? 'border-2 border-amber-400/90 bg-gradient-to-br from-amber-50 via-orange-50/90 to-amber-100/80 shadow-[0_4px_14px_-4px_rgba(180,83,9,0.35),0_0_0_1px_rgba(251,191,36,0.4)] ring-2 ring-amber-300/30'
-          : 'border border-slate-200/90 bg-white shadow-[0_1px_2px_rgba(15,23,42,0.04),0_4px_12px_-2px_rgba(15,23,42,0.06)]'
-      }`}
+      className={`group relative overflow-hidden rounded-xl border border-slate-200/90 bg-white px-4 py-4 shadow-[0_1px_2px_rgba(15,23,42,0.04),0_6px_16px_-8px_rgba(15,23,42,0.08)] sm:px-5 sm:py-5 ${
+        accentTopClass[topAccent]
+      } ${isAttention ? 'ring-1 ring-amber-200/70' : ''}`}
     >
-      {isAttention ? (
-        <span
-          className="pointer-events-none absolute -right-6 -top-6 h-24 w-24 rounded-full bg-amber-400/25 blur-2xl"
-          aria-hidden
-        />
-      ) : null}
       <div className="relative flex items-start justify-between gap-3">
         <div className="min-w-0 flex-1">
           <p
             className={`text-[11px] font-semibold uppercase tracking-[0.12em] ${
-              isAttention ? 'text-amber-900/80' : 'text-slate-500'
+              isAttention ? 'text-amber-900/75' : 'text-slate-500'
             }`}
           >
             {label}
           </p>
           <p
             className={`mt-2 text-3xl font-semibold tabular-nums tracking-tight sm:text-[2rem] sm:leading-none ${
-              isAttention ? 'text-amber-950' : 'text-slate-900'
+              isAttention ? 'kpi-value-attention' : valueToneClass[accent]
             }`}
           >
             {value}
           </p>
         </div>
         <div
-          className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border transition-colors ${
+          className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border transition-colors duration-150 ${
             isAttention
-              ? 'border-amber-300/80 bg-amber-100 text-amber-700 group-hover:border-amber-400 group-hover:bg-amber-200/80'
+              ? 'border-amber-200/80 bg-[#faf8f0] text-[#7a6220] group-hover:border-amber-300/90'
               : 'border-slate-100 bg-slate-50 text-slate-400 group-hover:border-slate-200 group-hover:text-slate-500'
           }`}
           aria-hidden
         >
-          <Icon className="h-4 w-4" strokeWidth={isAttention ? 2.25 : 1.75} />
+          <Icon className="h-4 w-4" strokeWidth={isAttention ? 2.1 : 1.75} />
         </div>
       </div>
     </div>

@@ -113,7 +113,7 @@ export default function StructureDashboard() {
     return (
       <div className="flex min-h-[40vh] items-center justify-center">
         <div className="flex flex-col items-center gap-3">
-          <div className="h-10 w-10 animate-spin rounded-full border-2 border-blue-700 border-t-transparent" />
+          <div className="h-10 w-10 animate-spin rounded-full border-2 border-[var(--ui-primary)] border-t-transparent" />
           <p className="text-sm text-slate-500">Caricamento…</p>
         </div>
       </div>
@@ -159,14 +159,14 @@ export default function StructureDashboard() {
           <>
             <Link
               to="/preventivi/nuovo"
-              className="btn-primary inline-flex items-center justify-center gap-2 whitespace-nowrap px-4 py-2.5 text-sm shadow-sm shadow-blue-900/10"
+              className="btn-primary inline-flex items-center justify-center gap-2 whitespace-nowrap px-4 py-2.5 text-sm shadow-sm shadow-slate-900/10"
             >
               <Plus className="h-4 w-4" />
               Nuovo Preventivo
             </Link>
             <Link
               to="/polizze/nuova"
-              className="btn-primary inline-flex items-center justify-center whitespace-nowrap px-4 py-2.5 text-sm shadow-sm shadow-blue-900/10"
+              className="btn-primary inline-flex items-center justify-center whitespace-nowrap px-4 py-2.5 text-sm shadow-sm shadow-slate-900/10"
             >
               Nuova Polizza
             </Link>
@@ -181,23 +181,23 @@ export default function StructureDashboard() {
       />
 
       {error ? (
-        <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm font-medium text-amber-800">
+        <div className="rounded-xl border border-amber-200/90 bg-[var(--badge-soft-amber-bg)] px-4 py-3 text-sm font-medium text-[var(--badge-soft-amber-text)]">
           {error}
         </div>
       ) : null}
 
       <section aria-label="Indicatori primari">
-        <p className="mb-3 text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-500">Indicatori primari</p>
+        <p className="mb-3 text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-600">Indicatori primari</p>
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4 lg:gap-4">
-          <DashboardPrimaryKpi label="Preventivi presentati" value={quoteStats.PRESENTATA} icon={FileText} />
-          <DashboardPrimaryKpi label="In lavorazione" value={quoteStats['IN LAVORAZIONE']} icon={Clock} />
-          <DashboardPrimaryKpi label="Elaborati" value={quoteStats.ELABORATA} icon={CheckCircle} />
-          <DashboardPrimaryKpi label="Polizze richieste" value={polizzeRichieste} icon={Shield} />
+          <DashboardPrimaryKpi label="Preventivi presentati" value={quoteStats.PRESENTATA} icon={FileText} accent="institutional" />
+          <DashboardPrimaryKpi label="In lavorazione" value={quoteStats['IN LAVORAZIONE']} icon={Clock} accent="work" />
+          <DashboardPrimaryKpi label="Elaborati" value={quoteStats.ELABORATA} icon={CheckCircle} accent="done" />
+          <DashboardPrimaryKpi label="Polizze richieste" value={polizzeRichieste} icon={Shield} accent="info" />
         </div>
       </section>
 
       <section aria-label="Metriche secondarie">
-        <p className="mb-2 text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-500">Altri indicatori</p>
+        <p className="mb-2 text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-600">Altri indicatori</p>
         <div className="flex flex-wrap gap-2">
           <DashboardSecondaryMetric label="Stand-by" value={quoteStats.STANDBY} />
           <DashboardSecondaryMetric label="Assegnati" value={quoteStats.ASSEGNATA} />
@@ -221,7 +221,7 @@ export default function StructureDashboard() {
                 </thead>
                 <tbody>
                   {operativitaRows.map((row) => (
-                    <tr key={row.label} className="border-b border-slate-100 last:border-0 hover:bg-slate-50/60">
+                    <tr key={row.label} className="border-b border-slate-100 last:border-0 hover:bg-[rgba(42,77,126,0.04)]">
                       <td className="px-4 py-2.5 text-slate-700 sm:px-5">{row.label}</td>
                       <td className="px-4 py-2.5 text-right font-semibold tabular-nums text-slate-900 sm:px-5">
                         {row.value}
@@ -249,7 +249,7 @@ export default function StructureDashboard() {
                 </thead>
                 <tbody>
                   {pipelinePolizze.map((row) => (
-                    <tr key={row.label} className="border-b border-slate-100 last:border-0 hover:bg-slate-50/60">
+                    <tr key={row.label} className="border-b border-slate-100 last:border-0 hover:bg-[rgba(42,77,126,0.04)]">
                       <td className="px-4 py-2.5 text-slate-700 sm:px-5">{row.label}</td>
                       <td className="px-4 py-2.5 text-right font-semibold tabular-nums text-slate-900 sm:px-5">
                         {row.value}

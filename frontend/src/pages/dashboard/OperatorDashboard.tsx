@@ -77,7 +77,7 @@ export default function OperatorDashboard() {
     return (
       <div className="flex min-h-[40vh] items-center justify-center">
         <div className="flex flex-col items-center gap-3">
-          <div className="h-10 w-10 animate-spin rounded-full border-2 border-blue-700 border-t-transparent" />
+          <div className="h-10 w-10 animate-spin rounded-full border-2 border-[var(--ui-primary)] border-t-transparent" />
           <p className="text-sm text-slate-500">Caricamento…</p>
         </div>
       </div>
@@ -122,7 +122,7 @@ export default function OperatorDashboard() {
           <>
             <Link
               to="/preventivi"
-              className="btn-primary inline-flex items-center justify-center gap-2 whitespace-nowrap px-4 py-2.5 text-sm shadow-sm shadow-blue-900/10"
+              className="btn-primary inline-flex items-center justify-center gap-2 whitespace-nowrap px-4 py-2.5 text-sm shadow-sm shadow-slate-900/10"
             >
               Tutti i preventivi
             </Link>
@@ -134,41 +134,40 @@ export default function OperatorDashboard() {
         <section
           aria-label="Solleciti ricevuti"
           aria-live="polite"
-          className="relative overflow-hidden rounded-2xl border-2 border-amber-500/90 bg-gradient-to-br from-amber-100 via-orange-50 to-amber-50 p-1 shadow-[0_8px_30px_-8px_rgba(217,119,6,0.45),0_0_0_1px_rgba(245,158,11,0.35)]"
+          className="kpi-accent-attention overflow-hidden rounded-xl border border-slate-200/90 bg-white shadow-[0_1px_2px_rgba(15,23,42,0.04),0_8px_24px_-10px_rgba(15,23,42,0.1)]"
         >
-          <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_80%_50%_at_50%_-20%,rgba(251,191,36,0.35),transparent)]" />
-          <div className="relative rounded-[0.875rem] border border-amber-200/60 bg-white/85 p-4 backdrop-blur-[2px] sm:p-5">
-            <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
+          <div className="border-b border-[var(--portal-border-subtle)] bg-[linear-gradient(to_bottom,#fffefb,#faf8f2)] px-4 py-4 sm:px-5 sm:py-5">
+            <div className="flex flex-wrap items-start justify-between gap-3">
               <div className="flex min-w-0 items-start gap-3">
-                <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-amber-500 text-white shadow-md shadow-amber-900/25">
-                  <Bell className="h-5 w-5" strokeWidth={2.25} aria-hidden />
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-amber-200/80 bg-[#faf6ec] text-[#7a6220]">
+                  <Bell className="h-5 w-5" strokeWidth={1.85} aria-hidden />
                 </div>
                 <div>
                   <div className="flex flex-wrap items-center gap-2">
-                    <h2 className="text-base font-bold tracking-tight text-amber-950 sm:text-lg">
+                    <h2 className="text-base font-semibold tracking-tight text-slate-900 sm:text-[1.05rem]">
                       Solleciti da supervisore / admin
                     </h2>
-                    <span className="inline-flex items-center rounded-full bg-amber-600 px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-white shadow-sm">
+                    <span className="inline-flex items-center rounded-full bg-[var(--badge-soft-orange-bg)] px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-[var(--badge-soft-orange-text)] ring-1 ring-inset ring-amber-900/10">
                       Azione richiesta
                     </span>
                   </div>
-                  <p className="mt-1 max-w-2xl text-sm font-medium text-amber-900/85">
+                  <p className="mt-1 max-w-2xl text-sm text-slate-600">
                     Promemoria sulle pratiche in lavorazione: leggi e intervieni sulle pratiche indicate.
                   </p>
                 </div>
               </div>
             </div>
-            <ul className="space-y-3">
+          </div>
+          <div className="p-4 sm:p-5">
+            <ul className="space-y-2.5">
               {reminders.map((reminder) => (
                 <li
                   key={reminder.id}
-                  className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-amber-200/80 bg-amber-50/50 px-4 py-3.5 shadow-sm ring-1 ring-amber-100/80 sm:px-5"
+                  className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-slate-200/85 bg-slate-50/50 px-4 py-3 sm:px-5"
                 >
                   <div className="min-w-0">
-                    <p className="text-sm font-semibold text-amber-950">
-                      Preventivo {reminder.quote_numero}
-                    </p>
-                    <p className="mt-0.5 text-xs text-amber-900/70">
+                    <p className="text-sm font-semibold text-slate-900">Preventivo {reminder.quote_numero}</p>
+                    <p className="mt-0.5 text-xs text-slate-600">
                       {`Sollecito da ${reminder.created_by_role} `}
                       {[reminder.created_by_nome, reminder.created_by_cognome].filter(Boolean).join(' ') || ''}
                       {' · '}
@@ -178,14 +177,14 @@ export default function OperatorDashboard() {
                   <div className="flex flex-wrap items-center gap-2">
                     <Link
                       to={`/preventivi/${reminder.quote_id}`}
-                      className="btn-primary inline-flex items-center justify-center whitespace-nowrap rounded-lg px-3 py-2 text-xs font-semibold shadow-sm shadow-amber-900/15"
+                      className="btn-primary inline-flex items-center justify-center whitespace-nowrap rounded-lg px-3 py-2 text-xs font-semibold"
                     >
                       Apri pratica
                     </Link>
                     <button
                       type="button"
                       onClick={() => markReminderAsRead(reminder.id)}
-                      className="rounded-lg border-2 border-amber-300/90 bg-white px-3 py-2 text-xs font-semibold text-amber-900 transition-colors hover:bg-amber-50"
+                      className="btn-secondary rounded-lg px-3 py-2 text-xs font-semibold"
                     >
                       Segna letto
                     </button>
@@ -198,16 +197,17 @@ export default function OperatorDashboard() {
       ) : null}
 
       <section aria-label="Indicatori primari">
-        <p className="mb-3 text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-500">Le tue attività</p>
+        <p className="mb-3 text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-600">Le tue attività</p>
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 lg:gap-4">
-          <DashboardPrimaryKpi label="Assegnate" value={quoteStats.ASSEGNATA} icon={UserCheck} />
-          <DashboardPrimaryKpi label="In lavorazione" value={quoteStats['IN LAVORAZIONE']} icon={Clock} />
-          <DashboardPrimaryKpi label="Stand-by" value={quoteStats.STANDBY} icon={AlertTriangle} />
-          <DashboardPrimaryKpi label="Elaborate" value={quoteStats.ELABORATA} icon={CheckCircle} />
+          <DashboardPrimaryKpi label="Assegnate" value={quoteStats.ASSEGNATA} icon={UserCheck} accent="info" />
+          <DashboardPrimaryKpi label="In lavorazione" value={quoteStats['IN LAVORAZIONE']} icon={Clock} accent="work" />
+          <DashboardPrimaryKpi label="Stand-by" value={quoteStats.STANDBY} icon={AlertTriangle} accent="standby" />
+          <DashboardPrimaryKpi label="Elaborate" value={quoteStats.ELABORATA} icon={CheckCircle} accent="done" />
           <DashboardPrimaryKpi
             label="Solleciti da leggere"
             value={reminders.length}
             icon={Bell}
+            accent={reminders.length > 0 ? 'attention' : 'institutional'}
             variant={reminders.length > 0 ? 'attention' : 'default'}
           />
         </div>
@@ -229,7 +229,7 @@ export default function OperatorDashboard() {
                 </thead>
                 <tbody>
                   {operativitaRows.map((row) => (
-                    <tr key={row.label} className="border-b border-slate-100 last:border-0 hover:bg-slate-50/60">
+                    <tr key={row.label} className="border-b border-slate-100 last:border-0 hover:bg-[rgba(42,77,126,0.04)]">
                       <td className="px-4 py-2.5 text-slate-700 sm:px-5">{row.label}</td>
                       <td className="px-4 py-2.5 text-right font-semibold tabular-nums text-slate-900 sm:px-5">
                         {row.value}
@@ -250,13 +250,19 @@ export default function OperatorDashboard() {
             <ul className="divide-y divide-slate-100 px-4 py-2 sm:px-5">
               <li className="flex items-center justify-between gap-3 py-3">
                 <span className="text-sm text-slate-700">Elenco completo preventivi</span>
-                <Link to="/preventivi" className="text-xs font-semibold text-blue-700 hover:text-blue-800">
+                <Link
+                  to="/preventivi"
+                  className="text-xs font-semibold text-[var(--ui-primary)] hover:text-[var(--ui-primary-hover)]"
+                >
                   Apri
                 </Link>
               </li>
               <li className="flex items-center justify-between gap-3 py-3">
                 <span className="text-sm text-slate-700">Polizze</span>
-                <Link to="/polizze" className="text-xs font-semibold text-blue-700 hover:text-blue-800">
+                <Link
+                  to="/polizze"
+                  className="text-xs font-semibold text-[var(--ui-primary)] hover:text-[var(--ui-primary-hover)]"
+                >
                   Apri
                 </Link>
               </li>

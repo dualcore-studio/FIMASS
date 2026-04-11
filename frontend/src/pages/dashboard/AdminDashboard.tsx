@@ -124,7 +124,7 @@ export default function AdminDashboard() {
     return (
       <div className="flex min-h-[40vh] items-center justify-center">
         <div className="flex flex-col items-center gap-3">
-          <div className="h-10 w-10 animate-spin rounded-full border-2 border-blue-700 border-t-transparent" />
+          <div className="h-10 w-10 animate-spin rounded-full border-2 border-[var(--ui-primary)] border-t-transparent" />
           <p className="text-sm text-slate-500">Caricamento panoramica…</p>
         </div>
       </div>
@@ -260,18 +260,30 @@ export default function AdminDashboard() {
             label="Pratiche non assegnate"
             value={alerts.pratiche_non_assegnate}
             to="/preventivi?alert=unassigned"
+            accent="institutional"
+            valueTone="institutional"
           />
           <DashboardSummaryCard
             label="Polizze senza avanzamento"
             value={alerts.polizze_senza_avanzamento}
             to="/polizze?alert=stale_policies"
+            accent="work"
+            valueTone="work"
           />
           <DashboardSummaryCard
             label="Stand-by prolungato"
             value={alerts.standby_prolungato}
             to="/preventivi?alert=standby_long"
+            accent="standby"
+            valueTone="standby"
           />
-          <DashboardSummaryCard label="Pratiche ferme" value={alerts.pratiche_ferme} to="/preventivi?alert=stale_quotes" />
+          <DashboardSummaryCard
+            label="Pratiche ferme"
+            value={alerts.pratiche_ferme}
+            to="/preventivi?alert=stale_quotes"
+            accent="risk"
+            valueTone="risk"
+          />
         </div>
       </section>
 
@@ -283,6 +295,7 @@ export default function AdminDashboard() {
             icon={FileText}
             rows={presentedRows}
             onRowClick={openAssignModal}
+            accent="institutional"
           />
           <DashboardWorkColumn
             title="In lavorazione"
@@ -290,9 +303,10 @@ export default function AdminDashboard() {
             icon={Clock3}
             rows={inLavorazioneRows}
             onRowClick={openSollecitoModal}
+            accent="work"
           />
-          <DashboardWorkColumn title="Polizze richieste" value={richieste} icon={Shield} rows={richiesteRows} />
-          <DashboardWorkColumn title="Polizze emesse" value={emesse} icon={ReceiptText} rows={emesseRows} />
+          <DashboardWorkColumn title="Polizze richieste" value={richieste} icon={Shield} rows={richiesteRows} accent="info" />
+          <DashboardWorkColumn title="Polizze emesse" value={emesse} icon={ReceiptText} rows={emesseRows} accent="done" />
         </div>
       </section>
 
@@ -406,23 +420,48 @@ export default function AdminDashboard() {
   );
 }
 
+type SummaryAccent = 'institutional' | 'work' | 'standby' | 'risk';
+
 interface DashboardSummaryCardProps {
   label: string;
   value: number;
   to: string;
+  accent: SummaryAccent;
+  valueTone: SummaryAccent;
 }
 
-function DashboardSummaryCard({ label, value, to }: DashboardSummaryCardProps) {
+const summaryAccentClass: Record<SummaryAccent, string> = {
+  institutional: 'kpi-accent-institutional',
+  work: 'kpi-accent-work',
+  standby: 'kpi-accent-standby',
+  risk: 'kpi-accent-risk',
+};
+
+const summaryValueClass: Record<SummaryAccent, string> = {
+  institutional: 'kpi-value-institutional',
+  work: 'kpi-value-work',
+  standby: 'kpi-value-standby',
+  risk: 'kpi-value-risk',
+};
+
+function DashboardSummaryCard({ label, value, to, accent, valueTone }: DashboardSummaryCardProps) {
   return (
-    <article className="rounded-xl border border-slate-200/90 bg-white px-5 py-4 text-center shadow-[0_1px_3px_rgba(15,23,42,0.05)]">
-      <h2 className="text-xs font-semibold uppercase tracking-wide text-slate-900">{label}</h2>
-      <p className="mt-1 text-[2rem] font-semibold leading-none tabular-nums text-slate-900">{value}</p>
-      <Link to={to} className="mt-1 inline-block text-sm font-medium text-slate-900 hover:text-blue-700">
+    <article
+      className={`rounded-xl border border-slate-200/90 bg-white px-5 py-4 text-center shadow-[0_1px_2px_rgba(15,23,42,0.04),0_6px_16px_-8px_rgba(15,23,42,0.07)] ${summaryAccentClass[accent]}`}
+    >
+      <h2 className="text-xs font-semibold uppercase tracking-wide text-slate-600">{label}</h2>
+      <p className={`mt-1 text-[2rem] font-semibold leading-none tabular-nums ${summaryValueClass[valueTone]}`}>{value}</p>
+      <Link
+        to={to}
+        className="mt-2 inline-block text-sm font-semibold text-[var(--ui-primary)] transition-colors hover:text-[var(--ui-primary-hover)]"
+      >
         Vedi Dettagli
       </Link>
     </article>
   );
 }
+
+type WorkColumnAccent = 'institutional' | 'work' | 'info' | 'done';
 
 interface DashboardWorkColumnProps {
   title: string;
@@ -430,7 +469,15 @@ interface DashboardWorkColumnProps {
   icon: LucideIcon;
   rows?: Array<{ id: number; title: string; subtitle?: string; meta?: string }>;
   onRowClick?: (id: number) => void;
+  accent: WorkColumnAccent;
 }
+
+const workColumnAccentClass: Record<WorkColumnAccent, string> = {
+  institutional: 'kpi-accent-institutional',
+  work: 'kpi-accent-work',
+  info: 'kpi-accent-info',
+  done: 'kpi-accent-done',
+};
 
 function DashboardWorkColumn({
   title,
@@ -438,9 +485,12 @@ function DashboardWorkColumn({
   icon: Icon,
   rows = [],
   onRowClick,
+  accent,
 }: DashboardWorkColumnProps) {
   return (
-    <article className="min-h-[27rem] rounded-xl border border-slate-200/90 bg-white px-4 py-4 shadow-[0_1px_3px_rgba(15,23,42,0.05)]">
+    <article
+      className={`min-h-[27rem] rounded-xl border border-slate-200/90 bg-white px-4 py-4 shadow-[0_1px_2px_rgba(15,23,42,0.04),0_6px_16px_-8px_rgba(15,23,42,0.07)] ${workColumnAccentClass[accent]}`}
+    >
       <div className="flex items-start justify-between gap-3">
         <div className="flex items-center gap-2">
           <span className="inline-flex h-6 w-6 items-center justify-center rounded-md border border-slate-200 bg-slate-50 text-slate-400">
@@ -462,7 +512,7 @@ function DashboardWorkColumn({
                   <button
                     type="button"
                     onClick={() => onRowClick(row.id)}
-                    className="w-full rounded-lg border border-slate-200/80 bg-slate-50/60 px-3 py-2 text-left transition-colors hover:bg-slate-100/80 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600"
+                    className="w-full rounded-lg border border-slate-200/80 bg-slate-50/70 px-3 py-2 text-left transition-colors hover:bg-[rgba(42,77,126,0.06)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--ui-primary)]"
                     aria-label={`${row.title}. ${row.subtitle ?? ''}`}
                   >
                     <p className="text-xs font-semibold text-slate-700">{row.title}</p>

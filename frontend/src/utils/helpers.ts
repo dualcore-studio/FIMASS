@@ -31,34 +31,34 @@ export function getUserDisplayName(user: { role: string; nome?: string | null; c
 
 export function getQuoteStatusColor(stato: string): string {
   const colors: Record<string, string> = {
-    PRESENTATA: 'bg-slate-500/12 text-slate-800',
-    ASSEGNATA: 'bg-blue-500/12 text-blue-900',
-    'IN LAVORAZIONE': 'bg-amber-500/12 text-amber-900',
-    STANDBY: 'bg-red-500/12 text-red-800',
-    ELABORATA: 'bg-emerald-500/12 text-emerald-800',
+    PRESENTATA: 'bg-[var(--badge-soft-slate-bg)] text-[var(--badge-soft-slate-text)]',
+    ASSEGNATA: 'bg-[var(--badge-soft-blue-bg)] text-[var(--badge-soft-blue-text)]',
+    'IN LAVORAZIONE': 'bg-[var(--badge-soft-orange-bg)] text-[var(--badge-soft-orange-text)]',
+    STANDBY: 'bg-[var(--badge-soft-amber-bg)] text-[var(--badge-soft-amber-text)]',
+    ELABORATA: 'bg-[var(--badge-soft-green-bg)] text-[var(--badge-soft-green-text)]',
   };
-  return colors[stato] || 'bg-slate-500/12 text-slate-800';
+  return colors[stato] || 'bg-[var(--badge-soft-slate-bg)] text-[var(--badge-soft-slate-text)]';
 }
 
 export function getPolicyStatusColor(stato: string): string {
   const colors: Record<string, string> = {
-    'RICHIESTA PRESENTATA': 'bg-slate-500/12 text-slate-800',
-    'IN VERIFICA': 'bg-blue-500/12 text-blue-900',
-    'DOCUMENTAZIONE MANCANTE': 'bg-red-500/12 text-red-800',
-    'PRONTA PER EMISSIONE': 'bg-amber-500/12 text-amber-900',
-    EMESSA: 'bg-emerald-500/12 text-emerald-800',
+    'RICHIESTA PRESENTATA': 'bg-[var(--badge-soft-slate-bg)] text-[var(--badge-soft-slate-text)]',
+    'IN VERIFICA': 'bg-[var(--badge-soft-blue-bg)] text-[var(--badge-soft-blue-text)]',
+    'DOCUMENTAZIONE MANCANTE': 'bg-[var(--badge-soft-red-bg)] text-[var(--badge-soft-red-text)]',
+    'PRONTA PER EMISSIONE': 'bg-[var(--badge-soft-orange-bg)] text-[var(--badge-soft-orange-text)]',
+    EMESSA: 'bg-[var(--badge-soft-green-bg)] text-[var(--badge-soft-green-text)]',
   };
-  return colors[stato] || 'bg-slate-500/12 text-slate-800';
+  return colors[stato] || 'bg-[var(--badge-soft-slate-bg)] text-[var(--badge-soft-slate-text)]';
 }
 
 export function getRoleBadgeColor(role: string): string {
   const colors: Record<string, string> = {
-    admin: 'bg-purple-500/12 text-purple-900',
-    supervisore: 'bg-blue-500/12 text-blue-900',
-    operatore: 'bg-amber-500/12 text-amber-900',
-    struttura: 'bg-emerald-500/12 text-emerald-800',
+    admin: 'bg-violet-100 text-violet-900',
+    supervisore: 'bg-[var(--badge-soft-blue-bg)] text-[var(--badge-soft-blue-text)]',
+    operatore: 'bg-[var(--badge-soft-orange-bg)] text-[var(--badge-soft-orange-text)]',
+    struttura: 'bg-[var(--badge-soft-green-bg)] text-[var(--badge-soft-green-text)]',
   };
-  return colors[role] || 'bg-slate-500/12 text-slate-800';
+  return colors[role] || 'bg-[var(--badge-soft-slate-bg)] text-[var(--badge-soft-slate-text)]';
 }
 
 export function getRoleLabel(role: string): string {

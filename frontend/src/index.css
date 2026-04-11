@@ -2,29 +2,69 @@
 
 @layer base {
   :root {
-    --color-primary: #1e40af;
-    --color-primary-light: #3b82f6;
-    --color-primary-dark: #1e3a8a;
+    /* Sportello Amico–inspired UI (secondary identity); FIMASS logo stays on light surfaces */
+    --sa-navy: #1e2d4d;
+    --sa-navy-active: #2c3e5d;
+    --sa-navy-hover: rgba(255, 255, 255, 0.075);
+    --sa-navy-border: rgba(255, 255, 255, 0.1);
+    --sa-navy-text: rgba(255, 255, 255, 0.92);
+    --sa-navy-text-muted: rgba(255, 255, 255, 0.58);
 
-    --portal-app-bg: #f3f5f9;
-    --portal-app-bg-soft: #eef2f7;
+    --ui-primary: #2a4d7e;
+    --ui-primary-hover: #223d66;
+    --ui-focus-ring: rgba(42, 77, 126, 0.28);
+
+    --portal-app-bg: #f4f7f9;
+    --portal-app-bg-soft: #eef2f6;
+    --portal-main-content-bg: #f4f7f9;
     --portal-surface-card: #ffffff;
-    --portal-border-subtle: #e2e8f0;
+    --portal-border-subtle: #e8ecf1;
     --portal-text-primary: #0f172a;
     --portal-text-secondary: #475569;
 
-    --portal-surface: #f8fafc;
-    --portal-main-content-bg: #f4f6fa;
+    --portal-surface: #ffffff;
     --portal-surface-raised: #ffffff;
-    --portal-border: #e2e8f0;
+    --portal-border: #e5e9f0;
 
+    /* Topbar / logo strip: always light for FIMASS wordmark legibility */
     --portal-nav-surface: #ffffff;
     --portal-nav-surface-logo: #ffffff;
-    --portal-nav-surface-logo-hover: #f1f5f9;
-    --portal-nav-border: #e2e8f0;
-    --portal-nav-hover: rgba(15, 23, 42, 0.05);
-    --portal-nav-active-bg: rgba(11, 78, 162, 0.11);
-    --portal-nav-active-shadow: rgba(11, 78, 162, 0.14);
+    --portal-nav-surface-logo-hover: #f6f8fb;
+    --portal-nav-border: #e5e9f0;
+    --portal-topbar-hover: rgba(15, 23, 42, 0.055);
+
+    /* Legacy nav tokens → sidebar (dark) */
+    --portal-nav-hover: var(--sa-navy-hover);
+    --portal-nav-active-bg: var(--sa-navy-active);
+    --portal-nav-active-shadow: transparent;
+
+    --portal-sidebar-bg: var(--sa-navy);
+    --portal-sidebar-text: var(--sa-navy-text);
+    --portal-sidebar-muted: var(--sa-navy-text-muted);
+    --portal-sidebar-border: var(--sa-navy-border);
+
+    /* KPI / state accents (top borders & highlights) */
+    --kpi-accent-institutional: #3d5f8f;
+    --kpi-accent-info: #5c8ec9;
+    --kpi-accent-work: #c77d32;
+    --kpi-accent-standby: #b8942e;
+    --kpi-accent-risk: #b85c5c;
+    --kpi-accent-done: #2f8f6e;
+    --kpi-accent-attention: #c9a227;
+
+    /* Soft badge surfaces (quote/policy helpers reference these via Tailwind or custom classes) */
+    --badge-soft-blue-bg: #e8f0fa;
+    --badge-soft-blue-text: #1e3a5c;
+    --badge-soft-green-bg: #e8f5ef;
+    --badge-soft-green-text: #1b4d3a;
+    --badge-soft-amber-bg: #faf6e8;
+    --badge-soft-amber-text: #6b5410;
+    --badge-soft-orange-bg: #fdf0e6;
+    --badge-soft-orange-text: #7a4012;
+    --badge-soft-red-bg: #fcefee;
+    --badge-soft-red-text: #7a2e2e;
+    --badge-soft-slate-bg: #eef1f5;
+    --badge-soft-slate-text: #334155;
   }
 
   body {
@@ -32,17 +72,24 @@
   }
 
   * {
-    @apply border-slate-200/90;
+    border-color: var(--portal-border);
   }
 }
 
 @layer components {
   .btn-primary {
-    @apply bg-blue-700 hover:bg-blue-800 text-white font-medium py-2 px-4 rounded-lg transition-colors duration-150 inline-flex items-center gap-2 text-sm disabled:opacity-50 disabled:cursor-not-allowed;
+    @apply font-medium py-2 px-4 rounded-lg transition-colors duration-150 inline-flex items-center gap-2 text-sm disabled:opacity-50 disabled:cursor-not-allowed;
+    background-color: var(--ui-primary);
+    color: #fff;
+  }
+
+  .btn-primary:hover:not(:disabled) {
+    background-color: var(--ui-primary-hover);
   }
 
   .btn-secondary {
-    @apply bg-slate-100 hover:bg-slate-200/90 text-slate-800 font-medium py-2 px-4 rounded-lg border border-slate-200 transition-colors duration-150 inline-flex items-center gap-2 text-sm;
+    @apply bg-white hover:bg-slate-50/95 text-slate-800 font-medium py-2 px-4 rounded-lg border transition-colors duration-150 inline-flex items-center gap-2 text-sm;
+    border-color: var(--portal-border);
   }
 
   .btn-danger {
@@ -50,24 +97,88 @@
   }
 
   .btn-success {
-    @apply bg-emerald-600 hover:bg-emerald-700 text-white font-medium py-2 px-4 rounded-lg transition-colors duration-150 inline-flex items-center gap-2 text-sm;
+    @apply font-medium py-2 px-4 rounded-lg transition-colors duration-150 inline-flex items-center gap-2 text-sm;
+    background-color: var(--kpi-accent-done);
+    color: #fff;
+  }
+
+  .btn-success:hover:not(:disabled) {
+    filter: brightness(0.92);
   }
 
   .input-field {
-    @apply w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 placeholder:text-slate-500 shadow-[0_1px_2px_rgba(15,23,42,0.04)] focus:outline-none focus:ring-2 focus:ring-blue-500/35 focus:border-blue-500/50;
+    @apply w-full rounded-lg bg-white px-3 py-2 text-sm text-slate-900 placeholder:text-slate-500 shadow-[0_1px_2px_rgba(15,23,42,0.04)] transition-[border-color,box-shadow] duration-150;
+    border: 1px solid var(--portal-border);
+  }
+
+  .input-field:focus {
+    outline: none;
+    border-color: color-mix(in srgb, var(--ui-primary) 45%, var(--portal-border));
+    box-shadow: 0 0 0 3px var(--ui-focus-ring);
   }
 
   .card {
-    @apply rounded-xl border border-slate-200/95 bg-white text-slate-900 shadow-[0_1px_3px_rgba(15,23,42,0.06),0_1px_2px_rgba(15,23,42,0.04)];
+    @apply rounded-xl border border-slate-200/90 bg-white text-slate-900 shadow-[0_1px_3px_rgba(15,23,42,0.05),0_1px_2px_rgba(15,23,42,0.04)];
   }
 
   .badge {
-    @apply inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium;
+    @apply inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold leading-tight tracking-tight;
   }
 
   .portal-card-table-heading {
     border-bottom: 1px solid var(--portal-border-subtle);
-    background-color: rgba(248, 250, 252, 0.85);
+    background-color: rgba(248, 250, 252, 0.92);
+  }
+
+  /* KPI accent utilities */
+  .kpi-accent-institutional {
+    border-top: 3px solid var(--kpi-accent-institutional);
+  }
+  .kpi-accent-info {
+    border-top: 3px solid var(--kpi-accent-info);
+  }
+  .kpi-accent-work {
+    border-top: 3px solid var(--kpi-accent-work);
+  }
+  .kpi-accent-standby {
+    border-top: 3px solid var(--kpi-accent-standby);
+  }
+  .kpi-accent-risk {
+    border-top: 3px solid var(--kpi-accent-risk);
+  }
+  .kpi-accent-done {
+    border-top: 3px solid var(--kpi-accent-done);
+  }
+  .kpi-accent-attention {
+    border-top: 3px solid var(--kpi-accent-attention);
+  }
+  .kpi-accent-default {
+    border-top: 3px solid var(--kpi-accent-institutional);
+  }
+
+  .kpi-value-institutional {
+    color: #1e3a5c;
+  }
+  .kpi-value-info {
+    color: #2d4a73;
+  }
+  .kpi-value-work {
+    color: #8f4f0f;
+  }
+  .kpi-value-standby {
+    color: #6b5610;
+  }
+  .kpi-value-risk {
+    color: #8b2f2f;
+  }
+  .kpi-value-done {
+    color: #1b4d3a;
+  }
+  .kpi-value-attention {
+    color: #6b5610;
+  }
+  .kpi-value-neutral {
+    color: var(--portal-text-primary);
   }
 }
 
@@ -88,7 +199,7 @@
 }
 
 .portal-shell .portal-table tbody td {
-  border-bottom: 1px solid rgba(226, 232, 240, 0.85);
+  border-bottom: 1px solid rgba(232, 236, 241, 0.95);
 }
 
 .portal-shell .portal-table tbody tr:last-child td {
@@ -101,7 +212,7 @@
 }
 
 .portal-shell .portal-table tbody tr:hover {
-  background-color: rgba(15, 23, 42, 0.03);
+  background-color: rgba(42, 77, 126, 0.045);
 }
 
 ::-webkit-scrollbar {

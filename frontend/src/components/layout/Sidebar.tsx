@@ -1,5 +1,6 @@
 import { NavLink } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
+import { getRoleLabel, getUserDisplayName } from '../../utils/helpers';
 import {
   LayoutDashboard,
   Users,
@@ -41,11 +42,11 @@ export default function Sidebar({ collapsed, onCollapsedChange }: SidebarProps) 
   const filteredItems = menuItems.filter((item) => user && item.roles.includes(user.role));
   const showSettings = user && settingsItem.roles.includes(user.role);
 
-  const widthClass = collapsed ? 'w-16' : 'w-52';
+  const widthClass = collapsed ? 'w-16' : 'w-48';
 
   return (
     <aside
-      className={`fixed left-0 top-20 z-40 flex h-[calc(100vh-5rem)] flex-col border-r border-[var(--portal-nav-border)] bg-[var(--portal-nav-surface)] shadow-[2px_0_12px_-4px_rgba(15,23,42,0.06)] transition-all duration-200 ${widthClass}`}
+      className={`fixed left-0 top-20 z-40 flex h-[calc(100vh-5rem)] flex-col border-r border-[var(--portal-sidebar-border)] bg-[var(--portal-sidebar-bg)] shadow-[2px_0_16px_-6px_rgba(15,23,42,0.22)] transition-all duration-200 ${widthClass}`}
     >
       <nav className="flex flex-1 flex-col overflow-hidden px-2 py-3">
         <div className="min-h-0 flex-1 space-y-0.5 overflow-y-auto">
@@ -55,36 +56,48 @@ export default function Sidebar({ collapsed, onCollapsedChange }: SidebarProps) 
               to={item.path}
               end={item.path === '/'}
               className={({ isActive }) =>
-                `flex items-center gap-3 rounded-[10px] py-2.5 pl-[10px] pr-3 text-sm font-medium transition-colors ${
+                `flex items-center gap-3 rounded-[10px] py-2.5 pl-[10px] pr-3 text-sm font-medium transition-colors duration-150 ${
                   isActive
-                    ? 'bg-[var(--portal-nav-active-bg)] font-semibold text-[#0B4EA2] shadow-sm shadow-[var(--portal-nav-active-shadow)]'
-                    : 'text-slate-600 hover:bg-[var(--portal-nav-hover)] hover:text-slate-900'
+                    ? 'bg-[var(--portal-nav-active-bg)] font-semibold text-white shadow-[inset_0_0_0_1px_rgba(255,255,255,0.06)]'
+                    : 'text-[var(--portal-sidebar-text)] hover:bg-[var(--portal-nav-hover)] hover:text-white'
                 } ${collapsed ? 'justify-center px-0' : ''}`
               }
               title={collapsed ? item.label : undefined}
             >
-              <item.icon size={20} className="shrink-0" />
-              {!collapsed && <span>{item.label}</span>}
+              <item.icon size={20} className="shrink-0 opacity-90" strokeWidth={1.75} />
+              {!collapsed && <span className="truncate">{item.label}</span>}
             </NavLink>
           ))}
         </div>
 
         {showSettings && (
-          <div className="mt-auto shrink-0 border-t border-[var(--portal-nav-border)] pt-2">
+          <div className="mt-auto shrink-0 border-t border-[var(--portal-sidebar-border)] pt-2">
             <NavLink
               to={settingsItem.path}
               className={({ isActive }) =>
-                `flex items-center gap-3 rounded-[10px] py-2.5 pl-[10px] pr-3 text-sm font-medium transition-colors ${
+                `flex items-center gap-3 rounded-[10px] py-2.5 pl-[10px] pr-3 text-sm font-medium transition-colors duration-150 ${
                   isActive
-                    ? 'bg-[var(--portal-nav-active-bg)] font-semibold text-[#0B4EA2] shadow-sm shadow-[var(--portal-nav-active-shadow)]'
-                    : 'text-slate-600 hover:bg-[var(--portal-nav-hover)] hover:text-slate-900'
+                    ? 'bg-[var(--portal-nav-active-bg)] font-semibold text-white shadow-[inset_0_0_0_1px_rgba(255,255,255,0.06)]'
+                    : 'text-[var(--portal-sidebar-text)] hover:bg-[var(--portal-nav-hover)] hover:text-white'
                 } ${collapsed ? 'justify-center px-0' : ''}`
               }
               title={collapsed ? settingsItem.label : undefined}
             >
-              <Settings size={20} className="shrink-0" />
-              {!collapsed && <span>{settingsItem.label}</span>}
+              <Settings size={20} className="shrink-0 opacity-90" strokeWidth={1.75} />
+              {!collapsed && <span className="truncate">{settingsItem.label}</span>}
             </NavLink>
+          </div>
+        )}
+
+        {user && !collapsed && (
+          <div className="mt-2 shrink-0 rounded-[10px] border border-[var(--portal-sidebar-border)] bg-[rgba(255,255,255,0.04)] px-3 py-2.5">
+            <p className="truncate text-[11px] font-semibold uppercase tracking-[0.06em] text-[var(--portal-sidebar-muted)]">
+              Utente
+            </p>
+            <p className="mt-1 truncate text-sm font-medium text-white">{getUserDisplayName(user)}</p>
+            <span className="mt-2 inline-flex max-w-full items-center rounded-full bg-[rgba(232,245,233,0.18)] px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-[#c8e6c9] ring-1 ring-inset ring-[rgba(200,230,201,0.35)]">
+              {getRoleLabel(user.role)}
+            </span>
           </div>
         )}
       </nav>
@@ -92,10 +105,10 @@ export default function Sidebar({ collapsed, onCollapsedChange }: SidebarProps) 
       <button
         type="button"
         onClick={() => onCollapsedChange(!collapsed)}
-        className="flex items-center justify-center border-t border-[var(--portal-nav-border)] p-3 text-slate-500 transition-colors hover:bg-[var(--portal-nav-hover)] hover:text-slate-700"
+        className="flex items-center justify-center border-t border-[var(--portal-sidebar-border)] p-3 text-[var(--portal-sidebar-muted)] transition-colors duration-150 hover:bg-[var(--portal-nav-hover)] hover:text-white"
         aria-label={collapsed ? 'Espandi menu' : 'Comprimi menu'}
       >
-        {collapsed ? <ChevronRight size={18} /> : <ChevronLeft size={18} />}
+        {collapsed ? <ChevronRight size={18} strokeWidth={1.75} /> : <ChevronLeft size={18} strokeWidth={1.75} />}
       </button>
     </aside>
   );
