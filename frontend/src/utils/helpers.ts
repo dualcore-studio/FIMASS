@@ -29,26 +29,48 @@ export function getUserDisplayName(user: { role: string; nome?: string | null; c
   return [user.nome, user.cognome].filter(Boolean).join(' ') || 'Utente';
 }
 
-export function getQuoteStatusColor(stato: string): string {
-  const colors: Record<string, string> = {
-    PRESENTATA: 'bg-[var(--badge-soft-slate-bg)] text-[var(--badge-soft-slate-text)]',
-    ASSEGNATA: 'bg-[var(--badge-soft-blue-bg)] text-[var(--badge-soft-blue-text)]',
-    'IN LAVORAZIONE': 'bg-[var(--badge-soft-orange-bg)] text-[var(--badge-soft-orange-text)]',
-    STANDBY: 'bg-[var(--badge-soft-amber-bg)] text-[var(--badge-soft-amber-text)]',
-    ELABORATA: 'bg-[var(--badge-soft-green-bg)] text-[var(--badge-soft-green-text)]',
-  };
-  return colors[stato] || 'bg-[var(--badge-soft-slate-bg)] text-[var(--badge-soft-slate-text)]';
+const STATUS_CLASS_PRESENTATA = 'bg-[var(--status-presentata-bg)] text-[var(--status-presentata-text)]';
+const STATUS_CLASS_ASSEGNATA = 'bg-[var(--status-assegnata-bg)] text-[var(--status-assegnata-text)]';
+const STATUS_CLASS_STANDBY = 'bg-[var(--status-standby-bg)] text-[var(--status-standby-text)]';
+const STATUS_CLASS_LAVORAZIONE = 'bg-[var(--status-lavorazione-bg)] text-[var(--status-lavorazione-text)]';
+const STATUS_CLASS_COMPLETATA = 'bg-[var(--status-completata-bg)] text-[var(--status-completata-text)]';
+
+/** Normalizza chiavi stato preventivo (STAND BY = STANDBY, COMPLETATA = ELABORATA). */
+function normalizeQuoteStatusKey(stato: string): string {
+  const s = stato.trim().replace(/\s+/g, ' ').toUpperCase();
+  if (s === 'STAND BY') return 'STANDBY';
+  if (s === 'COMPLETATA') return 'ELABORATA';
+  return s;
 }
 
-export function getPolicyStatusColor(stato: string): string {
+export function getQuoteStatusColor(stato: string): string {
+  const key = normalizeQuoteStatusKey(stato);
   const colors: Record<string, string> = {
-    'RICHIESTA PRESENTATA': 'bg-[var(--badge-soft-slate-bg)] text-[var(--badge-soft-slate-text)]',
-    'IN VERIFICA': 'bg-[var(--badge-soft-blue-bg)] text-[var(--badge-soft-blue-text)]',
-    'DOCUMENTAZIONE MANCANTE': 'bg-[var(--badge-soft-red-bg)] text-[var(--badge-soft-red-text)]',
-    'PRONTA PER EMISSIONE': 'bg-[var(--badge-soft-orange-bg)] text-[var(--badge-soft-orange-text)]',
-    EMESSA: 'bg-[var(--badge-soft-green-bg)] text-[var(--badge-soft-green-text)]',
+    PRESENTATA: STATUS_CLASS_PRESENTATA,
+    ASSEGNATA: STATUS_CLASS_ASSEGNATA,
+    'IN LAVORAZIONE': STATUS_CLASS_LAVORAZIONE,
+    STANDBY: STATUS_CLASS_STANDBY,
+    ELABORATA: STATUS_CLASS_COMPLETATA,
   };
-  return colors[stato] || 'bg-[var(--badge-soft-slate-bg)] text-[var(--badge-soft-slate-text)]';
+  return colors[key] || 'bg-[var(--badge-soft-slate-bg)] text-[var(--badge-soft-slate-text)]';
+}
+
+/**
+ * Polizze: stessa palette dei preventivi dove ha senso nel flusso
+ * (presentata → celeste, in verifica → giallo, ecc.).
+ */
+export function getPolicyStatusColor(stato: string): string {
+  const key = stato.trim();
+  const normalized = /^COMPLETATA$/i.test(key) ? 'COMPLETATA' : key;
+  const colors: Record<string, string> = {
+    'RICHIESTA PRESENTATA': STATUS_CLASS_PRESENTATA,
+    'IN VERIFICA': STATUS_CLASS_ASSEGNATA,
+    'DOCUMENTAZIONE MANCANTE': STATUS_CLASS_STANDBY,
+    'PRONTA PER EMISSIONE': STATUS_CLASS_LAVORAZIONE,
+    EMESSA: STATUS_CLASS_COMPLETATA,
+    COMPLETATA: STATUS_CLASS_COMPLETATA,
+  };
+  return colors[normalized] || 'bg-[var(--badge-soft-slate-bg)] text-[var(--badge-soft-slate-text)]';
 }
 
 export function getRoleBadgeColor(role: string): string {
