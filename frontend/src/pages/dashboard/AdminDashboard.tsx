@@ -431,19 +431,27 @@ const summaryValueClass: Record<SummaryAccent, string> = {
   risk: 'kpi-value-risk',
 };
 
+const summaryStripClass: Record<SummaryAccent, string> = {
+  institutional: 'bg-[var(--kpi-accent-institutional)]',
+  work: 'bg-[var(--kpi-accent-work)]',
+  standby: 'bg-[var(--kpi-accent-standby)]',
+  risk: 'bg-[var(--kpi-accent-risk)]',
+};
+
 function DashboardSummaryCard({ label, value, to, valueTone }: DashboardSummaryCardProps) {
   return (
-    <article
-      className="kpi-card-top-bar rounded-2xl border border-slate-200/85 bg-white px-5 py-4 text-center shadow-[0_1px_2px_rgba(30,45,77,0.05),0_8px_28px_-12px_rgba(30,45,77,0.09)]"
-    >
-      <h2 className="text-xs font-semibold uppercase tracking-wide text-slate-600">{label}</h2>
-      <p className={`mt-1 text-[2rem] font-semibold leading-none tabular-nums ${summaryValueClass[valueTone]}`}>{value}</p>
-      <Link
-        to={to}
-        className="mt-2 inline-block text-sm font-semibold text-[var(--ui-primary)] transition-colors hover:text-[var(--ui-primary-hover)]"
-      >
-        Vedi Dettagli
-      </Link>
+    <article className="flex flex-col overflow-hidden rounded-2xl border-x border-b border-slate-200/85 bg-white shadow-[0_1px_2px_rgba(30,45,77,0.05),0_8px_28px_-12px_rgba(30,45,77,0.09)]">
+      <div className={`h-1 w-full shrink-0 ${summaryStripClass[valueTone]}`} aria-hidden />
+      <div className="px-5 py-4 text-center">
+        <h2 className="text-xs font-semibold uppercase tracking-wide text-slate-600">{label}</h2>
+        <p className={`mt-1 text-[2rem] font-semibold leading-none tabular-nums ${summaryValueClass[valueTone]}`}>{value}</p>
+        <Link
+          to={to}
+          className="mt-2 inline-block text-sm font-semibold text-[var(--ui-primary)] transition-colors hover:text-[var(--ui-primary-hover)]"
+        >
+          Vedi Dettagli
+        </Link>
+      </div>
     </article>
   );
 }
@@ -464,48 +472,49 @@ function DashboardWorkColumn({
   onRowClick,
 }: DashboardWorkColumnProps) {
   return (
-    <article
-      className="kpi-card-top-bar min-h-[27rem] rounded-2xl border border-slate-200/85 bg-white px-4 py-4 shadow-[0_1px_2px_rgba(30,45,77,0.05),0_8px_28px_-12px_rgba(30,45,77,0.09)]"
-    >
-      <div className="flex items-start justify-between gap-3">
-        <div className="flex items-center gap-2">
-          <span className="inline-flex h-6 w-6 items-center justify-center rounded-md border border-slate-200 bg-slate-50 text-slate-400">
-            <Icon className="h-3.5 w-3.5" />
-          </span>
-          <h3 className="text-[11px] font-semibold uppercase tracking-[0.08em] text-slate-400">{title}</h3>
+    <article className="flex min-h-[27rem] flex-col overflow-hidden rounded-2xl border-x border-b border-slate-200/85 bg-white shadow-[0_1px_2px_rgba(30,45,77,0.05),0_8px_28px_-12px_rgba(30,45,77,0.09)]">
+      <div className="h-1 w-full shrink-0 bg-[var(--kpi-card-top-bar)]" aria-hidden />
+      <div className="flex min-h-0 flex-1 flex-col px-4 py-4">
+        <div className="flex items-start justify-between gap-3">
+          <div className="flex items-center gap-2">
+            <span className="inline-flex h-6 w-6 items-center justify-center rounded-md border border-slate-200 bg-slate-50 text-slate-400">
+              <Icon className="h-3.5 w-3.5" />
+            </span>
+            <h3 className="text-[11px] font-semibold uppercase tracking-[0.08em] text-slate-400">{title}</h3>
+          </div>
+          <span className="text-3xl font-semibold leading-none tabular-nums text-slate-900">{value}</span>
         </div>
-        <span className="text-3xl font-semibold leading-none tabular-nums text-slate-900">{value}</span>
-      </div>
 
-      <div className="mt-4">
-        {rows.length === 0 ? (
-          <p className="px-1 text-xs text-slate-400">Nessun record disponibile.</p>
-        ) : (
-          <ul className="space-y-2">
-            {rows.map((row) => (
-              <li key={row.id}>
-                {onRowClick ? (
-                  <button
-                    type="button"
-                    onClick={() => onRowClick(row.id)}
-                    className="w-full rounded-lg border border-slate-200/80 bg-slate-50/70 px-3 py-2 text-left transition-colors hover:bg-[rgba(42,77,126,0.06)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--ui-primary)]"
-                    aria-label={`${row.title}. ${row.subtitle ?? ''}`}
-                  >
-                    <p className="text-xs font-semibold text-slate-700">{row.title}</p>
-                    {row.subtitle && <p className="mt-0.5 text-xs text-slate-500">{row.subtitle}</p>}
-                    {row.meta && <p className="mt-0.5 text-[11px] text-slate-400">{row.meta}</p>}
-                  </button>
-                ) : (
-                  <div className="rounded-lg border border-slate-200/80 bg-slate-50/60 px-3 py-2">
-                    <p className="text-xs font-semibold text-slate-700">{row.title}</p>
-                    {row.subtitle && <p className="mt-0.5 text-xs text-slate-500">{row.subtitle}</p>}
-                    {row.meta && <p className="mt-0.5 text-[11px] text-slate-400">{row.meta}</p>}
-                  </div>
-                )}
-              </li>
-            ))}
-          </ul>
-        )}
+        <div className="mt-4">
+          {rows.length === 0 ? (
+            <p className="px-1 text-xs text-slate-400">Nessun record disponibile.</p>
+          ) : (
+            <ul className="space-y-2">
+              {rows.map((row) => (
+                <li key={row.id}>
+                  {onRowClick ? (
+                    <button
+                      type="button"
+                      onClick={() => onRowClick(row.id)}
+                      className="w-full rounded-lg border border-slate-200/80 bg-slate-50/70 px-3 py-2 text-left transition-colors hover:bg-[rgba(42,77,126,0.06)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--ui-primary)]"
+                      aria-label={`${row.title}. ${row.subtitle ?? ''}`}
+                    >
+                      <p className="text-xs font-semibold text-slate-700">{row.title}</p>
+                      {row.subtitle && <p className="mt-0.5 text-xs text-slate-500">{row.subtitle}</p>}
+                      {row.meta && <p className="mt-0.5 text-[11px] text-slate-400">{row.meta}</p>}
+                    </button>
+                  ) : (
+                    <div className="rounded-lg border border-slate-200/80 bg-slate-50/60 px-3 py-2">
+                      <p className="text-xs font-semibold text-slate-700">{row.title}</p>
+                      {row.subtitle && <p className="mt-0.5 text-xs text-slate-500">{row.subtitle}</p>}
+                      {row.meta && <p className="mt-0.5 text-[11px] text-slate-400">{row.meta}</p>}
+                    </div>
+                  )}
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
       </div>
     </article>
   );

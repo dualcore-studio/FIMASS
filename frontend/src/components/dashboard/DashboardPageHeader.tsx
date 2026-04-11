@@ -15,7 +15,9 @@ export default function DashboardPageHeader({ title, welcomeLine, dateLabel, act
           {title}
         </h1>
         <div className="min-w-0 sm:max-w-[min(100%,28rem)] sm:text-right">
-          {welcomeLine ? <p className="text-sm font-medium text-slate-800">{welcomeLine}</p> : null}
+          {welcomeLine ? (
+            <p className="text-lg font-bold leading-snug text-slate-900 sm:text-xl">{welcomeLine}</p>
+          ) : null}
           <p className="mt-1 text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-500">{dateLabel}</p>
         </div>
       </div>
