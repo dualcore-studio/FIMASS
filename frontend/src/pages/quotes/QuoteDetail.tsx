@@ -18,6 +18,7 @@ import {
   History,
   ClipboardList,
   LayoutDashboard,
+  Trash2,
 } from 'lucide-react';
 import { api, ApiError } from '../../utils/api';
 import type { Quote, User, Attachment, QuoteNote, StatusHistory } from '../../types';
@@ -78,6 +79,9 @@ export default function QuoteDetail() {
   const [assignOperatorId, setAssignOperatorId] = useState('');
   const [assignSubmitting, setAssignSubmitting] = useState(false);
   const [assignError, setAssignError] = useState<string | null>(null);
+
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [deleteSubmitting, setDeleteSubmitting] = useState(false);
 
   // Attachments
   const [uploadFile, setUploadFile] = useState<File | null>(null);
@@ -186,6 +190,21 @@ export default function QuoteDetail() {
       setAssignError(e instanceof ApiError ? e.message : 'Assegnazione non riuscita.');
     } finally {
       setAssignSubmitting(false);
+    }
+  };
+
+  const handleDeleteQuote = async () => {
+    if (!id) return;
+    setActionError(null);
+    setDeleteSubmitting(true);
+    try {
+      await api.delete(`/quotes/${id}`);
+      navigate('/preventivi');
+    } catch (e) {
+      setActionError(e instanceof ApiError ? e.message : 'Eliminazione preventivo non riuscita.');
+    } finally {
+      setDeleteSubmitting(false);
+      setShowDeleteModal(false);
     }
   };
 
@@ -334,6 +353,17 @@ export default function QuoteDetail() {
             >
               <UserCheck className="h-4 w-4" />
               {quote.operatore_id ? 'Riassegna' : 'Assegna'}
+            </button>
+          )}
+
+          {role === 'admin' && (
+            <button
+              type="button"
+              onClick={() => setShowDeleteModal(true)}
+              className="inline-flex items-center gap-2 rounded-lg border border-red-200 bg-white px-3 py-2 text-sm font-medium text-red-700 transition hover:bg-red-50"
+            >
+              <Trash2 className="h-4 w-4" />
+              Elimina preventivo
             </button>
           )}
         </div>
@@ -489,6 +519,38 @@ export default function QuoteDetail() {
             <button type="button" onClick={() => setShowAssignModal(false)} className="btn-secondary">Annulla</button>
             <button type="button" onClick={handleAssign} disabled={assignSubmitting} className="btn-primary">
               {assignSubmitting ? 'Assegnazione…' : 'Conferma'}
+            </button>
+          </div>
+        </div>
+      </Modal>
+
+      <Modal
+        isOpen={showDeleteModal}
+        onClose={() => !deleteSubmitting && setShowDeleteModal(false)}
+        title="Elimina preventivo"
+        size="sm"
+      >
+        <div className="space-y-4">
+          <p className="text-sm text-gray-600">
+            Operazione irreversibile: verranno eliminati storico stato, note, solleciti, allegati e, se presente, la
+            polizza collegata a questo preventivo.
+          </p>
+          <div className="flex justify-end gap-2 pt-2">
+            <button
+              type="button"
+              onClick={() => setShowDeleteModal(false)}
+              className="btn-secondary"
+              disabled={deleteSubmitting}
+            >
+              Annulla
+            </button>
+            <button
+              type="button"
+              onClick={handleDeleteQuote}
+              disabled={deleteSubmitting}
+              className="rounded-lg bg-red-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-70"
+            >
+              {deleteSubmitting ? 'Eliminazione…' : 'Elimina'}
             </button>
           </div>
         </div>

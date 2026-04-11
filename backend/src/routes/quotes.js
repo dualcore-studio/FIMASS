@@ -1,7 +1,10 @@
 const express = require('express');
+const path = require('path');
+const fs = require('fs');
+const { del } = require('@vercel/blob');
 const { authenticateToken, authorizeRoles } = require('../middleware/auth');
 const { logActivity } = require('./logs');
-const { list, getById, findOne, insert, upsertById, like, paginate } = require('../data/store');
+const { list, getById, findOne, insert, upsertById, removeById, like, paginate } = require('../data/store');
 const { loadContext, enrichQuote } = require('../data/views');
 const { sortQuotesForList } = require('../utils/practiceListSort');
 const { isQuoteClosedForAssignment, normalizeQuoteStato } = require('../utils/quoteStato');
@@ -10,6 +13,56 @@ const { sendQuoteAssignedToOperatorMail, sendQuoteStatusChangeToStructureMail } 
 const ALLOWED_QUOTE_STATI = new Set(['PRESENTATA', 'ASSEGNATA', 'IN LAVORAZIONE', 'STANDBY', 'ELABORATA']);
 
 const router = express.Router();
+
+const isVercelEnv = Boolean(process.env.VERCEL);
+function getUploadsDir() {
+  return process.env.UPLOADS_DIR || (isVercelEnv ? '/tmp/uploads' : path.join(__dirname, '..', '..', 'uploads'));
+}
+
+async function purgeAttachmentsForEntity(entityType, entityId) {
+  const uploadsDir = getUploadsDir();
+  const attachments = await list('attachments');
+  const rows = attachments.filter(
+    (a) => a.entity_type === entityType && Number(a.entity_id) === Number(entityId),
+  );
+  for (const att of rows) {
+    if (att.url && process.env.BLOB_READ_WRITE_TOKEN) {
+      try {
+        await del(att.url, { token: process.env.BLOB_READ_WRITE_TOKEN });
+      } catch (e) {
+        console.warn('Blob delete failed:', e.message);
+      }
+    } else {
+      const filePath = path.join(uploadsDir, att.nome_file);
+      if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
+    }
+    await removeById('attachments', att.id);
+  }
+}
+
+async function deleteQuoteWithDependencies(quoteId) {
+  const qid = Number(quoteId);
+  const policies = (await list('policies')).filter((p) => Number(p.quote_id) === qid);
+  for (const pol of policies) {
+    const pid = pol.id;
+    const polHistory = (await list('policy_status_history')).filter((h) => Number(h.policy_id) === Number(pid));
+    for (const h of polHistory) await removeById('policy_status_history', h.id);
+    await purgeAttachmentsForEntity('policy', pid);
+    await removeById('policies', pid);
+  }
+
+  const qHistory = (await list('quote_status_history')).filter((h) => Number(h.quote_id) === qid);
+  for (const h of qHistory) await removeById('quote_status_history', h.id);
+
+  const qNotes = (await list('quote_notes')).filter((n) => Number(n.quote_id) === qid);
+  for (const n of qNotes) await removeById('quote_notes', n.id);
+
+  const qReminders = (await list('quote_reminders')).filter((r) => Number(r.quote_id) === qid);
+  for (const r of qReminders) await removeById('quote_reminders', r.id);
+
+  await purgeAttachmentsForEntity('quote', qid);
+  await removeById('quotes', qid);
+}
 
 function getUserDisplayName(user) {
   return user.role === 'struttura' ? user.denominazione : `${user.nome} ${user.cognome}`;
@@ -504,6 +557,36 @@ router.post('/:id/notes', authenticateToken, (req, res) => {
   })().catch((err) => {
     console.error('Error adding note:', err);
     res.status(500).json({ error: 'Errore nell\'aggiunta nota' });
+  });
+});
+
+router.delete('/:id', authenticateToken, authorizeRoles('admin'), (req, res) => {
+  (async () => {
+    const quoteId = Number(req.params.id);
+    if (!Number.isFinite(quoteId)) {
+      return res.status(400).json({ error: 'ID preventivo non valido' });
+    }
+    const quote = await getById('quotes', quoteId);
+    if (!quote) return res.status(404).json({ error: 'Preventivo non trovato' });
+
+    const numero = quote.numero;
+    await deleteQuoteWithDependencies(quoteId);
+
+    await logActivity({
+      utente_id: req.user.id,
+      utente_nome: getUserDisplayName(req.user),
+      ruolo: req.user.role,
+      azione: 'ELIMINAZIONE_PREVENTIVO',
+      modulo: 'preventivi',
+      riferimento_id: quoteId,
+      riferimento_tipo: 'quote',
+      dettaglio: `Eliminato preventivo ${numero}`,
+    });
+
+    res.json({ message: 'Preventivo eliminato con successo' });
+  })().catch((err) => {
+    console.error('Error deleting quote:', err);
+    res.status(500).json({ error: 'Errore nell\'eliminazione del preventivo' });
   });
 });
 

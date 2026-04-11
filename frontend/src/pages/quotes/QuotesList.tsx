@@ -6,6 +6,7 @@ import {
   UserCheck,
   FileText,
   ExternalLink,
+  Trash2,
 } from 'lucide-react';
 import { api, ApiError } from '../../utils/api';
 import type { Quote, InsuranceType, PaginatedResponse, User } from '../../types';
@@ -86,7 +87,10 @@ export default function QuotesList() {
   const [result, setResult] = useState<PaginatedResponse<Quote> | null>(null);
   const [loading, setLoading] = useState(true);
   const [listError, setListError] = useState<string | null>(null);
-  const [actionError] = useState<string | null>(null);
+  const [actionError, setActionError] = useState<string | null>(null);
+
+  const [deleteQuoteId, setDeleteQuoteId] = useState<number | null>(null);
+  const [deleteSubmitting, setDeleteSubmitting] = useState(false);
 
   const [insuranceTypes, setInsuranceTypes] = useState<InsuranceType[]>([]);
   const [structures, setStructures] = useState<User[]>([]);
@@ -205,9 +209,29 @@ export default function QuotesList() {
     }
   };
 
+  const closeDeleteModal = () => {
+    setDeleteQuoteId(null);
+  };
+
+  const handleDeleteQuote = async () => {
+    if (deleteQuoteId == null) return;
+    setActionError(null);
+    setDeleteSubmitting(true);
+    try {
+      await api.delete(`/quotes/${deleteQuoteId}`);
+      closeDeleteModal();
+      await fetchQuotes();
+    } catch (e) {
+      setActionError(e instanceof ApiError ? e.message : 'Eliminazione preventivo non riuscita.');
+    } finally {
+      setDeleteSubmitting(false);
+    }
+  };
+
   const rows = result?.data ?? [];
   const canCreate = role === 'struttura' || role === 'admin';
   const canAssign = role === 'admin' || role === 'supervisore';
+  const canDeleteQuote = role === 'admin';
   const canFilterStruttura = role === 'admin' || role === 'supervisore';
 
   const tf = 'input-field h-9 max-w-none shrink-0 py-1.5 text-sm';
@@ -500,6 +524,18 @@ export default function QuotesList() {
                               Polizza
                             </Link>
                           )}
+
+                          {canDeleteQuote && (
+                            <button
+                              type="button"
+                              disabled={deleteSubmitting}
+                              onClick={() => setDeleteQuoteId(q.id)}
+                              className="inline-flex h-9 cursor-pointer items-center justify-center rounded-lg border border-gray-200 bg-white px-2.5 text-gray-600 transition hover:border-red-300 hover:bg-red-50 hover:text-red-700 disabled:cursor-not-allowed disabled:opacity-50"
+                              title="Elimina preventivo (solo amministratore)"
+                            >
+                              <Trash2 className="h-3.5 w-3.5" />
+                            </button>
+                          )}
                         </div>
                       </td>
                     </tr>
@@ -553,6 +589,38 @@ export default function QuotesList() {
               className="btn-primary"
             >
               {assignSubmitting ? 'Assegnazione…' : 'Conferma'}
+            </button>
+          </div>
+        </div>
+      </Modal>
+
+      <Modal
+        isOpen={deleteQuoteId != null}
+        onClose={closeDeleteModal}
+        title="Elimina preventivo"
+        size="sm"
+      >
+        <div className="space-y-4">
+          <p className="text-sm text-gray-600">
+            Questa operazione è irreversibile. Verranno eliminati anche storico, note, allegati e, se presente, la
+            polizza collegata.
+          </p>
+          <div className="flex justify-end gap-2 pt-2">
+            <button
+              type="button"
+              onClick={closeDeleteModal}
+              className="btn-secondary"
+              disabled={deleteSubmitting}
+            >
+              Annulla
+            </button>
+            <button
+              type="button"
+              onClick={handleDeleteQuote}
+              disabled={deleteSubmitting}
+              className="rounded-lg bg-red-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-70"
+            >
+              {deleteSubmitting ? 'Eliminazione…' : 'Elimina'}
             </button>
           </div>
         </div>
