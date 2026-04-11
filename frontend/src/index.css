@@ -92,11 +92,39 @@
   * {
     border-color: var(--portal-border);
   }
+
+  /**
+   * Cursore a “manina” su controlli cliccabili: preflight / browser spesso lasciano `default` su <button>,
+   * mentre i link (<a>) mostrano già il puntatore. Regole unificate su tutto il portale.
+   */
+  button:not(:disabled),
+  [role='button']:not([aria-disabled='true']),
+  input[type='button']:not(:disabled),
+  input[type='submit']:not(:disabled),
+  input[type='reset']:not(:disabled),
+  input[type='checkbox']:not(:disabled),
+  input[type='radio']:not(:disabled),
+  input[type='file']:not(:disabled),
+  select:not(:disabled),
+  summary {
+    cursor: pointer;
+  }
+
+  button:disabled,
+  input:disabled,
+  select:disabled,
+  textarea:disabled {
+    cursor: not-allowed;
+  }
+
+  a[href] {
+    cursor: pointer;
+  }
 }
 
 @layer components {
   .btn-primary {
-    @apply font-medium py-2 px-4 rounded-lg transition-colors duration-150 inline-flex items-center gap-2 text-sm disabled:opacity-50 disabled:cursor-not-allowed;
+    @apply cursor-pointer font-medium py-2 px-4 rounded-lg transition-colors duration-150 inline-flex items-center gap-2 text-sm disabled:opacity-50 disabled:cursor-not-allowed;
     background-color: var(--ui-primary);
     color: #fff;
   }
@@ -106,16 +134,16 @@
   }
 
   .btn-secondary {
-    @apply bg-white hover:bg-slate-50/95 text-slate-800 font-medium py-2 px-4 rounded-lg border transition-colors duration-150 inline-flex items-center gap-2 text-sm;
+    @apply cursor-pointer bg-white hover:bg-slate-50/95 text-slate-800 font-medium py-2 px-4 rounded-lg border transition-colors duration-150 inline-flex items-center gap-2 text-sm;
     border-color: var(--portal-border);
   }
 
   .btn-danger {
-    @apply bg-red-600 hover:bg-red-700 text-white font-medium py-2 px-4 rounded-lg transition-colors duration-150 inline-flex items-center gap-2 text-sm;
+    @apply cursor-pointer bg-red-600 hover:bg-red-700 text-white font-medium py-2 px-4 rounded-lg transition-colors duration-150 inline-flex items-center gap-2 text-sm;
   }
 
   .btn-success {
-    @apply font-medium py-2 px-4 rounded-lg transition-colors duration-150 inline-flex items-center gap-2 text-sm;
+    @apply cursor-pointer font-medium py-2 px-4 rounded-lg transition-colors duration-150 inline-flex items-center gap-2 text-sm disabled:cursor-not-allowed;
     background-color: var(--kpi-accent-done);
     color: #fff;
   }

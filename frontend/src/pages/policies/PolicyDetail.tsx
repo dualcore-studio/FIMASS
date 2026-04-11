@@ -190,7 +190,11 @@ export default function PolicyDetail() {
               </button>
               {showStatusDropdown && (
                 <>
-                  <div className="fixed inset-0 z-10" onClick={() => setShowStatusDropdown(false)} />
+                  <div
+                    className="fixed inset-0 z-10 cursor-pointer"
+                    onClick={() => setShowStatusDropdown(false)}
+                    aria-hidden
+                  />
                   <div className="absolute right-0 top-full z-20 mt-1 w-56 rounded-lg border border-gray-200 bg-white py-1 shadow-lg">
                     {availableTransitions.map((stato) => (
                       <button
