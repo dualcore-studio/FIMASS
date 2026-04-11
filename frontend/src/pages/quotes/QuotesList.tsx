@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useState, type ReactNode } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import {
   Plus,
@@ -51,6 +51,17 @@ function buildQuery(params: {
     qs.set('sort_dir', params.sortDir);
   }
   return `/quotes?${qs.toString()}`;
+}
+
+function FilterCell({ id, label, children }: { id: string; label: string; children: ReactNode }) {
+  return (
+    <div className="flex shrink-0 flex-col gap-px">
+      <label htmlFor={id} className="whitespace-nowrap text-[11px] font-normal leading-tight text-gray-600">
+        {label}
+      </label>
+      {children}
+    </div>
+  );
 }
 
 export default function QuotesList() {
@@ -231,96 +242,104 @@ export default function QuotesList() {
 
       {/* Filters — toolbar compatta (una riga su desktop) */}
       <div className="card px-2.5 py-2 sm:px-3 sm:py-2">
-        <div className="flex flex-wrap items-center gap-2 lg:flex-nowrap lg:overflow-x-auto lg:pb-0.5 lg:[scrollbar-width:thin]">
+        <div className="flex flex-wrap items-end gap-2 lg:flex-nowrap lg:overflow-x-auto lg:pb-0.5 lg:[scrollbar-width:thin]">
           <span className="sr-only">Filtri elenco preventivi</span>
-          <input
-            id="filter-id-preventivo"
-            type="text"
-            inputMode="search"
-            autoComplete="off"
-            placeholder="ID preventivo…"
-            value={numeroInput}
-            onChange={(e) => setNumeroInput(e.target.value)}
-            className={`${tf} w-[7.25rem]`}
-            aria-label="ID Preventivo"
-          />
-          <input
-            id="filter-assistito"
-            type="search"
-            placeholder="Assistito: nome, CF…"
-            value={assistitoInput}
-            onChange={(e) => setAssistitoInput(e.target.value)}
-            className={`${tf} w-[12.5rem] min-w-[11rem] sm:w-[13.5rem]`}
-            aria-label="Assistito"
-          />
-          <select
-            id="filter-tipo"
-            value={tipoFilter}
-            onChange={(e) => setTipoFilter(e.target.value)}
-            className={`${tf} w-[10.25rem]`}
-            aria-label="Tipologia"
-          >
-            <option value="">Tutte le tipologie</option>
-            {insuranceTypes.map((t) => (
-              <option key={t.id} value={String(t.id)}>{t.nome}</option>
-            ))}
-          </select>
+          <FilterCell id="filter-id-preventivo" label="ID Preventivo">
+            <input
+              id="filter-id-preventivo"
+              type="text"
+              inputMode="search"
+              autoComplete="off"
+              placeholder="ID preventivo…"
+              value={numeroInput}
+              onChange={(e) => setNumeroInput(e.target.value)}
+              className={`${tf} w-[7.25rem]`}
+            />
+          </FilterCell>
+          <FilterCell id="filter-assistito" label="Assistito">
+            <input
+              id="filter-assistito"
+              type="search"
+              placeholder="Assistito: nome, CF…"
+              value={assistitoInput}
+              onChange={(e) => setAssistitoInput(e.target.value)}
+              className={`${tf} w-[12.5rem] min-w-[11rem] sm:w-[13.5rem]`}
+            />
+          </FilterCell>
+          <FilterCell id="filter-tipo" label="Tipologia">
+            <select
+              id="filter-tipo"
+              value={tipoFilter}
+              onChange={(e) => setTipoFilter(e.target.value)}
+              className={`${tf} w-[10.25rem]`}
+            >
+              <option value="">Tutte le tipologie</option>
+              {insuranceTypes.map((t) => (
+                <option key={t.id} value={String(t.id)}>{t.nome}</option>
+              ))}
+            </select>
+          </FilterCell>
           {canFilterStruttura ? (
             <>
-              <select
-                id="filter-struttura"
-                value={strutturaFilter}
-                onChange={(e) => setStrutturaFilter(e.target.value)}
-                className={`${tf} w-[10.25rem]`}
-                aria-label="Struttura"
-              >
-                <option value="">Tutte le strutture</option>
-                {structures.map((s) => (
-                  <option key={s.id} value={String(s.id)}>{s.denominazione || getUserDisplayName(s)}</option>
-                ))}
-              </select>
-              <select
-                id="filter-operatore"
-                value={operatoreFilter}
-                onChange={(e) => setOperatoreFilter(e.target.value)}
-                className={`${tf} w-[10.25rem]`}
-                aria-label="Operatore"
-              >
-                <option value="">Tutti gli operatori</option>
-                {operators.map((o) => (
-                  <option key={o.id} value={String(o.id)}>{getUserDisplayName(o)}</option>
-                ))}
-              </select>
+              <FilterCell id="filter-struttura" label="Struttura">
+                <select
+                  id="filter-struttura"
+                  value={strutturaFilter}
+                  onChange={(e) => setStrutturaFilter(e.target.value)}
+                  className={`${tf} w-[10.25rem]`}
+                >
+                  <option value="">Tutte le strutture</option>
+                  {structures.map((s) => (
+                    <option key={s.id} value={String(s.id)}>{s.denominazione || getUserDisplayName(s)}</option>
+                  ))}
+                </select>
+              </FilterCell>
+              <FilterCell id="filter-operatore" label="Operatore">
+                <select
+                  id="filter-operatore"
+                  value={operatoreFilter}
+                  onChange={(e) => setOperatoreFilter(e.target.value)}
+                  className={`${tf} w-[10.25rem]`}
+                >
+                  <option value="">Tutti gli operatori</option>
+                  {operators.map((o) => (
+                    <option key={o.id} value={String(o.id)}>{getUserDisplayName(o)}</option>
+                  ))}
+                </select>
+              </FilterCell>
             </>
           ) : null}
-          <select
-            id="filter-stato"
-            value={statoFilter}
-            onChange={(e) => setStatoFilter(e.target.value)}
-            className={`${tf} w-[10.25rem]`}
-            aria-label="Stato"
-          >
-            <option value="">Tutti gli stati</option>
-            {STATI.map((s) => (
-              <option key={s} value={s}>{s}</option>
-            ))}
-          </select>
-          <input
-            id="filter-data-dal"
-            type="date"
-            value={dataDal}
-            onChange={(e) => setDataDal(e.target.value)}
-            className={`${tf} w-[9.5rem]`}
-            aria-label="Data dal"
-          />
-          <input
-            id="filter-data-al"
-            type="date"
-            value={dataAl}
-            onChange={(e) => setDataAl(e.target.value)}
-            className={`${tf} w-[9.5rem]`}
-            aria-label="Data al"
-          />
+          <FilterCell id="filter-stato" label="Stato">
+            <select
+              id="filter-stato"
+              value={statoFilter}
+              onChange={(e) => setStatoFilter(e.target.value)}
+              className={`${tf} w-[10.25rem]`}
+            >
+              <option value="">Tutti gli stati</option>
+              {STATI.map((s) => (
+                <option key={s} value={s}>{s}</option>
+              ))}
+            </select>
+          </FilterCell>
+          <FilterCell id="filter-data-dal" label="Data dal">
+            <input
+              id="filter-data-dal"
+              type="date"
+              value={dataDal}
+              onChange={(e) => setDataDal(e.target.value)}
+              className={`${tf} w-[9.5rem]`}
+            />
+          </FilterCell>
+          <FilterCell id="filter-data-al" label="Data al">
+            <input
+              id="filter-data-al"
+              type="date"
+              value={dataAl}
+              onChange={(e) => setDataAl(e.target.value)}
+              className={`${tf} w-[9.5rem]`}
+            />
+          </FilterCell>
         </div>
       </div>
 
