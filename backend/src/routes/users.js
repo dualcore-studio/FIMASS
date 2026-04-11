@@ -1,6 +1,7 @@
 const express = require('express');
 const bcrypt = require('bcryptjs');
-const { list, getById, findOne, insert, upsertById, removeById, like, sortBy: sortRecords, paginate } = require('../data/store');
+const { list, getById, findOne, insert, upsertById, removeById, like, paginate } = require('../data/store');
+const { sortUsersForList } = require('../utils/userListSort');
 const { authenticateToken, authorizeRoles } = require('../middleware/auth');
 const { logActivity } = require('./logs');
 
@@ -29,7 +30,7 @@ router.get('/', authenticateToken, authorizeRoles('admin', 'supervisore'), (req,
         ultimo_accesso: 'last_login',
         created_at: 'created_at',
       };
-      users = sortRecords(users, sortMap[sortBy] || 'created_at', sortDir || 'desc');
+      users = sortUsersForList(users, sortBy, sortDir || 'desc', sortMap);
       const payload = paginate(users, page, limit);
       payload.data = payload.data.map((u) => ({
         ...u,
