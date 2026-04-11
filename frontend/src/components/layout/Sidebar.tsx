@@ -1,6 +1,5 @@
 import { Link, NavLink } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
-import { getRoleLabel, getUserDisplayName } from '../../utils/helpers';
 import {
   LayoutDashboard,
   Users,
@@ -109,18 +108,6 @@ export default function Sidebar({ collapsed, onCollapsedChange }: SidebarProps) 
               <Settings size={20} className="shrink-0 opacity-90" strokeWidth={1.75} />
               {!collapsed && <span className="truncate">{settingsItem.label}</span>}
             </NavLink>
-          </div>
-        )}
-
-        {user && !collapsed && (
-          <div className="mt-2 shrink-0 rounded-[10px] border border-[var(--portal-sidebar-border)] bg-[rgba(255,255,255,0.04)] px-3 py-2.5">
-            <p className="truncate text-[11px] font-semibold uppercase tracking-[0.06em] text-[var(--portal-sidebar-muted)]">
-              Utente
-            </p>
-            <p className="mt-1 truncate text-sm font-medium text-white">{getUserDisplayName(user)}</p>
-            <span className="mt-2 inline-flex max-w-full items-center rounded-full bg-[rgba(232,245,233,0.18)] px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-[#c8e6c9] ring-1 ring-inset ring-[rgba(200,230,201,0.35)]">
-              {getRoleLabel(user.role)}
-            </span>
           </div>
         )}
       </nav>

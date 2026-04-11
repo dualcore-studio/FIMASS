@@ -4,7 +4,11 @@ import { useAuth } from '../../context/AuthContext';
 import { LogOut, User, ChevronDown } from 'lucide-react';
 import { getUserDisplayName, getRoleLabel, getRoleBadgeColor } from '../../utils/helpers';
 
-export default function Topbar() {
+interface TopbarProps {
+  sidebarCollapsed: boolean;
+}
+
+export default function Topbar({ sidebarCollapsed }: TopbarProps) {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
   const [showProfile, setShowProfile] = useState(false);
@@ -27,22 +31,26 @@ export default function Topbar() {
 
   if (!user) return null;
 
+  const leftOffsetClass = sidebarCollapsed ? 'left-16' : 'left-48';
+
   return (
-    <header className="fixed top-3 right-3 z-30 flex h-12 w-max max-w-[calc(100vw-2rem)] shrink-0 items-center justify-end gap-2 rounded-xl border border-[var(--portal-nav-border)] bg-[var(--portal-nav-surface)] px-3 shadow-[0_1px_2px_rgba(15,23,42,0.06)] sm:px-4">
+    <header
+      className={`fixed top-0 right-0 z-30 flex h-14 items-center justify-end border-b border-[var(--portal-nav-border)] bg-[var(--portal-nav-surface)] px-4 shadow-[0_1px_2px_rgba(15,23,42,0.04)] transition-[left] duration-200 sm:px-6 ${leftOffsetClass}`}
+    >
       <div ref={profileRef} className="relative">
         <button
           type="button"
           onClick={() => setShowProfile(!showProfile)}
-          className="flex items-center gap-2 rounded-lg px-1.5 py-1 transition-colors hover:bg-[var(--portal-topbar-hover)] sm:px-2"
+          className="flex items-center gap-2 rounded-lg px-2 py-1.5 transition-colors hover:bg-[var(--portal-topbar-hover)] sm:px-3"
         >
-          <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-[rgba(42,77,126,0.12)] text-[var(--ui-primary)]">
-            <User size={15} />
+          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[rgba(42,77,126,0.12)] text-[var(--ui-primary)]">
+            <User size={16} />
           </div>
           <div className="hidden min-w-0 text-left sm:block">
             <p className="truncate text-sm font-medium leading-tight text-slate-900">{getUserDisplayName(user)}</p>
             <p className="truncate text-xs leading-tight text-slate-600">{getRoleLabel(user.role)}</p>
           </div>
-          <ChevronDown size={15} className="hidden shrink-0 text-slate-500 sm:block" />
+          <ChevronDown size={16} className="hidden shrink-0 text-slate-500 sm:block" />
         </button>
 
         {showProfile && (
