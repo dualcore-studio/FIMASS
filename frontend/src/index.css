@@ -20,6 +20,8 @@
     --portal-main-content-bg: #f9f5eb;
     --portal-surface-card: #ffffff;
     --portal-border-subtle: #e8ecf1;
+    /* Intestazioni tabelle (leggermente più scure del body riga per maggiore contrasto) */
+    --portal-table-header-bg: #e4e9f0;
     --portal-text-primary: #0f172a;
     --portal-text-secondary: #475569;
 
@@ -131,7 +133,7 @@
 
   .portal-card-table-heading {
     border-bottom: 1px solid var(--portal-border-subtle);
-    background-color: rgba(248, 250, 252, 0.92);
+    background-color: var(--portal-table-header-bg);
   }
 
   /* Barra colorata in cima alle card KPI / riepiloghi */
@@ -205,7 +207,7 @@
 }
 
 .portal-shell .portal-table thead {
-  background-color: #f8fafc;
+  background-color: var(--portal-table-header-bg);
 }
 
 .portal-shell .portal-table thead th {
