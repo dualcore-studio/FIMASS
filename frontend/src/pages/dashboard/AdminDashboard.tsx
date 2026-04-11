@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom';
 import { FileText, Clock3, Shield, ReceiptText } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import { api, ApiError } from '../../utils/api';
-import { getUserDisplayName } from '../../utils/helpers';
+import { getUserDisplayName, isQuoteClosedForAssignment } from '../../utils/helpers';
 import { useAuth } from '../../context/AuthContext';
 import type { InProgressQuoteRow, PaginatedResponse, Policy, Quote, User } from '../../types';
 import DashboardPageHeader from '../../components/dashboard/DashboardPageHeader';
@@ -193,6 +193,11 @@ export default function AdminDashboard() {
   }
 
   async function handleAssignQuote(quoteId: number) {
+    const row = presentedQuotes.find((q) => q.id === quoteId);
+    if (row && isQuoteClosedForAssignment(row.stato)) {
+      setAssignFeedback('Non è possibile assegnare una pratica già elaborata.');
+      return;
+    }
     if (!assignOperatorId) {
       setAssignFeedback('Seleziona un operatore prima di confermare.');
       return;

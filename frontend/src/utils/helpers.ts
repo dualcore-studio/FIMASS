@@ -43,6 +43,14 @@ function normalizeQuoteStatusKey(stato: string): string {
   return s;
 }
 
+/** ELABORATA e alias COMPLETATA: nessuna assegnazione / riassegnazione. */
+export function isQuoteClosedForAssignment(stato: string | null | undefined): boolean {
+  if (stato == null) return false;
+  const s = String(stato).trim();
+  if (!s) return false;
+  return normalizeQuoteStatusKey(s) === 'ELABORATA';
+}
+
 export function getQuoteStatusColor(stato: string): string {
   const key = normalizeQuoteStatusKey(stato);
   const colors: Record<string, string> = {

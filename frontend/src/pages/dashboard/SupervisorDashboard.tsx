@@ -3,7 +3,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { FileText, UserCheck, Clock, CheckCircle } from 'lucide-react';
 import { api } from '../../utils/api';
 import StatusBadge from '../../components/common/StatusBadge';
-import { formatDate, getUserDisplayName } from '../../utils/helpers';
+import { formatDate, getUserDisplayName, isQuoteClosedForAssignment } from '../../utils/helpers';
 import { useAuth } from '../../context/AuthContext';
 import type { Quote, PaginatedResponse } from '../../types';
 import DashboardPageHeader from '../../components/dashboard/DashboardPageHeader';
@@ -286,13 +286,15 @@ export default function SupervisorDashboard() {
                           <StatusBadge stato={q.stato} type="quote" />
                         </td>
                         <td className="whitespace-nowrap px-4 py-2.5 text-right sm:px-5">
-                          <button
-                            type="button"
-                            onClick={() => navigate(`/preventivi/${q.id}`)}
-                            className="btn-primary py-1.5 px-3 text-xs"
-                          >
-                            Assegna
-                          </button>
+                          {!isQuoteClosedForAssignment(q.stato) && (
+                            <button
+                              type="button"
+                              onClick={() => navigate(`/preventivi/${q.id}`)}
+                              className="btn-primary py-1.5 px-3 text-xs"
+                            >
+                              Assegna
+                            </button>
+                          )}
                         </td>
                       </tr>
                     );

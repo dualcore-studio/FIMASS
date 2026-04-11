@@ -2,6 +2,7 @@ const express = require('express');
 const { list, getById, insert, upsertById, like, paginate } = require('../data/store');
 const { loadContext, enrichPolicy } = require('../data/views');
 const { sortPoliciesForList } = require('../utils/practiceListSort');
+const { normalizeQuoteStato } = require('../utils/quoteStato');
 const { authenticateToken, authorizeRoles } = require('../middleware/auth');
 const { logActivity } = require('./logs');
 
@@ -139,7 +140,9 @@ router.post('/', authenticateToken, authorizeRoles('struttura', 'admin'), (req, 
 
     const quote = await getById('quotes', quote_id);
     if (!quote) return res.status(404).json({ error: 'Preventivo non trovato' });
-    if (quote.stato !== 'ELABORATA') return res.status(400).json({ error: 'Il preventivo deve essere in stato ELABORATA' });
+    if (normalizeQuoteStato(quote.stato) !== 'ELABORATA') {
+      return res.status(400).json({ error: 'Il preventivo deve essere in stato ELABORATA' });
+    }
     if (quote.has_policy) return res.status(409).json({ error: 'Polizza già richiesta per questo preventivo' });
 
     if (req.user.role === 'struttura' && quote.struttura_id !== req.user.id) {

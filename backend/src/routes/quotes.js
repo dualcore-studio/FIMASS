@@ -4,6 +4,7 @@ const { logActivity } = require('./logs');
 const { list, getById, findOne, insert, upsertById, like, paginate } = require('../data/store');
 const { loadContext, enrichQuote } = require('../data/views');
 const { sortQuotesForList } = require('../utils/practiceListSort');
+const { isQuoteClosedForAssignment } = require('../utils/quoteStato');
 
 const router = express.Router();
 
@@ -302,6 +303,9 @@ router.put('/:id/assign', authenticateToken, authorizeRoles('supervisore', 'admi
 
     const quote = await getById('quotes', req.params.id);
     if (!quote) return res.status(404).json({ error: 'Preventivo non trovato' });
+    if (isQuoteClosedForAssignment(quote.stato)) {
+      return res.status(400).json({ error: 'Non è possibile assegnare una pratica già elaborata' });
+    }
 
     const prevStato = quote.stato;
     const newStato = prevStato === 'PRESENTATA' ? 'ASSEGNATA' : prevStato;

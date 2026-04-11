@@ -9,7 +9,7 @@ import {
 } from 'lucide-react';
 import { api, ApiError } from '../../utils/api';
 import type { Quote, InsuranceType, PaginatedResponse, User } from '../../types';
-import { formatDate, getUserDisplayName } from '../../utils/helpers';
+import { formatDate, getUserDisplayName, isQuoteClosedForAssignment } from '../../utils/helpers';
 import { useAuth } from '../../context/AuthContext';
 import StatusBadge from '../../components/common/StatusBadge';
 import TablePagination from '../../components/common/TablePagination';
@@ -463,7 +463,7 @@ export default function QuotesList() {
                             Apri
                           </Link>
 
-                          {canAssign && (
+                          {canAssign && !isQuoteClosedForAssignment(q.stato) && (
                             <button
                               type="button"
                               onClick={() => {

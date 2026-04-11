@@ -21,7 +21,7 @@ import {
 } from 'lucide-react';
 import { api, ApiError } from '../../utils/api';
 import type { Quote, User, Attachment, QuoteNote, StatusHistory } from '../../types';
-import { formatDate, formatDateTime, getUserDisplayName } from '../../utils/helpers';
+import { formatDate, formatDateTime, getUserDisplayName, isQuoteClosedForAssignment } from '../../utils/helpers';
 import { useAuth } from '../../context/AuthContext';
 import StatusBadge from '../../components/common/StatusBadge';
 import Modal from '../../components/ui/Modal';
@@ -108,6 +108,12 @@ export default function QuoteDetail() {
   useEffect(() => {
     fetchQuote();
   }, [fetchQuote]);
+
+  useEffect(() => {
+    if (quote && isQuoteClosedForAssignment(quote.stato)) {
+      setShowAssignModal(false);
+    }
+  }, [quote?.stato]);
 
   useEffect(() => {
     if (role === 'admin' || role === 'supervisore') {
@@ -219,7 +225,8 @@ export default function QuoteDetail() {
   };
 
   const isAssignedOperator = role === 'operatore' && quote?.operatore_id === currentUser?.id;
-  const canAssign = role === 'admin' || role === 'supervisore';
+  const canAssign =
+    !!quote && (role === 'admin' || role === 'supervisore') && !isQuoteClosedForAssignment(quote.stato);
 
   if (loading) {
     return (
