@@ -132,7 +132,7 @@ router.get('/:id', authenticateToken, (req, res) => {
   })();
 });
 
-router.post('/', authenticateToken, authorizeRoles('struttura', 'admin'), (req, res) => {
+router.post('/', authenticateToken, authorizeRoles('struttura'), (req, res) => {
   (async () => {
     const { quote_id, note_struttura } = req.body;
 
@@ -145,7 +145,7 @@ router.post('/', authenticateToken, authorizeRoles('struttura', 'admin'), (req, 
     }
     if (quote.has_policy) return res.status(409).json({ error: 'Polizza già richiesta per questo preventivo' });
 
-    if (req.user.role === 'struttura' && quote.struttura_id !== req.user.id) {
+    if (Number(quote.struttura_id) !== Number(req.user.id)) {
       return res.status(403).json({ error: 'Accesso non autorizzato' });
     }
 

@@ -229,7 +229,7 @@ export default function QuotesList() {
   };
 
   const rows = result?.data ?? [];
-  const canCreate = role === 'struttura' || role === 'admin';
+  const canCreate = role === 'struttura';
   const canAssign = role === 'admin' || role === 'supervisore';
   const canDeleteQuote = role === 'admin';
   const canFilterStruttura = role === 'admin' || role === 'supervisore';

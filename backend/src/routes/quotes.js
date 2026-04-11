@@ -302,7 +302,7 @@ router.get('/:id', authenticateToken, (req, res) => {
   })();
 });
 
-router.post('/', authenticateToken, authorizeRoles('struttura', 'admin'), (req, res) => {
+router.post('/', authenticateToken, authorizeRoles('struttura'), (req, res) => {
   (async () => {
     const { tipo_assicurazione_id, assistito, dati_specifici, data_decorrenza, note_struttura } = req.body;
 
@@ -310,7 +310,7 @@ router.post('/', authenticateToken, authorizeRoles('struttura', 'admin'), (req, 
       return res.status(400).json({ error: 'Dati obbligatori mancanti' });
     }
 
-    const struttura_id = req.user.role === 'struttura' ? req.user.id : req.body.struttura_id;
+    const struttura_id = req.user.id;
 
     let assistito_id;
     if (assistito.id) {
