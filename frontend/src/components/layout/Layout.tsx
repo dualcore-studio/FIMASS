@@ -13,10 +13,10 @@ export default function Layout() {
         <PortalBackgroundLayers />
       </div>
       <div className="portal-shell relative z-10 min-h-screen text-slate-900">
-        <Topbar sidebarCollapsed={sidebarCollapsed} />
+        <Topbar />
         <Sidebar collapsed={sidebarCollapsed} onCollapsedChange={setSidebarCollapsed} />
         <main
-          className={`mt-20 min-h-[calc(100vh-5rem)] border-l border-t border-[var(--portal-border)]/80 bg-[var(--portal-main-content-bg)] p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.75)] transition-[margin] duration-200 sm:p-6 lg:rounded-tl-2xl lg:p-8 xl:p-10 ${sidebarCollapsed ? 'ml-16' : 'ml-48'}`}
+          className={`min-h-dvh border-l border-t border-[var(--portal-border)]/80 bg-[var(--portal-main-content-bg)] p-4 pt-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.75)] transition-[margin] duration-200 sm:p-6 lg:rounded-tl-2xl lg:p-8 xl:p-10 ${sidebarCollapsed ? 'ml-16' : 'ml-48'}`}
         >
           <Outlet />
         </main>

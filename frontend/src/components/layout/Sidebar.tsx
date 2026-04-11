@@ -1,4 +1,4 @@
-import { NavLink } from 'react-router-dom';
+import { Link, NavLink } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { getRoleLabel, getUserDisplayName } from '../../utils/helpers';
 import {
@@ -46,9 +46,32 @@ export default function Sidebar({ collapsed, onCollapsedChange }: SidebarProps) 
 
   return (
     <aside
-      className={`fixed left-0 top-20 z-40 flex h-[calc(100vh-5rem)] flex-col border-r border-[var(--portal-sidebar-border)] bg-[var(--portal-sidebar-bg)] shadow-[2px_0_16px_-6px_rgba(15,23,42,0.22)] transition-all duration-200 ${widthClass}`}
+      className={`fixed left-0 top-0 z-40 flex h-dvh max-h-screen flex-col border-r border-[var(--portal-sidebar-border)] bg-[var(--portal-sidebar-bg)] shadow-[2px_0_16px_-6px_rgba(15,23,42,0.22)] transition-all duration-200 ${widthClass}`}
     >
-      <nav className="flex flex-1 flex-col overflow-hidden px-2 pb-3 pt-2">
+      <Link
+        to="/"
+        title="Sportello Amico Servizi — Area Assicurativa"
+        className={`shrink-0 border-b border-[var(--portal-sidebar-border)] outline-none transition-colors duration-200 hover:bg-[var(--portal-nav-surface-logo-hover)] focus-visible:ring-2 focus-visible:ring-white/30 focus-visible:ring-inset ${
+          collapsed ? 'flex items-center justify-center px-2 py-3' : 'flex items-center justify-start px-4 py-3.5'
+        }`}
+      >
+        {collapsed ? (
+          <span className="text-center text-[11px] font-bold leading-tight tracking-tight text-[var(--portal-sidebar-text)]">
+            SAS
+          </span>
+        ) : (
+          <span className="flex min-w-0 flex-col items-start gap-0.5 text-left">
+            <span className="text-sm font-semibold leading-snug text-[var(--portal-sidebar-text)]">
+              Sportello Amico Servizi
+            </span>
+            <span className="text-xs font-medium leading-snug text-[var(--portal-sidebar-muted)]">
+              Area Assicurativa
+            </span>
+          </span>
+        )}
+      </Link>
+
+      <nav className="flex min-h-0 flex-1 flex-col overflow-hidden px-2 pb-3 pt-2">
         <div className="min-h-0 flex-1 space-y-0.5 overflow-y-auto">
           {filteredItems.map((item) => (
             <NavLink
