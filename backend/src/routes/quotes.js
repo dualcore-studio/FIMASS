@@ -4,7 +4,10 @@ const { logActivity } = require('./logs');
 const { list, getById, findOne, insert, upsertById, like, paginate } = require('../data/store');
 const { loadContext, enrichQuote } = require('../data/views');
 const { sortQuotesForList } = require('../utils/practiceListSort');
-const { isQuoteClosedForAssignment } = require('../utils/quoteStato');
+const { isQuoteClosedForAssignment, normalizeQuoteStato } = require('../utils/quoteStato');
+const { sendQuoteAssignedToOperatorMail, sendQuoteStatusChangeToStructureMail } = require('../lib/resend');
+
+const ALLOWED_QUOTE_STATI = new Set(['PRESENTATA', 'ASSEGNATA', 'IN LAVORAZIONE', 'STANDBY', 'ELABORATA']);
 
 const router = express.Router();
 
@@ -328,6 +331,46 @@ router.put('/:id/assign', authenticateToken, authorizeRoles('supervisore', 'admi
       dettaglio: `Preventivo ${quote.numero} ${prevStato === newStato ? 'riassegnato' : 'assegnato'} a ${op.nome} ${op.cognome}`
     });
 
+    const ctxAssign = await loadContext();
+    const enrichedAssign = enrichQuote(await getById('quotes', req.params.id), ctxAssign);
+    const assistitoLabelAssign = [enrichedAssign.assistito_nome, enrichedAssign.assistito_cognome].filter(Boolean).join(' ').trim() || '—';
+    const dataAssegnazione = enrichedAssign.updated_at || new Date().toISOString().slice(0, 19).replace('T', ' ');
+    const opMail = op.email && String(op.email).trim();
+    if (!opMail) {
+      console.warn(`[FIMASS email] Operatore id=${operatore_id} senza email: notifica assegnazione saltata.`);
+    } else {
+      void sendQuoteAssignedToOperatorMail({
+        to: opMail,
+        operatorName: `${op.nome || ''} ${op.cognome || ''}`.trim() || op.username || 'Operatore',
+        quoteId: enrichedAssign.id,
+        quoteNumero: enrichedAssign.numero,
+        assistitoLabel: assistitoLabelAssign,
+        tipoNome: enrichedAssign.tipo_nome || '—',
+        strutturaNome: enrichedAssign.struttura_nome || '—',
+        statoCorrente: enrichedAssign.stato,
+        dataAssegnazione,
+      });
+    }
+    if (prevStato !== newStato) {
+      const strutturaMail = enrichedAssign.struttura_email && String(enrichedAssign.struttura_email).trim();
+      if (!strutturaMail) {
+        console.warn(`[FIMASS email] Struttura id=${enrichedAssign.struttura_id} senza email: notifica cambio stato (assegnazione) saltata.`);
+      } else {
+        void sendQuoteStatusChangeToStructureMail({
+          to: strutturaMail,
+          strutturaNome: enrichedAssign.struttura_nome || 'Struttura',
+          quoteId: enrichedAssign.id,
+          quoteNumero: enrichedAssign.numero,
+          assistitoLabel: assistitoLabelAssign,
+          tipoNome: enrichedAssign.tipo_nome || '—',
+          statoPrecedente: prevStato,
+          statoNuovo: newStato,
+          dataAggiornamento: dataAssegnazione,
+          motivoStandby: null,
+        });
+      }
+    }
+
     res.json({ message: 'Preventivo assegnato con successo' });
   })().catch((err) => {
     console.error('Error assigning quote:', err);
@@ -337,11 +380,20 @@ router.put('/:id/assign', authenticateToken, authorizeRoles('supervisore', 'admi
 
 router.put('/:id/status', authenticateToken, (req, res) => {
   (async () => {
-    const { stato, motivo } = req.body;
-    if (!stato) return res.status(400).json({ error: 'Stato richiesto' });
+    const { stato: statoRaw, motivo } = req.body;
+    if (!statoRaw) return res.status(400).json({ error: 'Stato richiesto' });
 
     const quote = await getById('quotes', req.params.id);
     if (!quote) return res.status(404).json({ error: 'Preventivo non trovato' });
+
+    const statoNormalized = normalizeQuoteStato(statoRaw);
+    if (!ALLOWED_QUOTE_STATI.has(statoNormalized)) {
+      return res.status(400).json({ error: 'Stato non valido' });
+    }
+
+    if (normalizeQuoteStato(quote.stato) === statoNormalized) {
+      return res.json({ message: 'Stato invariato' });
+    }
 
     const validTransitions = {
       'ASSEGNATA': ['IN LAVORAZIONE'],
@@ -351,27 +403,51 @@ router.put('/:id/status', authenticateToken, (req, res) => {
 
     if (req.user.role === 'operatore') {
       if (quote.operatore_id !== req.user.id) return res.status(403).json({ error: 'Non sei l\'operatore assegnato' });
-      if (!validTransitions[quote.stato] || !validTransitions[quote.stato].includes(stato)) {
-        return res.status(400).json({ error: `Transizione da ${quote.stato} a ${stato} non consentita` });
+      if (!validTransitions[quote.stato] || !validTransitions[quote.stato].includes(statoNormalized)) {
+        return res.status(400).json({ error: `Transizione da ${quote.stato} a ${statoNormalized} non consentita` });
       }
     }
 
-    if (stato === 'STANDBY' && !motivo) {
+    if (statoNormalized === 'STANDBY' && !motivo) {
       return res.status(400).json({ error: 'Motivo standby obbligatorio' });
     }
 
-    await upsertById('quotes', req.params.id, { stato });
-    await insert('quote_status_history', { quote_id: Number(req.params.id), stato_precedente: quote.stato, stato_nuovo: stato, motivo: motivo || null, utente_id: req.user.id });
+    const prevStato = quote.stato;
+
+    await upsertById('quotes', req.params.id, { stato: statoNormalized });
+    await insert('quote_status_history', { quote_id: Number(req.params.id), stato_precedente: prevStato, stato_nuovo: statoNormalized, motivo: motivo || null, utente_id: req.user.id });
     await logActivity({
       utente_id: req.user.id,
       utente_nome: getUserDisplayName(req.user),
       ruolo: req.user.role,
-      azione: stato === 'STANDBY' ? 'STANDBY' : 'CAMBIO_STATO',
+      azione: statoNormalized === 'STANDBY' ? 'STANDBY' : 'CAMBIO_STATO',
       modulo: 'preventivi',
       riferimento_id: parseInt(req.params.id),
       riferimento_tipo: 'quote',
-      dettaglio: `Preventivo ${quote.numero}: ${quote.stato} → ${stato}${motivo ? ` (Motivo: ${motivo})` : ''}`
+      dettaglio: `Preventivo ${quote.numero}: ${prevStato} → ${statoNormalized}${motivo ? ` (Motivo: ${motivo})` : ''}`
     });
+
+    const ctxStatus = await loadContext();
+    const enrichedStatus = enrichQuote(await getById('quotes', req.params.id), ctxStatus);
+    const assistitoLabelStatus = [enrichedStatus.assistito_nome, enrichedStatus.assistito_cognome].filter(Boolean).join(' ').trim() || '—';
+    const dataAggiornamento = enrichedStatus.updated_at || new Date().toISOString().slice(0, 19).replace('T', ' ');
+    const strutturaMailStatus = enrichedStatus.struttura_email && String(enrichedStatus.struttura_email).trim();
+    if (!strutturaMailStatus) {
+      console.warn(`[FIMASS email] Struttura id=${enrichedStatus.struttura_id} senza email: notifica cambio stato saltata.`);
+    } else {
+      void sendQuoteStatusChangeToStructureMail({
+        to: strutturaMailStatus,
+        strutturaNome: enrichedStatus.struttura_nome || 'Struttura',
+        quoteId: enrichedStatus.id,
+        quoteNumero: enrichedStatus.numero,
+        assistitoLabel: assistitoLabelStatus,
+        tipoNome: enrichedStatus.tipo_nome || '—',
+        statoPrecedente: prevStato,
+        statoNuovo: statoNormalized,
+        dataAggiornamento,
+        motivoStandby: statoNormalized === 'STANDBY' ? (motivo || null) : null,
+      });
+    }
 
     res.json({ message: 'Stato aggiornato con successo' });
   })().catch((err) => {
