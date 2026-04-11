@@ -1,5 +1,5 @@
 /**
- * Sfondo portale: base off-white e velatura istituzionale molto leggera (stile Sportello Amico).
+ * Sfondo portale: base crema e velatura molto leggera (stile Sportello Amico).
  */
 export function PortalBackgroundLayers() {
   return (

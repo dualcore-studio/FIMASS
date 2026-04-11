@@ -14,9 +14,10 @@
     --ui-primary-hover: #223d66;
     --ui-focus-ring: rgba(42, 77, 126, 0.28);
 
-    --portal-app-bg: #f4f7f9;
-    --portal-app-bg-soft: #eef2f6;
-    --portal-main-content-bg: #f4f7f9;
+    /* Sfondo area contenuti: crema caldo (sidebar e topbar usano altri token) */
+    --portal-app-bg: #f9f5eb;
+    --portal-app-bg-soft: #f1e9db;
+    --portal-main-content-bg: #f9f5eb;
     --portal-surface-card: #ffffff;
     --portal-border-subtle: #e8ecf1;
     --portal-text-primary: #0f172a;
