@@ -110,9 +110,8 @@ export default function SupervisorDashboard() {
     <div className="mx-auto w-full max-w-[88rem] space-y-7 lg:space-y-8">
       <DashboardPageHeader
         title="Dashboard"
-        welcomeLine={user ? `Operatività — ${getUserDisplayName(user)}` : undefined}
+        welcomeLine={user ? `Bentornato, ${getUserDisplayName(user)}` : undefined}
         dateLabel={todayLabel}
-        description="Monitoraggio preventivi, code di assegnazione e alert operativi per coordinare lo sportello."
         actions={
           <>
             <Link

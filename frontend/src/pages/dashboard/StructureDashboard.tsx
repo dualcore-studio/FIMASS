@@ -152,9 +152,8 @@ export default function StructureDashboard() {
     <div className="mx-auto w-full max-w-[88rem] space-y-7 lg:space-y-8">
       <DashboardPageHeader
         title="Dashboard"
-        welcomeLine={user ? `Area struttura — ${getUserDisplayName(user)}` : undefined}
+        welcomeLine={user ? `Bentornato, ${getUserDisplayName(user)}` : undefined}
         dateLabel={todayLabel}
-        description="Gestione richieste e stato delle pratiche della tua struttura su Sportello Amico."
         actions={
           <>
             <Link

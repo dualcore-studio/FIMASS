@@ -251,7 +251,6 @@ export default function AdminDashboard() {
         title="Dashboard"
         welcomeLine={user ? `Bentornato, ${getUserDisplayName(user)}` : undefined}
         dateLabel={todayLabel}
-        description="Centro di controllo dove intervenire, dove si accumula il lavoro e cosa segnala il sistema."
       />
 
       <section aria-label="Alert principali" className="pt-1">
@@ -261,28 +260,24 @@ export default function AdminDashboard() {
             label="Pratiche non assegnate"
             value={alerts.pratiche_non_assegnate}
             to="/preventivi?alert=unassigned"
-            accent="institutional"
             valueTone="institutional"
           />
           <DashboardSummaryCard
             label="Polizze senza avanzamento"
             value={alerts.polizze_senza_avanzamento}
             to="/polizze?alert=stale_policies"
-            accent="work"
             valueTone="work"
           />
           <DashboardSummaryCard
             label="Stand-by prolungato"
             value={alerts.standby_prolungato}
             to="/preventivi?alert=standby_long"
-            accent="standby"
             valueTone="standby"
           />
           <DashboardSummaryCard
             label="Pratiche ferme"
             value={alerts.pratiche_ferme}
             to="/preventivi?alert=stale_quotes"
-            accent="risk"
             valueTone="risk"
           />
         </div>
@@ -297,7 +292,6 @@ export default function AdminDashboard() {
             icon={FileText}
             rows={presentedRows}
             onRowClick={openAssignModal}
-            accent="institutional"
           />
           <DashboardWorkColumn
             title="In lavorazione"
@@ -305,10 +299,9 @@ export default function AdminDashboard() {
             icon={Clock3}
             rows={inLavorazioneRows}
             onRowClick={openSollecitoModal}
-            accent="work"
           />
-          <DashboardWorkColumn title="Polizze richieste" value={richieste} icon={Shield} rows={richiesteRows} accent="info" />
-          <DashboardWorkColumn title="Polizze emesse" value={emesse} icon={ReceiptText} rows={emesseRows} accent="done" />
+          <DashboardWorkColumn title="Polizze richieste" value={richieste} icon={Shield} rows={richiesteRows} />
+          <DashboardWorkColumn title="Polizze emesse" value={emesse} icon={ReceiptText} rows={emesseRows} />
         </div>
       </section>
 
@@ -428,16 +421,8 @@ interface DashboardSummaryCardProps {
   label: string;
   value: number;
   to: string;
-  accent: SummaryAccent;
   valueTone: SummaryAccent;
 }
-
-const summaryAccentClass: Record<SummaryAccent, string> = {
-  institutional: 'kpi-accent-institutional',
-  work: 'kpi-accent-work',
-  standby: 'kpi-accent-standby',
-  risk: 'kpi-accent-risk',
-};
 
 const summaryValueClass: Record<SummaryAccent, string> = {
   institutional: 'kpi-value-institutional',
@@ -446,10 +431,10 @@ const summaryValueClass: Record<SummaryAccent, string> = {
   risk: 'kpi-value-risk',
 };
 
-function DashboardSummaryCard({ label, value, to, accent, valueTone }: DashboardSummaryCardProps) {
+function DashboardSummaryCard({ label, value, to, valueTone }: DashboardSummaryCardProps) {
   return (
     <article
-      className={`rounded-2xl border border-slate-200/85 bg-white px-5 py-4 text-center shadow-[0_1px_2px_rgba(30,45,77,0.05),0_8px_28px_-12px_rgba(30,45,77,0.09)] ${summaryAccentClass[accent]}`}
+      className="kpi-card-top-bar rounded-2xl border border-slate-200/85 bg-white px-5 py-4 text-center shadow-[0_1px_2px_rgba(30,45,77,0.05),0_8px_28px_-12px_rgba(30,45,77,0.09)]"
     >
       <h2 className="text-xs font-semibold uppercase tracking-wide text-slate-600">{label}</h2>
       <p className={`mt-1 text-[2rem] font-semibold leading-none tabular-nums ${summaryValueClass[valueTone]}`}>{value}</p>
@@ -463,23 +448,13 @@ function DashboardSummaryCard({ label, value, to, accent, valueTone }: Dashboard
   );
 }
 
-type WorkColumnAccent = 'institutional' | 'work' | 'info' | 'done';
-
 interface DashboardWorkColumnProps {
   title: string;
   value: number;
   icon: LucideIcon;
   rows?: Array<{ id: number; title: string; subtitle?: string; meta?: string }>;
   onRowClick?: (id: number) => void;
-  accent: WorkColumnAccent;
 }
-
-const workColumnAccentClass: Record<WorkColumnAccent, string> = {
-  institutional: 'kpi-accent-institutional',
-  work: 'kpi-accent-work',
-  info: 'kpi-accent-info',
-  done: 'kpi-accent-done',
-};
 
 function DashboardWorkColumn({
   title,
@@ -487,11 +462,10 @@ function DashboardWorkColumn({
   icon: Icon,
   rows = [],
   onRowClick,
-  accent,
 }: DashboardWorkColumnProps) {
   return (
     <article
-      className={`min-h-[27rem] rounded-2xl border border-slate-200/85 bg-white px-4 py-4 shadow-[0_1px_2px_rgba(30,45,77,0.05),0_8px_28px_-12px_rgba(30,45,77,0.09)] ${workColumnAccentClass[accent]}`}
+      className="kpi-card-top-bar min-h-[27rem] rounded-2xl border border-slate-200/85 bg-white px-4 py-4 shadow-[0_1px_2px_rgba(30,45,77,0.05),0_8px_28px_-12px_rgba(30,45,77,0.09)]"
     >
       <div className="flex items-start justify-between gap-3">
         <div className="flex items-center gap-2">

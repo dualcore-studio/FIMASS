@@ -44,6 +44,9 @@
     --portal-sidebar-border: var(--sa-navy-border);
 
     /* KPI / state accents (top borders & highlights) */
+    /* Barra superiore unificata sulle card dashboard (stile portale) */
+    --kpi-card-top-bar: #1a4382;
+
     --kpi-accent-institutional: #3d5f8f;
     --kpi-accent-info: #5c8ec9;
     --kpi-accent-work: #c77d32;
@@ -130,7 +133,12 @@
     background-color: rgba(248, 250, 252, 0.92);
   }
 
-  /* KPI accent utilities */
+  /* Barra colorata in cima alle card KPI / riepiloghi */
+  .kpi-card-top-bar {
+    border-top: 4px solid var(--kpi-card-top-bar);
+  }
+
+  /* KPI accent utilities (bordo top legacy — preferire .kpi-card-top-bar sulle card) */
   .kpi-accent-institutional {
     border-top: 3px solid var(--kpi-accent-institutional);
   }

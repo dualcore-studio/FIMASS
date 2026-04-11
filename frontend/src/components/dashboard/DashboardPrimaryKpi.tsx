@@ -20,17 +20,6 @@ interface DashboardPrimaryKpiProps {
   variant?: 'default' | 'attention';
 }
 
-const accentTopClass: Record<DashboardKpiAccent, string> = {
-  default: 'kpi-accent-default',
-  info: 'kpi-accent-info',
-  institutional: 'kpi-accent-institutional',
-  work: 'kpi-accent-work',
-  standby: 'kpi-accent-standby',
-  risk: 'kpi-accent-risk',
-  done: 'kpi-accent-done',
-  attention: 'kpi-accent-attention',
-};
-
 const valueToneClass: Record<DashboardKpiAccent, string> = {
   default: 'kpi-value-neutral',
   info: 'kpi-value-info',
@@ -50,13 +39,12 @@ export default function DashboardPrimaryKpi({
   variant = 'default',
 }: DashboardPrimaryKpiProps) {
   const isAttention = variant === 'attention';
-  const topAccent = isAttention ? 'attention' : accent;
 
   return (
     <div
-      className={`group relative overflow-hidden rounded-2xl border border-slate-200/85 bg-white px-4 py-4 shadow-[0_1px_2px_rgba(30,45,77,0.05),0_8px_28px_-12px_rgba(30,45,77,0.1)] sm:px-5 sm:py-5 ${
-        accentTopClass[topAccent]
-      } ${isAttention ? 'ring-1 ring-amber-200/65' : ''}`}
+      className={`kpi-card-top-bar group relative overflow-hidden rounded-2xl border border-slate-200/85 bg-white px-4 py-4 shadow-[0_1px_2px_rgba(30,45,77,0.05),0_8px_28px_-12px_rgba(30,45,77,0.1)] sm:px-5 sm:py-5 ${
+        isAttention ? 'ring-1 ring-amber-200/65' : ''
+      }`}
     >
       <div className="relative flex items-start justify-between gap-3">
         <div className="min-w-0 flex-1">
