@@ -22,9 +22,7 @@ interface QuoteStats {
 
 interface PolicyStats {
   'RICHIESTA PRESENTATA': number;
-  'IN VERIFICA': number;
-  'DOCUMENTAZIONE MANCANTE': number;
-  'PRONTA PER EMISSIONE': number;
+  'IN EMISSIONE': number;
   EMESSA: number;
   totale: number;
 }
@@ -49,9 +47,7 @@ export default function StructureDashboard() {
     };
     const emptyPolicyStats: PolicyStats = {
       'RICHIESTA PRESENTATA': 0,
-      'IN VERIFICA': 0,
-      'DOCUMENTAZIONE MANCANTE': 0,
-      'PRONTA PER EMISSIONE': 0,
+      'IN EMISSIONE': 0,
       EMESSA: 0,
       totale: 0,
     };
@@ -141,9 +137,8 @@ export default function StructureDashboard() {
   ];
 
   const pipelinePolizze = [
-    { label: 'In verifica', value: policyStats['IN VERIFICA'] },
-    { label: 'Documentazione mancante', value: policyStats['DOCUMENTAZIONE MANCANTE'] },
-    { label: 'Pronte per emissione', value: policyStats['PRONTA PER EMISSIONE'] },
+    { label: 'Richiesta presentata', value: policyStats['RICHIESTA PRESENTATA'] },
+    { label: 'In emissione', value: policyStats['IN EMISSIONE'] },
     { label: 'Emesse', value: policyStats.EMESSA },
     { label: 'Totale polizze', value: policyStats.totale },
   ];
@@ -308,7 +303,7 @@ export default function StructureDashboard() {
                           <div className="flex flex-col items-end gap-2 sm:flex-row sm:justify-end">
                             {showPolicyCta && (
                               <Link
-                                to={`/preventivi/${q.id}`}
+                                to={`/polizze/nuova?quote_id=${q.id}`}
                                 className="btn-success inline-flex items-center gap-1.5 whitespace-nowrap py-1.5 px-3 text-xs"
                               >
                                 Richiedi emissione polizza

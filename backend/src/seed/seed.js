@@ -306,13 +306,13 @@ const insertPolicy = db.prepare(`
 const insertPolicyHistory = db.prepare(`INSERT INTO policy_status_history (policy_id, stato_precedente, stato_nuovo, utente_id, created_at) VALUES (?, ?, ?, ?, ?)`);
 
 const policiesTx = db.transaction(() => {
-  insertPolicy.run('POL-2026-00001', 1, 1, 1, 7, 4, 'IN VERIFICA',
+  insertPolicy.run('POL-2026-00001', 1, 1, 1, 7, 4, 'IN EMISSIONE',
     JSON.stringify({ targa: 'NA123AB', tipo_veicolo: 'Auto', marca: 'Fiat', modello: 'Panda' }),
     'Pagamento effettuato tramite bonifico',
     '2026-03-18 09:00:00', '2026-03-20 14:00:00');
 
   insertPolicyHistory.run(1, null, 'RICHIESTA PRESENTATA', 7, '2026-03-18 09:00:00');
-  insertPolicyHistory.run(1, 'RICHIESTA PRESENTATA', 'IN VERIFICA', 2, '2026-03-20 14:00:00');
+  insertPolicyHistory.run(1, 'RICHIESTA PRESENTATA', 'IN EMISSIONE', 2, '2026-03-20 14:00:00');
 });
 policiesTx();
 

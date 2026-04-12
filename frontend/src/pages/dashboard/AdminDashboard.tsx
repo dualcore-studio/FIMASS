@@ -22,9 +22,7 @@ interface QuoteStats {
 
 interface PolicyStats {
   'RICHIESTA PRESENTATA': number;
-  'IN VERIFICA': number;
-  'DOCUMENTAZIONE MANCANTE': number;
-  'PRONTA PER EMISSIONE': number;
+  'IN EMISSIONE': number;
   EMESSA: number;
   totale: number;
 }

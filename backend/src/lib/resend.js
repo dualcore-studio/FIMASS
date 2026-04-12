@@ -22,6 +22,12 @@ function buildPracticeUrl(quoteId) {
   return `${appUrl}/preventivi/${quoteId}`;
 }
 
+function buildPolicyUrl(policyId) {
+  const { appUrl } = getMailEnv();
+  if (!appUrl || policyId == null) return null;
+  return `${appUrl}/polizze/${policyId}`;
+}
+
 function emailShell(title, innerHtml) {
   return `<!DOCTYPE html>
 <html lang="it">
@@ -168,6 +174,61 @@ async function sendQuoteAssignedToOperatorMail({
 /**
  * Notifica struttura: aggiornamento stato pratica preventivo.
  */
+/**
+ * Notifica operatore: richiesta emissione polizza da struttura.
+ */
+async function sendPolicyEmissionRequestedToOperatorMail({
+  to,
+  operatorName,
+  policyId,
+  policyNumero,
+  quoteId,
+  quoteNumero,
+  strutturaNome,
+  assistitoLabel,
+  tipoNome,
+  dataRichiesta,
+  noteStruttura,
+}) {
+  try {
+    const policyUrl = buildPolicyUrl(policyId);
+    const practiceUrl = buildPracticeUrl(quoteId);
+    const linkPolicy = policyUrl
+      ? `<p style="margin:20px 0 0;"><a href="${escapeHtml(policyUrl)}" style="display:inline-block;background:#0f172a;color:#f8fafc;text-decoration:none;padding:10px 18px;border-radius:6px;font-weight:600;">Apri la richiesta polizza</a></p>`
+      : '';
+    const linkPractice = practiceUrl
+      ? `<p style="margin:8px 0 0;"><a href="${escapeHtml(practiceUrl)}" style="color:#0f172a;font-weight:600;">Preventivo collegato</a></p>`
+      : '';
+    const noteBlock =
+      noteStruttura && String(noteStruttura).trim()
+        ? row('Note dalla struttura', String(noteStruttura).trim())
+        : '';
+    const inner = `
+      <p style="margin:0 0 16px;">Gentile <strong>${escapeHtml(operatorName)}</strong>,</p>
+      <p style="margin:0 0 16px;">è stata presentata una <strong>richiesta di emissione polizza</strong> collegata a un preventivo elaborato. Di seguito il riepilogo.</p>
+      <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="border-collapse:collapse;">
+        ${row('Polizza (richiesta)', `${policyNumero} (ID ${policyId})`)}
+        ${row('Preventivo di origine', `${quoteNumero} (ID ${quoteId})`)}
+        ${row('Struttura richiedente', strutturaNome)}
+        ${row('Assistito', assistitoLabel)}
+        ${row('Tipologia', tipoNome)}
+        ${row('Data richiesta', dataRichiesta)}
+        ${noteBlock}
+      </table>
+      ${linkPolicy}
+      ${linkPractice}
+    `;
+    const html = emailShell('Richiesta emissione polizza', inner);
+    await sendHtmlEmail({
+      to,
+      subject: 'Richiesta emissione polizza - FIMASS',
+      html,
+    });
+  } catch (err) {
+    console.error('[FIMASS email] sendPolicyEmissionRequestedToOperatorMail:', err);
+  }
+}
+
 async function sendQuoteStatusChangeToStructureMail({
   to,
   strutturaNome,
@@ -217,6 +278,8 @@ async function sendQuoteStatusChangeToStructureMail({
 module.exports = {
   getMailEnv,
   buildPracticeUrl,
+  buildPolicyUrl,
   sendQuoteAssignedToOperatorMail,
   sendQuoteStatusChangeToStructureMail,
+  sendPolicyEmissionRequestedToOperatorMail,
 };

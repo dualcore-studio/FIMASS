@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useState, type ReactNode } from 'react';
-import { Link, useSearchParams } from 'react-router-dom';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import {
-  Eye,
   Shield,
 } from 'lucide-react';
 import { api, ApiError } from '../../utils/api';
@@ -14,11 +13,10 @@ import { TABLE_PAGE_SIZE } from '../../constants/tablePagination';
 import { useSyncPageToTotalPages } from '../../hooks/useSyncPageToTotalPages';
 import { useListTableSort } from '../../hooks/useListTableSort';
 import SortableTh from '../../components/common/SortableTh';
+import PolicyRowActions from '../../components/policies/PolicyRowActions';
 const STATI = [
   'RICHIESTA PRESENTATA',
-  'IN VERIFICA',
-  'DOCUMENTAZIONE MANCANTE',
-  'PRONTA PER EMISSIONE',
+  'IN EMISSIONE',
   'EMESSA',
 ] as const;
 
@@ -68,6 +66,7 @@ function FilterCell({ id, label, children }: { id: string; label: string; childr
 
 export default function PoliciesList() {
   const [searchParams] = useSearchParams();
+  const navigate = useNavigate();
   const { user: currentUser } = useAuth();
   const role = currentUser?.role;
   const alertFilter = searchParams.get('alert') ?? '';
@@ -91,6 +90,7 @@ export default function PoliciesList() {
   const [insuranceTypes, setInsuranceTypes] = useState<InsuranceType[]>([]);
   const [structures, setStructures] = useState<User[]>([]);
   const [operators, setOperators] = useState<User[]>([]);
+  const [actionError, setActionError] = useState<string | null>(null);
 
   const tableSort = useListTableSort();
 
@@ -187,10 +187,14 @@ export default function PoliciesList() {
         <div>
           <h1 className="text-2xl font-bold tracking-tight text-gray-900">Polizze</h1>
           <p className="mt-1 max-w-2xl text-sm text-gray-600">
-            Gestione delle polizze assicurative emesse.
+            Gestione delle richieste di emissione e delle polizze emesse.
           </p>
         </div>
       </header>
+
+      {actionError ? (
+        <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">{actionError}</div>
+      ) : null}
 
       {/* Filters — toolbar compatta (una riga su desktop) */}
       <div className="card px-2.5 py-2 sm:px-3 sm:py-2">
@@ -427,14 +431,17 @@ export default function PoliciesList() {
                       </td>
                       <td className="px-4 py-3">
                         <div className="flex items-center justify-end">
-                          <Link
-                            to={`/polizze/${p.id}`}
-                            className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-gray-200 bg-white px-3 text-xs font-medium text-gray-600 transition hover:border-blue-300 hover:bg-blue-50 hover:text-blue-700"
-                            title="Apri"
-                          >
-                            <Eye className="h-3.5 w-3.5" />
-                            Apri
-                          </Link>
+                          <PolicyRowActions
+                            policy={p}
+                            variant={
+                              role === 'struttura'
+                                ? 'struttura'
+                                : 'backoffice'
+                            }
+                            onNavigateOpen={(id) => navigate(`/polizze/${id}`)}
+                            onActionError={setActionError}
+                            onRefresh={fetchPolicies}
+                          />
                         </div>
                       </td>
                     </tr>

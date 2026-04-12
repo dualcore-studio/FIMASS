@@ -285,6 +285,25 @@ router.put('/reminders/:id/read', authenticateToken, authorizeRoles('operatore')
   })();
 });
 
+/** Preventivi elaborati senza polizza: per flusso "nuova polizza" lato struttura. */
+router.get('/eligible-for-policy', authenticateToken, authorizeRoles('struttura'), (req, res) => {
+  (async () => {
+    try {
+      const ctx = await loadContext();
+      const quotes = ctx.quotes
+        .filter((q) => Number(q.struttura_id) === Number(req.user.id))
+        .filter((q) => normalizeQuoteStato(q.stato) === 'ELABORATA')
+        .filter((q) => !Number(q.has_policy))
+        .map((q) => enrichQuote(q, ctx))
+        .sort((a, b) => String(b.updated_at || '').localeCompare(String(a.updated_at || '')));
+      res.json(quotes);
+    } catch (err) {
+      console.error('Error fetching quotes eligible for policy:', err);
+      res.status(500).json({ error: 'Errore nel recupero preventivi' });
+    }
+  })();
+});
+
 router.get('/:id/summary-pdf', authenticateToken, (req, res) => {
   (async () => {
     const quoteId = parseInt(req.params.id, 10);

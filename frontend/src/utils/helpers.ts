@@ -72,11 +72,12 @@ export function getPolicyStatusColor(stato: string): string {
   const normalized = /^COMPLETATA$/i.test(key) ? 'COMPLETATA' : key;
   const colors: Record<string, string> = {
     'RICHIESTA PRESENTATA': STATUS_CLASS_PRESENTATA,
-    'IN VERIFICA': STATUS_CLASS_ASSEGNATA,
-    'DOCUMENTAZIONE MANCANTE': STATUS_CLASS_STANDBY,
-    'PRONTA PER EMISSIONE': STATUS_CLASS_LAVORAZIONE,
+    'IN EMISSIONE': STATUS_CLASS_LAVORAZIONE,
     EMESSA: STATUS_CLASS_COMPLETATA,
     COMPLETATA: STATUS_CLASS_COMPLETATA,
+    'IN VERIFICA': STATUS_CLASS_LAVORAZIONE,
+    'DOCUMENTAZIONE MANCANTE': STATUS_CLASS_LAVORAZIONE,
+    'PRONTA PER EMISSIONE': STATUS_CLASS_LAVORAZIONE,
   };
   return colors[normalized] || 'bg-[var(--badge-soft-slate-bg)] text-[var(--badge-soft-slate-text)]';
 }

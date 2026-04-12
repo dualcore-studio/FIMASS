@@ -10,7 +10,6 @@ import {
   History,
   LayoutDashboard,
   ExternalLink,
-  ChevronDown,
 } from 'lucide-react';
 import { api, ApiError } from '../../utils/api';
 import type { Policy, Attachment, StatusHistory } from '../../types';
@@ -26,14 +25,6 @@ const TABS: { key: Tab; label: string; icon: typeof LayoutDashboard }[] = [
   { key: 'storico', label: 'Storico', icon: History },
 ];
 
-const POLICY_STATI = [
-  'RICHIESTA PRESENTATA',
-  'IN VERIFICA',
-  'DOCUMENTAZIONE MANCANTE',
-  'PRONTA PER EMISSIONE',
-  'EMESSA',
-] as const;
-
 function displayUserName(item: { nome?: string; cognome?: string; denominazione?: string; role?: string }): string {
   if (item.role === 'struttura' && item.denominazione) return item.denominazione;
   return [item.nome, item.cognome].filter(Boolean).join(' ') || 'Utente';
@@ -48,11 +39,7 @@ export default function PolicyDetail() {
   const [policy, setPolicy] = useState<Policy | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [actionError, setActionError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<Tab>('dati');
-
-  const [statusSubmitting, setStatusSubmitting] = useState(false);
-  const [showStatusDropdown, setShowStatusDropdown] = useState(false);
 
   const [uploadFile, setUploadFile] = useState<File | null>(null);
   const [uploadTipo, setUploadTipo] = useState('documento');
@@ -77,21 +64,6 @@ export default function PolicyDetail() {
     fetchPolicy();
   }, [fetchPolicy]);
 
-  const handleStatusChange = async (newStato: string) => {
-    if (!id) return;
-    setActionError(null);
-    setStatusSubmitting(true);
-    setShowStatusDropdown(false);
-    try {
-      await api.put(`/policies/${id}/status`, { stato: newStato });
-      await fetchPolicy();
-    } catch (e) {
-      setActionError(e instanceof ApiError ? e.message : 'Cambio stato non riuscito.');
-    } finally {
-      setStatusSubmitting(false);
-    }
-  };
-
   const handleUpload = async () => {
     if (!id || !uploadFile) return;
     setUploadError(null);
@@ -111,8 +83,6 @@ export default function PolicyDetail() {
       setUploading(false);
     }
   };
-
-  const canChangeStatus = role === 'admin' || role === 'supervisore' || role === 'operatore';
 
   if (loading) {
     return (
@@ -135,8 +105,6 @@ export default function PolicyDetail() {
       </div>
     );
   }
-
-  const availableTransitions = POLICY_STATI.filter((s) => s !== policy.stato);
 
   return (
     <div className="space-y-6">
@@ -178,44 +146,8 @@ export default function PolicyDetail() {
             </Link>
           )}
 
-          {canChangeStatus && (
-            <div className="relative">
-              <button
-                onClick={() => setShowStatusDropdown(!showStatusDropdown)}
-                disabled={statusSubmitting}
-                className="btn-primary"
-              >
-                {statusSubmitting ? 'Aggiornamento…' : 'Cambia Stato'}
-                <ChevronDown className="h-4 w-4" />
-              </button>
-              {showStatusDropdown && (
-                <>
-                  <div
-                    className="fixed inset-0 z-10 cursor-pointer"
-                    onClick={() => setShowStatusDropdown(false)}
-                    aria-hidden
-                  />
-                  <div className="absolute right-0 top-full z-20 mt-1 w-56 rounded-lg border border-gray-200 bg-white py-1 shadow-lg">
-                    {availableTransitions.map((stato) => (
-                      <button
-                        key={stato}
-                        onClick={() => handleStatusChange(stato)}
-                        className="flex w-full items-center gap-2 px-4 py-2.5 text-left text-sm text-gray-700 hover:bg-gray-50"
-                      >
-                        <StatusBadge stato={stato} type="policy" />
-                      </button>
-                    ))}
-                  </div>
-                </>
-              )}
-            </div>
-          )}
         </div>
       </div>
-
-      {actionError && (
-        <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">{actionError}</div>
-      )}
 
       {/* Tabs */}
       <div className="border-b border-gray-200">
@@ -246,6 +178,8 @@ export default function PolicyDetail() {
         {activeTab === 'dati' && <TabDati policy={policy} />}
         {activeTab === 'allegati' && (
           <TabAllegati
+            role={role}
+            policyStato={policy.stato}
             attachments={policy.attachments || []}
             uploadFile={uploadFile}
             setUploadFile={setUploadFile}
@@ -341,6 +275,8 @@ function InfoRow({ label, value, mono }: { label: string; value?: string | null;
 /* ───────────── Tab: Allegati ───────────── */
 
 interface TabAllegatiProps {
+  role?: string;
+  policyStato: string;
   attachments: Attachment[];
   uploadFile: File | null;
   setUploadFile: (f: File | null) => void;
@@ -351,42 +287,65 @@ interface TabAllegatiProps {
   onUpload: () => void;
 }
 
-function TabAllegati({ attachments, uploadFile, setUploadFile, uploadTipo, setUploadTipo, uploading, uploadError, onUpload }: TabAllegatiProps) {
+function TabAllegati({
+  role,
+  policyStato,
+  attachments,
+  uploadFile,
+  setUploadFile,
+  uploadTipo,
+  setUploadTipo,
+  uploading,
+  uploadError,
+  onUpload,
+}: TabAllegatiProps) {
+  const canUpload = role === 'admin' || role === 'supervisore' || role === 'operatore';
+  const showPolizzaTipo = policyStato === 'IN EMISSIONE' || policyStato === 'EMESSA';
+
   return (
     <div className="space-y-6">
-      <div className="card p-6">
-        <h3 className="mb-4 text-sm font-semibold uppercase tracking-wider text-gray-500">Carica Allegato</h3>
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
-          <div className="flex-1">
-            <label htmlFor="upload-file" className="mb-1 block text-sm font-medium text-gray-700">File</label>
-            <input
-              id="upload-file"
-              type="file"
-              onChange={(e) => setUploadFile(e.target.files?.[0] || null)}
-              className="input-field text-sm file:mr-3 file:rounded-md file:border-0 file:bg-blue-50 file:px-3 file:py-1 file:text-xs file:font-medium file:text-blue-700 hover:file:bg-blue-100"
-            />
+      {canUpload ? (
+        <div className="card p-6">
+          <h3 className="mb-4 text-sm font-semibold uppercase tracking-wider text-gray-500">Carica allegato</h3>
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
+            <div className="flex-1">
+              <label htmlFor="upload-file" className="mb-1 block text-sm font-medium text-gray-700">File</label>
+              <input
+                id="upload-file"
+                type="file"
+                onChange={(e) => setUploadFile(e.target.files?.[0] || null)}
+                className="input-field text-sm file:mr-3 file:rounded-md file:border-0 file:bg-blue-50 file:px-3 file:py-1 file:text-xs file:font-medium file:text-blue-700 hover:file:bg-blue-100"
+              />
+            </div>
+            <div className="min-w-[180px]">
+              <label htmlFor="upload-tipo" className="mb-1 block text-sm font-medium text-gray-700">Tipo</label>
+              <select id="upload-tipo" value={uploadTipo} onChange={(e) => setUploadTipo(e.target.value)} className="input-field">
+                <option value="documento">Documento</option>
+                <option value="ricevuta_pagamento">Ricevuta di pagamento</option>
+                {showPolizzaTipo ? <option value="polizza_emessa">Polizza emessa (file finale)</option> : null}
+                <option value="altro">Altro</option>
+              </select>
+            </div>
+            <button
+              type="button"
+              onClick={onUpload}
+              disabled={!uploadFile || uploading || (uploadTipo === 'polizza_emessa' && policyStato !== 'IN EMISSIONE')}
+              className="btn-primary shrink-0"
+            >
+              <Upload className="h-4 w-4" />
+              {uploading ? 'Caricamento…' : 'Carica'}
+            </button>
           </div>
-          <div className="min-w-[180px]">
-            <label htmlFor="upload-tipo" className="mb-1 block text-sm font-medium text-gray-700">Tipo</label>
-            <select id="upload-tipo" value={uploadTipo} onChange={(e) => setUploadTipo(e.target.value)} className="input-field">
-              <option value="documento">Documento</option>
-              <option value="ricevuta_pagamento">Ricevuta di pagamento</option>
-              <option value="polizza_emessa">Polizza emessa</option>
-              <option value="altro">Altro</option>
-            </select>
-          </div>
-          <button
-            type="button"
-            onClick={onUpload}
-            disabled={!uploadFile || uploading}
-            className="btn-primary shrink-0"
-          >
-            <Upload className="h-4 w-4" />
-            {uploading ? 'Caricamento…' : 'Carica'}
-          </button>
+          {uploadTipo === 'polizza_emessa' && policyStato !== 'IN EMISSIONE' ? (
+            <p className="mt-2 text-sm text-amber-800">Il file finale si allega quando la polizza è in stato «In emissione» (anche dal menu Azioni nell&apos;elenco).</p>
+          ) : null}
+          {uploadError && <p className="mt-2 text-sm text-red-600">{uploadError}</p>}
         </div>
-        {uploadError && <p className="mt-2 text-sm text-red-600">{uploadError}</p>}
-      </div>
+      ) : (
+        <div className="card p-6 text-sm text-gray-600">
+          Gli allegati vengono gestiti dalla struttura in fase di richiesta o dall&apos;operatore in gestione pratica. Puoi scaricare i documenti disponibili dalla tabella sotto.
+        </div>
+      )}
 
       <div className="card overflow-hidden">
         {attachments.length === 0 ? (

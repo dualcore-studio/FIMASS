@@ -1,4 +1,5 @@
 const { fetchAllTables } = require('./store');
+const { normalizePolicyStato } = require('../utils/policyStato');
 
 function parseMaybeJson(value) {
   if (value == null) return null;
@@ -61,8 +62,14 @@ function enrichPolicy(policy, ctx) {
   const struttura = ctx.usersById.get(Number(policy.struttura_id)) || {};
   const operatore = ctx.usersById.get(Number(policy.operatore_id)) || {};
   const quote = ctx.quotesById.get(Number(policy.quote_id)) || {};
+  const polAtts = (ctx.attachments || []).filter(
+    (a) => a.entity_type === 'policy' && Number(a.entity_id) === Number(policy.id),
+  );
+  const ricevuta = polAtts.find((a) => a.tipo === 'ricevuta_pagamento');
+  const polizzaFinale = polAtts.find((a) => a.tipo === 'polizza_emessa');
   return {
     ...policy,
+    stato: normalizePolicyStato(policy.stato),
     assistito_nome: assisted.nome,
     assistito_cognome: assisted.cognome,
     assistito_cf: assisted.codice_fiscale,
@@ -77,6 +84,8 @@ function enrichPolicy(policy, ctx) {
     preventivo_numero: quote.numero,
     preventivo_id: quote.id,
     dati_specifici: parseMaybeJson(policy.dati_specifici),
+    ricevuta_pagamento_attachment_id: ricevuta ? Number(ricevuta.id) : null,
+    polizza_emessa_attachment_id: polizzaFinale ? Number(polizzaFinale.id) : null,
   };
 }
 

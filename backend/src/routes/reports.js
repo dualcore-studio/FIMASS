@@ -1,6 +1,6 @@
 const express = require('express');
 const { list } = require('../data/store');
-const { loadContext } = require('../data/views');
+const { loadContext, enrichPolicy } = require('../data/views');
 const { authenticateToken, authorizeRoles } = require('../middleware/auth');
 
 const router = express.Router();
@@ -9,8 +9,9 @@ router.get('/overview', authenticateToken, authorizeRoles('admin', 'supervisore'
   (async () => {
     const { data_da, data_a } = req.query;
     try {
-      let quotes = await list('quotes');
-      let policies = await list('policies');
+      const ctx = await loadContext();
+      let quotes = [...ctx.quotes];
+      let policies = [...ctx.policies];
       if (data_da && data_a) {
         const end = `${data_a} 23:59:59`;
         quotes = quotes.filter((q) => String(q.created_at || '') >= data_da && String(q.created_at || '') <= end);
@@ -19,7 +20,10 @@ router.get('/overview', authenticateToken, authorizeRoles('admin', 'supervisore'
       const quoteCounts = {};
       ['PRESENTATA', 'ASSEGNATA', 'IN LAVORAZIONE', 'STANDBY', 'ELABORATA'].forEach((s) => { quoteCounts[s] = quotes.filter((q) => q.stato === s).length; });
       const policyCounts = {};
-      ['RICHIESTA PRESENTATA', 'IN VERIFICA', 'DOCUMENTAZIONE MANCANTE', 'PRONTA PER EMISSIONE', 'EMESSA'].forEach((s) => { policyCounts[s] = policies.filter((p) => p.stato === s).length; });
+      const enrichedPolicies = policies.map((p) => enrichPolicy(p, ctx));
+      ['RICHIESTA PRESENTATA', 'IN EMISSIONE', 'EMESSA'].forEach((s) => {
+        policyCounts[s] = enrichedPolicies.filter((p) => p.stato === s).length;
+      });
       const totalQuotes = Object.values(quoteCounts).reduce((a, b) => a + b, 0);
       const totalPolicies = Object.values(policyCounts).reduce((a, b) => a + b, 0);
       const conversionRate = totalQuotes > 0 ? ((totalPolicies / totalQuotes) * 100).toFixed(1) : 0;
@@ -132,11 +136,14 @@ router.get('/alerts', authenticateToken, authorizeRoles('admin', 'supervisore'),
   (async () => {
     try {
       const quotes = await list('quotes');
-      const policies = await list('policies');
       const daysAgo = (d) => new Date(Date.now() - d * 86400000).toISOString().slice(0, 19).replace('T', ' ');
       const unassigned = quotes.filter((q) => q.stato === 'PRESENTATA' && (q.operatore_id == null)).length;
       const standbyLong = quotes.filter((q) => q.stato === 'STANDBY' && String(q.updated_at || '') <= daysAgo(7)).length;
-      const stalePolicies = policies.filter((p) => ['RICHIESTA PRESENTATA', 'IN VERIFICA'].includes(p.stato) && String(p.updated_at || '') <= daysAgo(5)).length;
+      const ctx = await loadContext();
+      const enriched = ctx.policies.map((p) => enrichPolicy(p, ctx));
+      const stalePolicies = enriched.filter(
+        (p) => ['RICHIESTA PRESENTATA', 'IN EMISSIONE'].includes(p.stato) && String(p.updated_at || '') <= daysAgo(5),
+      ).length;
       const staleQuotes = quotes.filter((q) => ['ASSEGNATA', 'IN LAVORAZIONE'].includes(q.stato) && String(q.updated_at || '') <= daysAgo(7)).length;
       res.json({ pratiche_non_assegnate: unassigned, standby_prolungato: standbyLong, polizze_senza_avanzamento: stalePolicies, pratiche_ferme: staleQuotes });
     } catch (err) {

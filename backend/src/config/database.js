@@ -118,7 +118,7 @@ function initializeDatabase() {
       tipo_assicurazione_id INTEGER REFERENCES insurance_types(id),
       struttura_id INTEGER REFERENCES users(id),
       operatore_id INTEGER REFERENCES users(id),
-      stato TEXT NOT NULL DEFAULT 'RICHIESTA PRESENTATA' CHECK(stato IN ('RICHIESTA PRESENTATA','IN VERIFICA','DOCUMENTAZIONE MANCANTE','PRONTA PER EMISSIONE','EMESSA')),
+      stato TEXT NOT NULL DEFAULT 'RICHIESTA PRESENTATA' CHECK(stato IN ('RICHIESTA PRESENTATA','IN EMISSIONE','EMESSA')),
       dati_specifici TEXT,
       note_struttura TEXT,
       note_interne TEXT,

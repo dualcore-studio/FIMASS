@@ -2,6 +2,7 @@ const express = require('express');
 const { list, getById, upsertById, like, sortBy: sortRecords, paginate } = require('../data/store');
 const { loadContext } = require('../data/views');
 const { sortQuotesForList, sortPoliciesForList } = require('../utils/practiceListSort');
+const { normalizePolicyStato } = require('../utils/policyStato');
 const { authenticateToken, authorizeRoles } = require('../middleware/auth');
 
 const router = express.Router();
@@ -68,7 +69,7 @@ router.get('/:id', authenticateToken, (req, res) => {
         policies.map((p) => ({
           id: p.id,
           numero: p.numero,
-          stato: p.stato,
+          stato: normalizePolicyStato(p.stato),
           created_at: p.created_at,
           tipo_nome: ctx.typesById.get(Number(p.tipo_assicurazione_id))?.nome,
           struttura_nome: ctx.usersById.get(Number(p.struttura_id))?.denominazione,

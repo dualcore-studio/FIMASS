@@ -1,6 +1,7 @@
 'use strict';
 
 const { sortBy: sortRecords } = require('../data/store');
+const { normalizePolicyStato } = require('./policyStato');
 
 /** @param {string|null|undefined} stato */
 function normalizeQuoteStato(stato) {
@@ -25,21 +26,11 @@ function quoteStatoSortRank(stato) {
   return QUOTE_STATO_RANK[key] ?? 99;
 }
 
-/** @param {string|null|undefined} stato */
-function normalizePolicyStato(stato) {
-  if (stato == null) return '';
-  const s = String(stato).trim();
-  if (/^COMPLETATA$/i.test(s)) return 'EMESSA';
-  return s;
-}
-
-/** Allineato al flusso richiesto per le pratiche: presentata → standby → in lavorazione → assegnata → elaborata. */
+/** Ordinamento stati polizza nel flusso operativo. */
 const POLICY_STATO_RANK = {
   'RICHIESTA PRESENTATA': 1,
-  'DOCUMENTAZIONE MANCANTE': 2,
-  'IN VERIFICA': 3,
-  'PRONTA PER EMISSIONE': 4,
-  EMESSA: 5,
+  'IN EMISSIONE': 2,
+  EMESSA: 3,
 };
 
 /** @param {string|null|undefined} stato */
@@ -118,7 +109,6 @@ function sortPoliciesForList(policies, sortByParam, sortDir, sortMap) {
 module.exports = {
   normalizeQuoteStato,
   quoteStatoSortRank,
-  normalizePolicyStato,
   policyStatoSortRank,
   sortQuotesForList,
   sortPoliciesForList,

@@ -103,7 +103,7 @@ export interface Policy {
   tipo_assicurazione_id: number;
   struttura_id: number;
   operatore_id: number | null;
-  stato: 'RICHIESTA PRESENTATA' | 'IN VERIFICA' | 'DOCUMENTAZIONE MANCANTE' | 'PRONTA PER EMISSIONE' | 'EMESSA';
+  stato: 'RICHIESTA PRESENTATA' | 'IN EMISSIONE' | 'EMESSA';
   dati_specifici: Record<string, any> | null;
   note_struttura: string | null;
   note_interne: string | null;
@@ -119,6 +119,8 @@ export interface Policy {
   operatore_cognome?: string;
   preventivo_numero?: string;
   preventivo_id?: number;
+  ricevuta_pagamento_attachment_id?: number | null;
+  polizza_emessa_attachment_id?: number | null;
   history?: StatusHistory[];
   attachments?: Attachment[];
 }
