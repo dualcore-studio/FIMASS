@@ -7,11 +7,11 @@ const { put, del } = require('@vercel/blob');
 const { insert, getById, removeById } = require('../data/store');
 const { authenticateToken } = require('../middleware/auth');
 const { logActivity } = require('./logs');
+const { getUploadsDir, sendAttachmentDownload } = require('../lib/attachmentDownload');
 
 const router = express.Router();
 
-const isVercel = Boolean(process.env.VERCEL);
-const uploadsDir = process.env.UPLOADS_DIR || (isVercel ? '/tmp/uploads' : path.join(__dirname, '..', '..', 'uploads'));
+const uploadsDir = getUploadsDir();
 if (!fs.existsSync(uploadsDir)) {
   fs.mkdirSync(uploadsDir, { recursive: true });
 }
@@ -104,14 +104,13 @@ router.get('/download/:id', authenticateToken, (req, res) => {
     const attachment = await getById('attachments', req.params.id);
     if (!attachment) return res.status(404).json({ error: 'Allegato non trovato' });
 
-    if (attachment.url) return res.redirect(302, attachment.url);
-    const filePath = path.join(uploadsDir, attachment.nome_file);
-    if (!fs.existsSync(filePath)) return res.status(404).json({ error: 'File non trovato sul server' });
-
-    res.download(filePath, attachment.nome_originale);
+    sendAttachmentDownload(attachment, res, {
+      downloadFilename: attachment.nome_originale,
+      logPrefix: `[attachments/download id=${req.params.id}]`,
+    });
     } catch (err) {
       console.error('Error downloading file:', err);
-      res.status(500).json({ error: 'Errore nel download file' });
+      if (!res.headersSent) res.status(500).json({ error: 'Errore nel download file' });
     }
   })();
 });

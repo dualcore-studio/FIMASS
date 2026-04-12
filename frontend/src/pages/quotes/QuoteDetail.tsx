@@ -21,6 +21,7 @@ import {
   Trash2,
 } from 'lucide-react';
 import { api, ApiError } from '../../utils/api';
+import { downloadPreventivoFinale } from '../../utils/downloadPreventivoFinale';
 import type { Quote, User, Attachment, QuoteNote, StatusHistory } from '../../types';
 import { formatDate, formatDateTime, getUserDisplayName, isQuoteClosedForAssignment } from '../../utils/helpers';
 import { useAuth } from '../../context/AuthContext';
@@ -883,10 +884,12 @@ function TabPreventivo({ quote, role, isAssignedOperator, onRefresh }: TabPreven
   const [file, setFile] = useState<File | null>(null);
   const [uploading, setUploading] = useState(false);
   const [uploadError, setUploadError] = useState<string | null>(null);
+  const [downloading, setDownloading] = useState(false);
+  const [downloadError, setDownloadError] = useState<string | null>(null);
 
-  const preventivoAttachment = (quote.attachments || []).find(
-    (a) => a.tipo === 'preventivo_elaborato'
-  );
+  const preventivoAttachment = [...(quote.attachments || []).filter((a) => a.tipo === 'preventivo_elaborato')].sort(
+    (a, b) => String(b.created_at || '').localeCompare(String(a.created_at || '')),
+  )[0];
 
   const canUpload =
     (isAssignedOperator || role === 'admin') &&
@@ -912,6 +915,19 @@ function TabPreventivo({ quote, role, isAssignedOperator, onRefresh }: TabPreven
     }
   };
 
+  const handleDownloadPreventivo = async () => {
+    if (!preventivoAttachment) return;
+    setDownloadError(null);
+    setDownloading(true);
+    try {
+      await downloadPreventivoFinale(quote.id, preventivoAttachment.nome_originale);
+    } catch (e) {
+      setDownloadError(e instanceof ApiError ? e.message : 'Download non riuscito.');
+    } finally {
+      setDownloading(false);
+    }
+  };
+
   return (
     <div className="space-y-6">
       {/* PDF del preventivo */}
@@ -932,13 +948,15 @@ function TabPreventivo({ quote, role, isAssignedOperator, onRefresh }: TabPreven
             </div>
             <button
               type="button"
-              onClick={() => api.download(`/attachments/download/${preventivoAttachment.id}`, preventivoAttachment.nome_originale)}
+              onClick={handleDownloadPreventivo}
+              disabled={downloading}
               className="btn-primary"
             >
               <Download className="h-4 w-4" />
-              Scarica PDF
+              {downloading ? 'Download…' : 'Scarica PDF'}
             </button>
           </div>
+          {downloadError ? <p className="mt-2 text-sm text-red-600">{downloadError}</p> : null}
         </div>
       ) : (
         <div className="card px-6 py-12 text-center">

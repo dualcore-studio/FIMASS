@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom';
 import { ChevronDown } from 'lucide-react';
 import type { Quote } from '../../types';
 import { api, ApiError } from '../../utils/api';
+import { downloadPreventivoFinale } from '../../utils/downloadPreventivoFinale';
 import {
   adminCanAssignQuote,
   adminCanDownloadPreventivoFinale,
@@ -159,7 +160,7 @@ export default function AdminQuoteRowActions({
     close();
     try {
       const name = quote.preventivo_finale_nome || `preventivo-finale-${quote.id}.pdf`;
-      await api.download(`/attachments/download/${quote.preventivo_finale_attachment_id}`, name);
+      await downloadPreventivoFinale(quote.id, name);
     } catch (e) {
       onActionError(e instanceof ApiError ? e.message : 'Download non riuscito.');
     }

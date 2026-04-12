@@ -10,6 +10,7 @@ const { sortQuotesForList } = require('../utils/practiceListSort');
 const { isQuoteClosedForAssignment, normalizeQuoteStato } = require('../utils/quoteStato');
 const { sendQuoteAssignedToOperatorMail, sendQuoteStatusChangeToStructureMail } = require('../lib/resend');
 const { pipeQuoteSummaryPdf } = require('../lib/quoteSummaryPdf');
+const { sendAttachmentDownload } = require('../lib/attachmentDownload');
 
 const ALLOWED_QUOTE_STATI = new Set(['PRESENTATA', 'ASSEGNATA', 'IN LAVORAZIONE', 'STANDBY', 'ELABORATA']);
 
@@ -299,6 +300,44 @@ router.get('/:id/summary-pdf', authenticateToken, authorizeRoles('admin'), (req,
     } catch (err) {
       console.error('Error generating quote summary PDF:', err);
       if (!res.headersSent) res.status(500).json({ error: 'Errore nella generazione del PDF' });
+    }
+  })();
+});
+
+/** Download del PDF preventivo elaborato (stessa logica per tabella admin e dettaglio). */
+router.get('/:id/preventivo-finale', authenticateToken, (req, res) => {
+  (async () => {
+    const quoteId = parseInt(req.params.id, 10);
+    if (Number.isNaN(quoteId)) {
+      return res.status(400).json({ error: 'ID preventivo non valido' });
+    }
+    try {
+      const ctx = await loadContext();
+      const row = await getById('quotes', quoteId);
+      if (!row) return res.status(404).json({ error: 'Preventivo non trovato' });
+      const quote = enrichQuote(row, ctx);
+      if (req.user.role === 'struttura' && Number(quote.struttura_id) !== Number(req.user.id)) {
+        return res.status(403).json({ error: 'Accesso non autorizzato' });
+      }
+      if (req.user.role === 'operatore' && Number(quote.operatore_id) !== Number(req.user.id)) {
+        return res.status(403).json({ error: 'Accesso non autorizzato' });
+      }
+
+      const prevAtts = ctx.attachments.filter(
+        (a) => a.entity_type === 'quote' && Number(a.entity_id) === Number(quoteId) && a.tipo === 'preventivo_elaborato',
+      );
+      const latest = prevAtts.sort((a, b) => String(b.created_at || '').localeCompare(String(a.created_at || '')))[0];
+      if (!latest) {
+        return res.status(404).json({ error: 'Nessun preventivo elaborato caricato per questa pratica' });
+      }
+
+      sendAttachmentDownload(latest, res, {
+        downloadFilename: latest.nome_originale || `preventivo-${quote.numero || quoteId}.pdf`,
+        logPrefix: `[preventivo-finale quote=${quoteId} attachment=${latest.id}]`,
+      });
+    } catch (err) {
+      console.error('Error downloading preventivo finale:', err);
+      if (!res.headersSent) res.status(500).json({ error: 'Errore nel download del preventivo' });
     }
   })();
 });
