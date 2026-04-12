@@ -30,6 +30,7 @@ export default function AdminQuoteRowActions({
 }: Props) {
   const [open, setOpen] = useState(false);
   const wrapRef = useRef<HTMLDivElement>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
   const [menuPos, setMenuPos] = useState({ top: 0, left: 0 });
 
   const assignEnabled = adminCanAssignQuote(quote.stato);
@@ -69,7 +70,9 @@ export default function AdminQuoteRowActions({
   useEffect(() => {
     if (!open) return;
     const onDoc = (e: MouseEvent) => {
-      if (wrapRef.current?.contains(e.target as Node)) return;
+      const t = e.target as Node;
+      if (wrapRef.current?.contains(t)) return;
+      if (menuRef.current?.contains(t)) return;
       setOpen(false);
     };
     document.addEventListener('mousedown', onDoc);
@@ -107,6 +110,7 @@ export default function AdminQuoteRowActions({
 
   const menu = open ? (
     <div
+      ref={menuRef}
       className="fixed z-[200] max-h-[min(70vh,420px)] overflow-y-auto rounded-lg border border-gray-200/90 bg-white py-1 shadow-lg ring-1 ring-black/5"
       style={{
         top: menuPos.top,
