@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState, type ReactNode } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
-import { Plus, Eye, FileText, ExternalLink, Trash2, ArrowRight, Clock } from 'lucide-react';
+import { Plus, Eye, ExternalLink, Trash2, ArrowRight, Clock } from 'lucide-react';
 import { api, ApiError } from '../../utils/api';
 import type { Quote, InsuranceType, PaginatedResponse, User, StatusHistory } from '../../types';
 import { formatDate, formatDateTime, getUserDisplayName } from '../../utils/helpers';
@@ -616,7 +616,11 @@ export default function QuotesList() {
                               onOpenHistory={setHistoryQuoteId}
                               onActionError={setActionError}
                               {...(role === 'struttura'
-                                ? { onOpenStandbyReason: (row) => setStandbyQuoteId(row.id) }
+                                ? {
+                                    onOpenStandbyReason: (row) => setStandbyQuoteId(row.id),
+                                    onRichiediPolizza: (row) =>
+                                      navigate(`/polizze/nuova?quote_id=${row.id}`),
+                                  }
                                 : {
                                     onOpenAssign: (row) => {
                                       setAssignQuoteId(row.id);
@@ -631,16 +635,6 @@ export default function QuotesList() {
                                     ...(canDeleteQuote ? { onOpenDelete: setDeleteQuoteId } : {}),
                                   })}
                             />
-                            {role === 'struttura' && q.stato === 'ELABORATA' && q.has_policy === 0 && (
-                              <Link
-                                to={`/polizze/nuova?quote_id=${q.id}`}
-                                className="inline-flex h-9 cursor-pointer items-center gap-1.5 rounded-lg border border-emerald-200 bg-emerald-50 px-3 text-xs font-medium text-emerald-700 transition hover:border-emerald-300 hover:bg-emerald-100"
-                                title="Richiedi emissione polizza"
-                              >
-                                <FileText className="h-3.5 w-3.5" />
-                                Richiedi polizza
-                              </Link>
-                            )}
                             {role === 'struttura' && q.has_policy === 1 && q.policy && (
                               <Link
                                 to={`/polizze/${q.policy.id}`}

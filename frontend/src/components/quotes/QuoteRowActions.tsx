@@ -33,6 +33,8 @@ export type QuoteRowActionsProps = {
   onOpenDelete?: (id: number) => void;
   /** Solo variant `struttura`: modale motivazione standby */
   onOpenStandbyReason?: (quote: Quote) => void;
+  /** Solo variant `struttura`: richiesta emissione polizza (ELABORATA senza polizza) */
+  onRichiediPolizza?: (quote: Quote) => void;
 };
 
 export default function QuoteRowActions({
@@ -45,6 +47,7 @@ export default function QuoteRowActions({
   onActionError,
   onOpenDelete,
   onOpenStandbyReason,
+  onRichiediPolizza,
 }: QuoteRowActionsProps) {
   const [open, setOpen] = useState(false);
   const wrapRef = useRef<HTMLDivElement>(null);
@@ -58,6 +61,8 @@ export default function QuoteRowActions({
     quote.preventivo_finale_attachment_id,
   );
   const standbyReasonEnabled = quote.stato === 'STANDBY';
+  const richiediPolizzaEnabled =
+    quote.stato === 'ELABORATA' && Number(quote.has_policy) === 0;
 
   const updatePosition = useCallback(() => {
     const trigger = wrapRef.current?.querySelector<HTMLElement>('[data-quote-actions-trigger]');
@@ -216,6 +221,19 @@ export default function QuoteRowActions({
           onClick={handleDownloadPreventivo}
         >
           Scarica preventivo
+        </button>
+        <button
+          type="button"
+          role="menuitem"
+          className={itemClass(richiediPolizzaEnabled)}
+          disabled={!richiediPolizzaEnabled}
+          onClick={() => {
+            if (!richiediPolizzaEnabled || !onRichiediPolizza) return;
+            close();
+            onRichiediPolizza(quote);
+          }}
+        >
+          Richiedi polizza
         </button>
         <button
           type="button"
