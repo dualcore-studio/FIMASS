@@ -7,10 +7,12 @@ import {
   FileText,
   ExternalLink,
   Trash2,
+  ArrowRight,
+  Clock,
 } from 'lucide-react';
 import { api, ApiError } from '../../utils/api';
-import type { Quote, InsuranceType, PaginatedResponse, User } from '../../types';
-import { formatDate, getUserDisplayName, isQuoteClosedForAssignment } from '../../utils/helpers';
+import type { Quote, InsuranceType, PaginatedResponse, User, StatusHistory } from '../../types';
+import { formatDate, formatDateTime, getUserDisplayName, isQuoteClosedForAssignment } from '../../utils/helpers';
 import { useAuth } from '../../context/AuthContext';
 import StatusBadge from '../../components/common/StatusBadge';
 import TablePagination from '../../components/common/TablePagination';
@@ -19,7 +21,52 @@ import { TABLE_PAGE_SIZE } from '../../constants/tablePagination';
 import { useSyncPageToTotalPages } from '../../hooks/useSyncPageToTotalPages';
 import { useListTableSort } from '../../hooks/useListTableSort';
 import SortableTh from '../../components/common/SortableTh';
+import AdminQuoteRowActions from '../../components/quotes/AdminQuoteRowActions';
 const STATI = ['PRESENTATA', 'ASSEGNATA', 'IN LAVORAZIONE', 'STANDBY', 'ELABORATA'] as const;
+
+function quoteHistoryActorLabel(h: StatusHistory): string {
+  if (h.role === 'struttura' && h.denominazione) return h.denominazione;
+  const name = [h.nome, h.cognome].filter(Boolean).join(' ').trim();
+  if (name) return name;
+  return h.utente_id ? `Utente #${h.utente_id}` : '—';
+}
+
+function QuoteHistoryTimeline({ entries }: { entries: StatusHistory[] }) {
+  const sorted = [...entries].sort((a, b) => String(a.created_at || '').localeCompare(String(b.created_at || '')));
+  if (sorted.length === 0) {
+    return <p className="text-sm text-gray-500">Nessun cambiamento di stato registrato.</p>;
+  }
+  return (
+    <div className="relative pl-1">
+      <div className="absolute left-3 top-0 bottom-0 w-0.5 bg-gray-200" aria-hidden />
+      <ul className="space-y-5">
+        {sorted.map((h) => (
+          <li key={h.id} className="relative pl-9">
+            <div className="absolute left-1.5 top-1.5 h-2.5 w-2.5 rounded-full border-2 border-white bg-slate-500 shadow-sm ring-1 ring-gray-200" />
+            <div className="flex flex-wrap items-center gap-2 text-sm">
+              {h.stato_precedente ? (
+                <>
+                  <StatusBadge stato={h.stato_precedente} />
+                  <ArrowRight className="h-3.5 w-3.5 shrink-0 text-gray-400" aria-hidden />
+                </>
+              ) : null}
+              <StatusBadge stato={h.stato_nuovo} />
+            </div>
+            <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-gray-500">
+              <span className="font-medium text-gray-700">{quoteHistoryActorLabel(h)}</span>
+              <span aria-hidden>·</span>
+              <Clock className="h-3 w-3 shrink-0" aria-hidden />
+              <time dateTime={h.created_at}>{formatDateTime(h.created_at)}</time>
+            </div>
+            {h.motivo ? (
+              <p className="mt-2 rounded-md border border-gray-100 bg-gray-50 px-3 py-2 text-sm text-gray-700">{h.motivo}</p>
+            ) : null}
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
 
 function buildQuery(params: {
   page: number;
@@ -100,6 +147,10 @@ export default function QuotesList() {
   const [assignOperatorId, setAssignOperatorId] = useState('');
   const [assignSubmitting, setAssignSubmitting] = useState(false);
   const [assignError, setAssignError] = useState<string | null>(null);
+
+  const [historyQuoteId, setHistoryQuoteId] = useState<number | null>(null);
+  const [historyDetail, setHistoryDetail] = useState<Quote | null>(null);
+  const [historyLoading, setHistoryLoading] = useState(false);
 
   const tableSort = useListTableSort();
 
@@ -182,6 +233,32 @@ export default function QuotesList() {
     fetchQuotes();
   }, [fetchQuotes]);
 
+  useEffect(() => {
+    if (historyQuoteId == null) {
+      setHistoryDetail(null);
+      return;
+    }
+    let cancelled = false;
+    setHistoryLoading(true);
+    setHistoryDetail(null);
+    api
+      .get<Quote>(`/quotes/${historyQuoteId}`)
+      .then((data) => {
+        if (!cancelled) setHistoryDetail(data);
+      })
+      .catch((e) => {
+        if (!cancelled) {
+          setActionError(e instanceof ApiError ? e.message : 'Impossibile caricare lo storico.');
+        }
+      })
+      .finally(() => {
+        if (!cancelled) setHistoryLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [historyQuoteId]);
+
   const totalPages = result?.totalPages ?? 1;
   useSyncPageToTotalPages(page, result?.totalPages, setPage);
 
@@ -233,6 +310,9 @@ export default function QuotesList() {
   const canAssign = role === 'admin' || role === 'supervisore';
   const canDeleteQuote = role === 'admin';
   const canFilterStruttura = role === 'admin' || role === 'supervisore';
+
+  const assignTargetRow = assignQuoteId != null ? rows.find((r) => r.id === assignQuoteId) : undefined;
+  const assignModalTitle = assignTargetRow?.stato === 'ASSEGNATA' ? 'Riassegna operatore' : 'Assegna operatore';
 
   const tf = 'input-field h-9 max-w-none shrink-0 py-1.5 text-sm';
 
@@ -477,66 +557,86 @@ export default function QuotesList() {
                         {formatDate(q.created_at)}
                       </td>
                       <td className="px-4 py-3">
-                        <div className="flex flex-wrap items-center justify-end gap-1">
-                          <Link
-                            to={`/preventivi/${q.id}`}
-                            className="inline-flex h-9 cursor-pointer items-center gap-1.5 rounded-lg border border-gray-200 bg-white px-3 text-xs font-medium text-gray-600 transition hover:border-blue-300 hover:bg-blue-50 hover:text-blue-700"
-                            title="Apri"
-                          >
-                            <Eye className="h-3.5 w-3.5" />
-                            Apri
-                          </Link>
-
-                          {canAssign && !isQuoteClosedForAssignment(q.stato) && (
-                            <button
-                              type="button"
-                              onClick={() => {
-                                setAssignQuoteId(q.id);
-                                setAssignOperatorId(q.operatore_id ? String(q.operatore_id) : '');
-                                setAssignError(null);
-                              }}
-                              className="inline-flex h-9 cursor-pointer items-center gap-1.5 rounded-lg border border-gray-200 bg-white px-3 text-xs font-medium text-gray-600 transition hover:border-amber-300 hover:bg-amber-50 hover:text-amber-800 disabled:cursor-not-allowed"
-                              title="Assegna"
-                            >
-                              <UserCheck className="h-3.5 w-3.5" />
-                              Assegna
-                            </button>
-                          )}
-
-                          {role === 'struttura' && q.stato === 'ELABORATA' && q.has_policy === 0 && (
+                        {role === 'admin' ? (
+                          <AdminQuoteRowActions
+                            quote={q}
+                            onNavigateDetail={(id) => navigate(`/preventivi/${id}`)}
+                            onOpenAssign={(row) => {
+                              setAssignQuoteId(row.id);
+                              setAssignOperatorId('');
+                              setAssignError(null);
+                            }}
+                            onOpenReassign={(row) => {
+                              setAssignQuoteId(row.id);
+                              setAssignOperatorId(row.operatore_id ? String(row.operatore_id) : '');
+                              setAssignError(null);
+                            }}
+                            onOpenDelete={setDeleteQuoteId}
+                            onOpenHistory={setHistoryQuoteId}
+                            onActionError={setActionError}
+                          />
+                        ) : (
+                          <div className="flex flex-wrap items-center justify-end gap-1">
                             <Link
-                              to={`/polizze/nuova?quote_id=${q.id}`}
-                              className="inline-flex h-9 cursor-pointer items-center gap-1.5 rounded-lg border border-emerald-200 bg-emerald-50 px-3 text-xs font-medium text-emerald-700 transition hover:border-emerald-300 hover:bg-emerald-100"
-                              title="Richiedi emissione polizza"
+                              to={`/preventivi/${q.id}`}
+                              className="inline-flex h-9 cursor-pointer items-center gap-1.5 rounded-lg border border-gray-200 bg-white px-3 text-xs font-medium text-gray-600 transition hover:border-blue-300 hover:bg-blue-50 hover:text-blue-700"
+                              title="Apri"
                             >
-                              <FileText className="h-3.5 w-3.5" />
-                              Richiedi polizza
+                              <Eye className="h-3.5 w-3.5" />
+                              Apri
                             </Link>
-                          )}
 
-                          {role === 'struttura' && q.has_policy === 1 && q.policy && (
-                            <Link
-                              to={`/polizze/${q.policy.id}`}
-                              className="inline-flex h-9 cursor-pointer items-center gap-1.5 rounded-lg border border-blue-200 bg-blue-50 px-3 text-xs font-medium text-blue-700 transition hover:border-blue-300 hover:bg-blue-100"
-                              title="Vai alla polizza"
-                            >
-                              <ExternalLink className="h-3.5 w-3.5" />
-                              Polizza
-                            </Link>
-                          )}
+                            {canAssign && !isQuoteClosedForAssignment(q.stato) && (
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setAssignQuoteId(q.id);
+                                  setAssignOperatorId(q.operatore_id ? String(q.operatore_id) : '');
+                                  setAssignError(null);
+                                }}
+                                className="inline-flex h-9 cursor-pointer items-center gap-1.5 rounded-lg border border-gray-200 bg-white px-3 text-xs font-medium text-gray-600 transition hover:border-amber-300 hover:bg-amber-50 hover:text-amber-800 disabled:cursor-not-allowed"
+                                title="Assegna"
+                              >
+                                <UserCheck className="h-3.5 w-3.5" />
+                                Assegna
+                              </button>
+                            )}
 
-                          {canDeleteQuote && (
-                            <button
-                              type="button"
-                              disabled={deleteSubmitting}
-                              onClick={() => setDeleteQuoteId(q.id)}
-                              className="inline-flex h-9 cursor-pointer items-center justify-center rounded-lg border border-gray-200 bg-white px-2.5 text-gray-600 transition hover:border-red-300 hover:bg-red-50 hover:text-red-700 disabled:cursor-not-allowed disabled:opacity-50"
-                              title="Elimina preventivo (solo amministratore)"
-                            >
-                              <Trash2 className="h-3.5 w-3.5" />
-                            </button>
-                          )}
-                        </div>
+                            {role === 'struttura' && q.stato === 'ELABORATA' && q.has_policy === 0 && (
+                              <Link
+                                to={`/polizze/nuova?quote_id=${q.id}`}
+                                className="inline-flex h-9 cursor-pointer items-center gap-1.5 rounded-lg border border-emerald-200 bg-emerald-50 px-3 text-xs font-medium text-emerald-700 transition hover:border-emerald-300 hover:bg-emerald-100"
+                                title="Richiedi emissione polizza"
+                              >
+                                <FileText className="h-3.5 w-3.5" />
+                                Richiedi polizza
+                              </Link>
+                            )}
+
+                            {role === 'struttura' && q.has_policy === 1 && q.policy && (
+                              <Link
+                                to={`/polizze/${q.policy.id}`}
+                                className="inline-flex h-9 cursor-pointer items-center gap-1.5 rounded-lg border border-blue-200 bg-blue-50 px-3 text-xs font-medium text-blue-700 transition hover:border-blue-300 hover:bg-blue-100"
+                                title="Vai alla polizza"
+                              >
+                                <ExternalLink className="h-3.5 w-3.5" />
+                                Polizza
+                              </Link>
+                            )}
+
+                            {canDeleteQuote && (
+                              <button
+                                type="button"
+                                disabled={deleteSubmitting}
+                                onClick={() => setDeleteQuoteId(q.id)}
+                                className="inline-flex h-9 cursor-pointer items-center justify-center rounded-lg border border-gray-200 bg-white px-2.5 text-gray-600 transition hover:border-red-300 hover:bg-red-50 hover:text-red-700 disabled:cursor-not-allowed disabled:opacity-50"
+                                title="Elimina preventivo (solo amministratore)"
+                              >
+                                <Trash2 className="h-3.5 w-3.5" />
+                              </button>
+                            )}
+                          </div>
+                        )}
                       </td>
                     </tr>
                   ))
@@ -557,8 +657,25 @@ export default function QuotesList() {
         )}
       </div>
 
+      <Modal
+        isOpen={historyQuoteId != null}
+        onClose={() => setHistoryQuoteId(null)}
+        title="Storico stati"
+        size="md"
+      >
+        <div className="max-h-[min(70vh,480px)] overflow-y-auto pr-1">
+          {historyLoading ? (
+            <p className="py-8 text-center text-sm text-gray-500">Caricamento…</p>
+          ) : !historyDetail ? (
+            <p className="py-6 text-center text-sm text-gray-500">Nessun dato.</p>
+          ) : (
+            <QuoteHistoryTimeline entries={historyDetail.history || []} />
+          )}
+        </div>
+      </Modal>
+
       {/* Assign Modal */}
-      <Modal isOpen={assignQuoteId != null} onClose={closeAssignModal} title="Assegna Operatore" size="sm">
+      <Modal isOpen={assignQuoteId != null} onClose={closeAssignModal} title={assignModalTitle} size="sm">
         <div className="space-y-4">
           <p className="text-sm text-gray-600">
             Seleziona l&apos;operatore a cui assegnare il preventivo.

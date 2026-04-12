@@ -86,6 +86,9 @@ export interface Quote {
   struttura_email?: string;
   operatore_nome?: string;
   operatore_cognome?: string;
+  /** Allegato tipo preventivo_elaborato più recente (solo elenco/API arricchito) */
+  preventivo_finale_attachment_id?: number | null;
+  preventivo_finale_nome?: string | null;
   history?: StatusHistory[];
   notes?: QuoteNote[];
   attachments?: Attachment[];

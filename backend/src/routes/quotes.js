@@ -9,6 +9,7 @@ const { loadContext, enrichQuote } = require('../data/views');
 const { sortQuotesForList } = require('../utils/practiceListSort');
 const { isQuoteClosedForAssignment, normalizeQuoteStato } = require('../utils/quoteStato');
 const { sendQuoteAssignedToOperatorMail, sendQuoteStatusChangeToStructureMail } = require('../lib/resend');
+const { pipeQuoteSummaryPdf } = require('../lib/quoteSummaryPdf');
 
 const ALLOWED_QUOTE_STATI = new Set(['PRESENTATA', 'ASSEGNATA', 'IN LAVORAZIONE', 'STANDBY', 'ELABORATA']);
 
@@ -128,6 +129,17 @@ router.get('/', authenticateToken, (req, res) => {
       if (search) quotes = quotes.filter((q) => like(q.numero, search) || like(q.assistito_nome, search) || like(q.assistito_cognome, search) || like(q.assistito_cf, search));
       const sortMap = { numero: 'numero', assistito: 'assistito_cognome', tipo: 'tipo_nome', struttura: 'struttura_nome', operatore: 'operatore_cognome', stato: 'stato', created_at: 'created_at', data_decorrenza: 'data_decorrenza' };
       quotes = sortQuotesForList(quotes, sortByParam, sortDir || 'desc', sortMap);
+      quotes = quotes.map((q) => {
+        const prevAtts = ctx.attachments.filter(
+          (a) => a.entity_type === 'quote' && Number(a.entity_id) === Number(q.id) && a.tipo === 'preventivo_elaborato',
+        );
+        const latestPrev = prevAtts.sort((a, b) => String(b.created_at || '').localeCompare(String(a.created_at || '')))[0];
+        return {
+          ...q,
+          preventivo_finale_attachment_id: latestPrev?.id ?? null,
+          preventivo_finale_nome: latestPrev?.nome_originale ?? null,
+        };
+      });
       res.json(paginate(quotes, page, limit));
     } catch (err) {
       console.error('Error fetching quotes:', err);
@@ -272,6 +284,25 @@ router.put('/reminders/:id/read', authenticateToken, authorizeRoles('operatore')
   })();
 });
 
+router.get('/:id/summary-pdf', authenticateToken, authorizeRoles('admin'), (req, res) => {
+  (async () => {
+    const quoteId = parseInt(req.params.id, 10);
+    if (Number.isNaN(quoteId)) {
+      return res.status(400).json({ error: 'ID preventivo non valido' });
+    }
+    try {
+      const ctx = await loadContext();
+      const row = await getById('quotes', quoteId);
+      if (!row) return res.status(404).json({ error: 'Preventivo non trovato' });
+      const quote = enrichQuote(row, ctx);
+      pipeQuoteSummaryPdf(quote, ctx, res);
+    } catch (err) {
+      console.error('Error generating quote summary PDF:', err);
+      if (!res.headersSent) res.status(500).json({ error: 'Errore nella generazione del PDF' });
+    }
+  })();
+});
+
 router.get('/:id', authenticateToken, (req, res) => {
   (async () => {
     try {
@@ -283,7 +314,16 @@ router.get('/:id', authenticateToken, (req, res) => {
       if (req.user.role === 'operatore' && Number(quote.operatore_id) !== Number(req.user.id)) return res.status(403).json({ error: 'Accesso non autorizzato' });
       const history = ctx.quote_status_history
         .filter((h) => Number(h.quote_id) === Number(row.id))
-        .map((h) => ({ ...h, ...ctx.usersById.get(Number(h.utente_id)) }))
+        .map((h) => {
+          const u = ctx.usersById.get(Number(h.utente_id)) || {};
+          return {
+            ...h,
+            nome: u.nome,
+            cognome: u.cognome,
+            denominazione: u.denominazione,
+            role: u.role,
+          };
+        })
         .sort((a, b) => String(b.created_at || '').localeCompare(String(a.created_at || '')));
       const notes = ctx.quote_notes
         .filter((n) => Number(n.quote_id) === Number(row.id))
@@ -362,6 +402,11 @@ router.put('/:id/assign', authenticateToken, authorizeRoles('supervisore', 'admi
     if (!quote) return res.status(404).json({ error: 'Preventivo non trovato' });
     if (isQuoteClosedForAssignment(quote.stato)) {
       return res.status(400).json({ error: 'Non è possibile assegnare una pratica già elaborata' });
+    }
+    if (req.user.role === 'admin' && quote.stato !== 'PRESENTATA' && quote.stato !== 'ASSEGNATA') {
+      return res.status(400).json({
+        error: 'Operazione non consentita: l’assegnazione è consentita solo da stato Presentata; la riassegnazione solo da stato Assegnata.',
+      });
     }
 
     const prevStato = quote.stato;
