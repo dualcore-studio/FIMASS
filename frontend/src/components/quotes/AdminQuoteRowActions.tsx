@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { ChevronDown } from 'lucide-react';
 import type { Quote } from '../../types';
@@ -8,6 +8,15 @@ import {
   adminCanDownloadPreventivoFinale,
   adminCanReassignQuote,
 } from '../../utils/quoteAdminActions';
+
+const MENU_WIDTH = 228;
+const VIEW_MARGIN = 8;
+const MENU_GAP = 4;
+/** Allineato a max-h-[min(70vh,420px)] nel markup */
+const MENU_MAX_PX = 420;
+const MENU_VH_CAP = 0.7;
+
+type MenuPos = { top: number; left: number; maxHeightPx?: number };
 
 type Props = {
   quote: Quote;
@@ -31,7 +40,7 @@ export default function AdminQuoteRowActions({
   const [open, setOpen] = useState(false);
   const wrapRef = useRef<HTMLDivElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
-  const [menuPos, setMenuPos] = useState({ top: 0, left: 0 });
+  const [menuPos, setMenuPos] = useState<MenuPos>({ top: 0, left: 0 });
 
   const assignEnabled = adminCanAssignQuote(quote.stato);
   const reassignEnabled = adminCanReassignQuote(quote.stato);
@@ -40,23 +49,78 @@ export default function AdminQuoteRowActions({
     quote.preventivo_finale_attachment_id,
   );
 
-  const updatePosition = () => {
+  const updatePosition = useCallback(() => {
     const trigger = wrapRef.current?.querySelector<HTMLElement>('[data-quote-actions-trigger]');
     if (!trigger) return;
+
     const r = trigger.getBoundingClientRect();
-    const menuWidth = 228;
-    let left = r.right - menuWidth;
-    const margin = 8;
-    if (left < margin) left = margin;
-    if (left + menuWidth > window.innerWidth - margin) {
-      left = window.innerWidth - menuWidth - margin;
+    const vw = window.innerWidth;
+    const vh = window.innerHeight;
+
+    let left = r.right - MENU_WIDTH;
+    if (left < VIEW_MARGIN) left = VIEW_MARGIN;
+    if (left + MENU_WIDTH > vw - VIEW_MARGIN) {
+      left = vw - MENU_WIDTH - VIEW_MARGIN;
     }
-    setMenuPos({ top: r.bottom + 4, left });
-  };
+
+    const menuEl = menuRef.current;
+    const cap = Math.min(MENU_MAX_PX, vh * MENU_VH_CAP);
+    const rawContent = menuEl?.scrollHeight ?? 300;
+    const contentH = Math.min(Math.max(rawContent, 1), cap);
+
+    const spaceBelow = Math.max(0, vh - VIEW_MARGIN - r.bottom - MENU_GAP);
+    const spaceAbove = Math.max(0, r.top - VIEW_MARGIN - MENU_GAP);
+
+    let top: number;
+    let maxHeightPx: number | undefined;
+
+    if (contentH <= spaceBelow) {
+      top = r.bottom + MENU_GAP;
+    } else if (contentH <= spaceAbove) {
+      top = r.top - contentH - MENU_GAP;
+    } else if (spaceBelow >= spaceAbove) {
+      top = r.bottom + MENU_GAP;
+      maxHeightPx = Math.max(1, spaceBelow);
+    } else {
+      maxHeightPx = Math.max(1, spaceAbove);
+      top = r.top - maxHeightPx - MENU_GAP;
+    }
+
+    const boxH = maxHeightPx ?? contentH;
+    if (top + boxH > vh - VIEW_MARGIN) {
+      top = Math.max(VIEW_MARGIN, vh - VIEW_MARGIN - boxH);
+    }
+    if (top < VIEW_MARGIN) {
+      top = VIEW_MARGIN;
+    }
+    if (top + boxH > vh - VIEW_MARGIN) {
+      maxHeightPx = Math.max(1, vh - VIEW_MARGIN - top);
+    }
+
+    setMenuPos((prev) => {
+      if (
+        prev.top === top &&
+        prev.left === left &&
+        prev.maxHeightPx === maxHeightPx
+      ) {
+        return prev;
+      }
+      return { top, left, maxHeightPx };
+    });
+  }, []);
+
+  useLayoutEffect(() => {
+    if (!open) return;
+    updatePosition();
+    const el = menuRef.current;
+    if (!el) return;
+    const ro = new ResizeObserver(() => updatePosition());
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [open, updatePosition]);
 
   useEffect(() => {
     if (!open) return;
-    updatePosition();
     const onScroll = () => updatePosition();
     const onResize = () => updatePosition();
     window.addEventListener('scroll', onScroll, true);
@@ -65,7 +129,7 @@ export default function AdminQuoteRowActions({
       window.removeEventListener('scroll', onScroll, true);
       window.removeEventListener('resize', onResize);
     };
-  }, [open]);
+  }, [open, updatePosition]);
 
   useEffect(() => {
     if (!open) return;
@@ -115,7 +179,8 @@ export default function AdminQuoteRowActions({
       style={{
         top: menuPos.top,
         left: menuPos.left,
-        width: 228,
+        width: MENU_WIDTH,
+        ...(menuPos.maxHeightPx != null ? { maxHeight: menuPos.maxHeightPx } : {}),
       }}
       role="menu"
     >
@@ -200,7 +265,6 @@ export default function AdminQuoteRowActions({
         data-quote-actions-trigger
         onClick={(e) => {
           e.stopPropagation();
-          if (!open) updatePosition();
           setOpen(!open);
         }}
         className="inline-flex h-9 cursor-pointer items-center gap-1.5 rounded-lg border border-gray-200 bg-white px-3 text-xs font-medium text-gray-700 shadow-sm transition hover:border-slate-300 hover:bg-slate-50"
