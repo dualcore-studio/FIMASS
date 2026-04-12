@@ -21,23 +21,30 @@ type MenuPos = { top: number; left: number; maxHeightPx?: number };
 
 export type QuoteRowActionsProps = {
   quote: Quote;
+  /** Default `admin`: menu completo back-office. `struttura`: solo voci consentite al profilo struttura. */
+  variant?: 'admin' | 'struttura';
   onNavigateDetail: (id: number) => void;
-  onOpenAssign: (quote: Quote) => void;
-  onOpenReassign: (quote: Quote) => void;
   onOpenHistory: (id: number) => void;
   onActionError: (message: string) => void;
+  /** Solo variant `admin` / supervisore */
+  onOpenAssign?: (quote: Quote) => void;
+  onOpenReassign?: (quote: Quote) => void;
   /** Se valorizzato, mostra la voce Elimina (solo ruoli con permesso effettivo, es. admin). */
   onOpenDelete?: (id: number) => void;
+  /** Solo variant `struttura`: modale motivazione standby */
+  onOpenStandbyReason?: (quote: Quote) => void;
 };
 
 export default function QuoteRowActions({
   quote,
+  variant = 'admin',
   onNavigateDetail,
   onOpenAssign,
   onOpenReassign,
   onOpenHistory,
   onActionError,
   onOpenDelete,
+  onOpenStandbyReason,
 }: QuoteRowActionsProps) {
   const [open, setOpen] = useState(false);
   const wrapRef = useRef<HTMLDivElement>(null);
@@ -50,6 +57,7 @@ export default function QuoteRowActions({
     quote.stato,
     quote.preventivo_finale_attachment_id,
   );
+  const standbyReasonEnabled = quote.stato === 'STANDBY';
 
   const updatePosition = useCallback(() => {
     const trigger = wrapRef.current?.querySelector<HTMLElement>('[data-quote-actions-trigger]');
@@ -121,7 +129,7 @@ export default function QuoteRowActions({
     const ro = new ResizeObserver(() => updatePosition());
     ro.observe(el);
     return () => ro.disconnect();
-  }, [open, updatePosition]);
+  }, [open, updatePosition, variant]);
 
   useEffect(() => {
     if (!open) return;
@@ -133,7 +141,7 @@ export default function QuoteRowActions({
       window.removeEventListener('scroll', onScroll, true);
       window.removeEventListener('resize', onResize);
     };
-  }, [open, updatePosition]);
+  }, [open, updatePosition, variant]);
 
   useEffect(() => {
     if (!open) return;
@@ -176,93 +184,151 @@ export default function QuoteRowActions({
         : 'cursor-not-allowed text-gray-400'
     }`;
 
-  const menu = open ? (
-    <div
-      ref={menuRef}
-      className="fixed z-[200] max-h-[min(70vh,420px)] overflow-y-auto rounded-lg border border-gray-200/90 bg-white py-1 shadow-lg ring-1 ring-black/5"
-      style={{
-        top: menuPos.top,
-        left: menuPos.left,
-        width: MENU_WIDTH,
-        ...(menuPos.maxHeightPx != null ? { maxHeight: menuPos.maxHeightPx } : {}),
-      }}
-      role="menu"
-    >
-      <button
-        type="button"
-        role="menuitem"
-        className={itemClass(true)}
-        onClick={() => {
-          close();
-          onNavigateDetail(quote.id);
+  const menu =
+    open && variant === 'struttura' ? (
+      <div
+        ref={menuRef}
+        className="fixed z-[200] max-h-[min(70vh,420px)] overflow-y-auto rounded-lg border border-gray-200/90 bg-white py-1 shadow-lg ring-1 ring-black/5"
+        style={{
+          top: menuPos.top,
+          left: menuPos.left,
+          width: MENU_WIDTH,
+          ...(menuPos.maxHeightPx != null ? { maxHeight: menuPos.maxHeightPx } : {}),
         }}
+        role="menu"
       >
-        Apri
-      </button>
-      <button
-        type="button"
-        role="menuitem"
-        className={itemClass(assignEnabled)}
-        disabled={!assignEnabled}
-        onClick={() => {
-          if (!assignEnabled) return;
-          close();
-          onOpenAssign(quote);
-        }}
-      >
-        Assegna
-      </button>
-      <button type="button" role="menuitem" className={itemClass(true)} onClick={handleExportPdf}>
-        Esporta
-      </button>
-      <button
-        type="button"
-        role="menuitem"
-        className={itemClass(downloadPrevEnabled)}
-        disabled={!downloadPrevEnabled}
-        onClick={handleDownloadPreventivo}
-      >
-        Scarica preventivo
-      </button>
-      <button
-        type="button"
-        role="menuitem"
-        className={itemClass(reassignEnabled)}
-        disabled={!reassignEnabled}
-        onClick={() => {
-          if (!reassignEnabled) return;
-          close();
-          onOpenReassign(quote);
-        }}
-      >
-        Riassegna
-      </button>
-      {onOpenDelete ? (
         <button
           type="button"
           role="menuitem"
           className={itemClass(true)}
           onClick={() => {
             close();
-            onOpenDelete(quote.id);
+            onNavigateDetail(quote.id);
           }}
         >
-          Elimina
+          Apri
         </button>
-      ) : null}
-      <button
-        type="button"
-        role="menuitem"
-        className={itemClass(true)}
-        onClick={() => {
-          close();
-          onOpenHistory(quote.id);
+        <button
+          type="button"
+          role="menuitem"
+          className={itemClass(downloadPrevEnabled)}
+          disabled={!downloadPrevEnabled}
+          onClick={handleDownloadPreventivo}
+        >
+          Scarica preventivo
+        </button>
+        <button
+          type="button"
+          role="menuitem"
+          className={itemClass(standbyReasonEnabled)}
+          disabled={!standbyReasonEnabled}
+          onClick={() => {
+            if (!standbyReasonEnabled || !onOpenStandbyReason) return;
+            close();
+            onOpenStandbyReason(quote);
+          }}
+        >
+          Causa standby
+        </button>
+        <button
+          type="button"
+          role="menuitem"
+          className={itemClass(true)}
+          onClick={() => {
+            close();
+            onOpenHistory(quote.id);
+          }}
+        >
+          Storico stati
+        </button>
+      </div>
+    ) : open && variant === 'admin' ? (
+      <div
+        ref={menuRef}
+        className="fixed z-[200] max-h-[min(70vh,420px)] overflow-y-auto rounded-lg border border-gray-200/90 bg-white py-1 shadow-lg ring-1 ring-black/5"
+        style={{
+          top: menuPos.top,
+          left: menuPos.left,
+          width: MENU_WIDTH,
+          ...(menuPos.maxHeightPx != null ? { maxHeight: menuPos.maxHeightPx } : {}),
         }}
+        role="menu"
       >
-        Storico stati
-      </button>
-    </div>
-  ) : null;
+        <button
+          type="button"
+          role="menuitem"
+          className={itemClass(true)}
+          onClick={() => {
+            close();
+            onNavigateDetail(quote.id);
+          }}
+        >
+          Apri
+        </button>
+        <button
+          type="button"
+          role="menuitem"
+          className={itemClass(assignEnabled)}
+          disabled={!assignEnabled}
+          onClick={() => {
+            if (!assignEnabled || !onOpenAssign) return;
+            close();
+            onOpenAssign(quote);
+          }}
+        >
+          Assegna
+        </button>
+        <button type="button" role="menuitem" className={itemClass(true)} onClick={handleExportPdf}>
+          Esporta
+        </button>
+        <button
+          type="button"
+          role="menuitem"
+          className={itemClass(downloadPrevEnabled)}
+          disabled={!downloadPrevEnabled}
+          onClick={handleDownloadPreventivo}
+        >
+          Scarica preventivo
+        </button>
+        <button
+          type="button"
+          role="menuitem"
+          className={itemClass(reassignEnabled)}
+          disabled={!reassignEnabled}
+          onClick={() => {
+            if (!reassignEnabled || !onOpenReassign) return;
+            close();
+            onOpenReassign(quote);
+          }}
+        >
+          Riassegna
+        </button>
+        {onOpenDelete ? (
+          <button
+            type="button"
+            role="menuitem"
+            className={itemClass(true)}
+            onClick={() => {
+              close();
+              onOpenDelete(quote.id);
+            }}
+          >
+            Elimina
+          </button>
+        ) : null}
+        <button
+          type="button"
+          role="menuitem"
+          className={itemClass(true)}
+          onClick={() => {
+            close();
+            onOpenHistory(quote.id);
+          }}
+        >
+          Storico stati
+        </button>
+      </div>
+    ) : null;
 
   return (
     <div ref={wrapRef} className="relative flex justify-end">

@@ -13,6 +13,7 @@ import { useSyncPageToTotalPages } from '../../hooks/useSyncPageToTotalPages';
 import { useListTableSort } from '../../hooks/useListTableSort';
 import SortableTh from '../../components/common/SortableTh';
 import QuoteRowActions from '../../components/quotes/QuoteRowActions';
+import { getLatestStandbyTransition } from '../../utils/quoteStandby';
 const STATI = ['PRESENTATA', 'ASSEGNATA', 'IN LAVORAZIONE', 'STANDBY', 'ELABORATA'] as const;
 
 function quoteHistoryActorLabel(h: StatusHistory): string {
@@ -20,6 +21,34 @@ function quoteHistoryActorLabel(h: StatusHistory): string {
   const name = [h.nome, h.cognome].filter(Boolean).join(' ').trim();
   if (name) return name;
   return h.utente_id ? `Utente #${h.utente_id}` : '—';
+}
+
+function StandbyMotivationBody({ quote }: { quote: Quote }) {
+  const tr = getLatestStandbyTransition(quote.history);
+  return (
+    <div className="space-y-4">
+      {tr ? (
+        <>
+          <div className="flex flex-wrap items-center gap-2 text-xs text-gray-600">
+            <span className="font-medium text-gray-800">{quoteHistoryActorLabel(tr)}</span>
+            <span aria-hidden>·</span>
+            <time className="tabular-nums" dateTime={tr.created_at}>
+              {formatDateTime(tr.created_at)}
+            </time>
+          </div>
+          <div className="rounded-lg border border-slate-200/80 bg-slate-50/80 px-4 py-3">
+            <p className="whitespace-pre-wrap break-words text-sm leading-relaxed text-gray-900">
+              {tr.motivo?.trim() || 'Nessuna motivazione registrata per il passaggio in standby.'}
+            </p>
+          </div>
+        </>
+      ) : (
+        <p className="text-sm text-gray-600">
+          Non è stata trovata una registrazione del passaggio in standby per questa pratica.
+        </p>
+      )}
+    </div>
+  );
 }
 
 function QuoteHistoryTimeline({ entries }: { entries: StatusHistory[] }) {
@@ -143,6 +172,10 @@ export default function QuotesList() {
   const [historyDetail, setHistoryDetail] = useState<Quote | null>(null);
   const [historyLoading, setHistoryLoading] = useState(false);
 
+  const [standbyQuoteId, setStandbyQuoteId] = useState<number | null>(null);
+  const [standbyDetail, setStandbyDetail] = useState<Quote | null>(null);
+  const [standbyLoading, setStandbyLoading] = useState(false);
+
   const tableSort = useListTableSort();
 
   useEffect(() => {
@@ -250,6 +283,32 @@ export default function QuotesList() {
     };
   }, [historyQuoteId]);
 
+  useEffect(() => {
+    if (standbyQuoteId == null) {
+      setStandbyDetail(null);
+      return;
+    }
+    let cancelled = false;
+    setStandbyLoading(true);
+    setStandbyDetail(null);
+    api
+      .get<Quote>(`/quotes/${standbyQuoteId}`)
+      .then((data) => {
+        if (!cancelled) setStandbyDetail(data);
+      })
+      .catch((e) => {
+        if (!cancelled) {
+          setActionError(e instanceof ApiError ? e.message : 'Impossibile caricare i dati dello standby.');
+        }
+      })
+      .finally(() => {
+        if (!cancelled) setStandbyLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [standbyQuoteId]);
+
   const totalPages = result?.totalPages ?? 1;
   useSyncPageToTotalPages(page, result?.totalPages, setPage);
 
@@ -299,7 +358,7 @@ export default function QuotesList() {
   const rows = result?.data ?? [];
   const canCreate = role === 'struttura';
   const canDeleteQuote = role === 'admin';
-  const useQuoteActionsMenu = role === 'admin' || role === 'supervisore';
+  const useQuoteActionsMenu = role === 'admin' || role === 'supervisore' || role === 'struttura';
   const canFilterStruttura = role === 'admin' || role === 'supervisore';
 
   const assignTargetRow = assignQuoteId != null ? rows.find((r) => r.id === assignQuoteId) : undefined;
@@ -549,34 +608,29 @@ export default function QuotesList() {
                       </td>
                       <td className="px-4 py-3">
                         {useQuoteActionsMenu ? (
-                          <QuoteRowActions
-                            quote={q}
-                            onNavigateDetail={(id) => navigate(`/preventivi/${id}`)}
-                            onOpenAssign={(row) => {
-                              setAssignQuoteId(row.id);
-                              setAssignOperatorId('');
-                              setAssignError(null);
-                            }}
-                            onOpenReassign={(row) => {
-                              setAssignQuoteId(row.id);
-                              setAssignOperatorId(row.operatore_id ? String(row.operatore_id) : '');
-                              setAssignError(null);
-                            }}
-                            onOpenHistory={setHistoryQuoteId}
-                            onActionError={setActionError}
-                            {...(canDeleteQuote ? { onOpenDelete: setDeleteQuoteId } : {})}
-                          />
-                        ) : (
                           <div className="flex flex-wrap items-center justify-end gap-1">
-                            <Link
-                              to={`/preventivi/${q.id}`}
-                              className="inline-flex h-9 cursor-pointer items-center gap-1.5 rounded-lg border border-gray-200 bg-white px-3 text-xs font-medium text-gray-600 transition hover:border-blue-300 hover:bg-blue-50 hover:text-blue-700"
-                              title="Apri"
-                            >
-                              <Eye className="h-3.5 w-3.5" />
-                              Apri
-                            </Link>
-
+                            <QuoteRowActions
+                              variant={role === 'struttura' ? 'struttura' : 'admin'}
+                              quote={q}
+                              onNavigateDetail={(id) => navigate(`/preventivi/${id}`)}
+                              onOpenHistory={setHistoryQuoteId}
+                              onActionError={setActionError}
+                              {...(role === 'struttura'
+                                ? { onOpenStandbyReason: (row) => setStandbyQuoteId(row.id) }
+                                : {
+                                    onOpenAssign: (row) => {
+                                      setAssignQuoteId(row.id);
+                                      setAssignOperatorId('');
+                                      setAssignError(null);
+                                    },
+                                    onOpenReassign: (row) => {
+                                      setAssignQuoteId(row.id);
+                                      setAssignOperatorId(row.operatore_id ? String(row.operatore_id) : '');
+                                      setAssignError(null);
+                                    },
+                                    ...(canDeleteQuote ? { onOpenDelete: setDeleteQuoteId } : {}),
+                                  })}
+                            />
                             {role === 'struttura' && q.stato === 'ELABORATA' && q.has_policy === 0 && (
                               <Link
                                 to={`/polizze/nuova?quote_id=${q.id}`}
@@ -587,7 +641,6 @@ export default function QuotesList() {
                                 Richiedi polizza
                               </Link>
                             )}
-
                             {role === 'struttura' && q.has_policy === 1 && q.policy && (
                               <Link
                                 to={`/polizze/${q.policy.id}`}
@@ -598,6 +651,17 @@ export default function QuotesList() {
                                 Polizza
                               </Link>
                             )}
+                          </div>
+                        ) : (
+                          <div className="flex flex-wrap items-center justify-end gap-1">
+                            <Link
+                              to={`/preventivi/${q.id}`}
+                              className="inline-flex h-9 cursor-pointer items-center gap-1.5 rounded-lg border border-gray-200 bg-white px-3 text-xs font-medium text-gray-600 transition hover:border-blue-300 hover:bg-blue-50 hover:text-blue-700"
+                              title="Apri"
+                            >
+                              <Eye className="h-3.5 w-3.5" />
+                              Apri
+                            </Link>
 
                             {canDeleteQuote && (
                               <button
@@ -631,6 +695,23 @@ export default function QuotesList() {
           />
         )}
       </div>
+
+      <Modal
+        isOpen={standbyQuoteId != null}
+        onClose={() => setStandbyQuoteId(null)}
+        title="Motivazione standby"
+        size="md"
+      >
+        <div className="max-h-[min(75vh,520px)] overflow-y-auto pr-1">
+          {standbyLoading ? (
+            <p className="py-8 text-center text-sm text-gray-500">Caricamento…</p>
+          ) : !standbyDetail ? (
+            <p className="py-6 text-center text-sm text-gray-500">Nessun dato.</p>
+          ) : (
+            <StandbyMotivationBody quote={standbyDetail} />
+          )}
+        </div>
+      </Modal>
 
       <Modal
         isOpen={historyQuoteId != null}

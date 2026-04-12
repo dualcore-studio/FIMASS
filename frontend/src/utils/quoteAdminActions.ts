@@ -1,4 +1,4 @@
-/** Controlli azioni su lista preventivi per ruoli con menu "Azioni" (admin, supervisore), allineati al backend. */
+/** Controlli azioni su lista preventivi (admin, supervisore, struttura), allineati al backend per il download. */
 
 export function adminCanAssignQuote(stato: string | undefined): boolean {
   return stato === 'PRESENTATA';

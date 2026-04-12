@@ -322,6 +322,9 @@ router.get('/:id/preventivo-finale', authenticateToken, (req, res) => {
       if (req.user.role === 'operatore' && Number(quote.operatore_id) !== Number(req.user.id)) {
         return res.status(403).json({ error: 'Accesso non autorizzato' });
       }
+      if (req.user.role === 'struttura' && quote.stato !== 'ELABORATA') {
+        return res.status(403).json({ error: 'Download disponibile solo per preventivi elaborati' });
+      }
 
       const prevAtts = ctx.attachments.filter(
         (a) => a.entity_type === 'quote' && Number(a.entity_id) === Number(quoteId) && a.tipo === 'preventivo_elaborato',
