@@ -13,6 +13,11 @@ import { useSyncPageToTotalPages } from '../../hooks/useSyncPageToTotalPages';
 import { useListTableSort } from '../../hooks/useListTableSort';
 import SortableTh from '../../components/common/SortableTh';
 import QuoteRowActions from '../../components/quotes/QuoteRowActions';
+import {
+  OperatorStandbyModal,
+  OperatorElaborataModal,
+  OperatorInLavorazioneConfirmModal,
+} from '../../components/quotes/OperatorQuoteWorkflowModals';
 import { getLatestStandbyTransition } from '../../utils/quoteStandby';
 const STATI = ['PRESENTATA', 'ASSEGNATA', 'IN LAVORAZIONE', 'STANDBY', 'ELABORATA'] as const;
 
@@ -52,7 +57,7 @@ function StandbyMotivationBody({ quote }: { quote: Quote }) {
 }
 
 function QuoteHistoryTimeline({ entries }: { entries: StatusHistory[] }) {
-  const sorted = [...entries].sort((a, b) => String(a.created_at || '').localeCompare(String(b.created_at || '')));
+  const sorted = [...entries].sort((a, b) => String(b.created_at || '').localeCompare(String(a.created_at || '')));
   if (sorted.length === 0) {
     return <p className="text-sm text-gray-500">Nessun cambiamento di stato registrato.</p>;
   }
@@ -175,6 +180,10 @@ export default function QuotesList() {
   const [standbyQuoteId, setStandbyQuoteId] = useState<number | null>(null);
   const [standbyDetail, setStandbyDetail] = useState<Quote | null>(null);
   const [standbyLoading, setStandbyLoading] = useState(false);
+
+  const [operatorStandbyQuoteId, setOperatorStandbyQuoteId] = useState<number | null>(null);
+  const [operatorElaborataQuoteId, setOperatorElaborataQuoteId] = useState<number | null>(null);
+  const [operatorInLavQuoteId, setOperatorInLavQuoteId] = useState<number | null>(null);
 
   const tableSort = useListTableSort();
 
@@ -358,7 +367,8 @@ export default function QuotesList() {
   const rows = result?.data ?? [];
   const canCreate = role === 'struttura';
   const canDeleteQuote = role === 'admin';
-  const useQuoteActionsMenu = role === 'admin' || role === 'supervisore' || role === 'struttura';
+  const useQuoteActionsMenu =
+    role === 'admin' || role === 'supervisore' || role === 'struttura' || role === 'operatore';
   const canFilterStruttura = role === 'admin' || role === 'supervisore';
 
   const assignTargetRow = assignQuoteId != null ? rows.find((r) => r.id === assignQuoteId) : undefined;
@@ -610,7 +620,13 @@ export default function QuotesList() {
                         {useQuoteActionsMenu ? (
                           <div className="flex flex-wrap items-center justify-end gap-1">
                             <QuoteRowActions
-                              variant={role === 'struttura' ? 'struttura' : 'admin'}
+                              variant={
+                                role === 'struttura'
+                                  ? 'struttura'
+                                  : role === 'operatore'
+                                    ? 'operatore'
+                                    : 'admin'
+                              }
                               quote={q}
                               onNavigateDetail={(id) => navigate(`/preventivi/${id}`)}
                               onOpenHistory={setHistoryQuoteId}
@@ -621,19 +637,25 @@ export default function QuotesList() {
                                     onRichiediPolizza: (row) =>
                                       navigate(`/polizze/nuova?quote_id=${row.id}`),
                                   }
-                                : {
-                                    onOpenAssign: (row) => {
-                                      setAssignQuoteId(row.id);
-                                      setAssignOperatorId('');
-                                      setAssignError(null);
-                                    },
-                                    onOpenReassign: (row) => {
-                                      setAssignQuoteId(row.id);
-                                      setAssignOperatorId(row.operatore_id ? String(row.operatore_id) : '');
-                                      setAssignError(null);
-                                    },
-                                    ...(canDeleteQuote ? { onOpenDelete: setDeleteQuoteId } : {}),
-                                  })}
+                                : role === 'operatore'
+                                  ? {
+                                      onOpenOperatorStandby: (row) => setOperatorStandbyQuoteId(row.id),
+                                      onOpenOperatorElaborata: (row) => setOperatorElaborataQuoteId(row.id),
+                                      onOpenOperatorInLavorazione: (row) => setOperatorInLavQuoteId(row.id),
+                                    }
+                                  : {
+                                      onOpenAssign: (row) => {
+                                        setAssignQuoteId(row.id);
+                                        setAssignOperatorId('');
+                                        setAssignError(null);
+                                      },
+                                      onOpenReassign: (row) => {
+                                        setAssignQuoteId(row.id);
+                                        setAssignOperatorId(row.operatore_id ? String(row.operatore_id) : '');
+                                        setAssignError(null);
+                                      },
+                                      ...(canDeleteQuote ? { onOpenDelete: setDeleteQuoteId } : {}),
+                                    })}
                             />
                             {role === 'struttura' && q.has_policy === 1 && q.policy && (
                               <Link
@@ -760,6 +782,28 @@ export default function QuotesList() {
           </div>
         </div>
       </Modal>
+
+      <OperatorStandbyModal
+        isOpen={operatorStandbyQuoteId != null}
+        onClose={() => setOperatorStandbyQuoteId(null)}
+        quoteId={operatorStandbyQuoteId ?? 0}
+        onCompleted={fetchQuotes}
+        onError={setActionError}
+      />
+      <OperatorElaborataModal
+        isOpen={operatorElaborataQuoteId != null}
+        onClose={() => setOperatorElaborataQuoteId(null)}
+        quoteId={operatorElaborataQuoteId ?? 0}
+        onCompleted={fetchQuotes}
+        onError={setActionError}
+      />
+      <OperatorInLavorazioneConfirmModal
+        isOpen={operatorInLavQuoteId != null}
+        onClose={() => setOperatorInLavQuoteId(null)}
+        quoteId={operatorInLavQuoteId ?? 0}
+        onCompleted={fetchQuotes}
+        onError={setActionError}
+      />
 
       <Modal
         isOpen={deleteQuoteId != null}

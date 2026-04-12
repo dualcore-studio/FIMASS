@@ -9,6 +9,11 @@ import {
   adminCanDownloadPreventivoFinale,
   adminCanReassignQuote,
 } from '../../utils/quoteAdminActions';
+import {
+  operatorCanElaborata,
+  operatorCanInLavorazione,
+  operatorCanStandby,
+} from '../../utils/quoteOperatorActions';
 
 const MENU_WIDTH = 228;
 const VIEW_MARGIN = 8;
@@ -21,8 +26,8 @@ type MenuPos = { top: number; left: number; maxHeightPx?: number };
 
 export type QuoteRowActionsProps = {
   quote: Quote;
-  /** Default `admin`: menu completo back-office. `struttura`: solo voci consentite al profilo struttura. */
-  variant?: 'admin' | 'struttura';
+  /** `admin`: back-office. `struttura` / `operatore`: voci filtrate per ruolo. */
+  variant?: 'admin' | 'struttura' | 'operatore';
   onNavigateDetail: (id: number) => void;
   onOpenHistory: (id: number) => void;
   onActionError: (message: string) => void;
@@ -35,6 +40,10 @@ export type QuoteRowActionsProps = {
   onOpenStandbyReason?: (quote: Quote) => void;
   /** Solo variant `struttura`: richiesta emissione polizza (ELABORATA senza polizza) */
   onRichiediPolizza?: (quote: Quote) => void;
+  /** Solo variant `operatore`: workflow da tabella */
+  onOpenOperatorStandby?: (quote: Quote) => void;
+  onOpenOperatorElaborata?: (quote: Quote) => void;
+  onOpenOperatorInLavorazione?: (quote: Quote) => void;
 };
 
 export default function QuoteRowActions({
@@ -48,6 +57,9 @@ export default function QuoteRowActions({
   onOpenDelete,
   onOpenStandbyReason,
   onRichiediPolizza,
+  onOpenOperatorStandby,
+  onOpenOperatorElaborata,
+  onOpenOperatorInLavorazione,
 }: QuoteRowActionsProps) {
   const [open, setOpen] = useState(false);
   const wrapRef = useRef<HTMLDivElement>(null);
@@ -63,6 +75,10 @@ export default function QuoteRowActions({
   const standbyReasonEnabled = quote.stato === 'STANDBY';
   const richiediPolizzaEnabled =
     quote.stato === 'ELABORATA' && Number(quote.has_policy) === 0;
+
+  const operatorStandbyEnabled = operatorCanStandby(quote.stato);
+  const operatorInLavEnabled = operatorCanInLavorazione(quote.stato);
+  const operatorElaborataEnabled = operatorCanElaborata(quote.stato);
 
   const updatePosition = useCallback(() => {
     const trigger = wrapRef.current?.querySelector<HTMLElement>('[data-quote-actions-trigger]');
@@ -247,6 +263,92 @@ export default function QuoteRowActions({
           }}
         >
           Causa standby
+        </button>
+        <button
+          type="button"
+          role="menuitem"
+          className={itemClass(true)}
+          onClick={() => {
+            close();
+            onOpenHistory(quote.id);
+          }}
+        >
+          Storico stati
+        </button>
+      </div>
+    ) : open && variant === 'operatore' ? (
+      <div
+        ref={menuRef}
+        className="fixed z-[200] max-h-[min(70vh,420px)] overflow-y-auto rounded-lg border border-gray-200/90 bg-white py-1 shadow-lg ring-1 ring-black/5"
+        style={{
+          top: menuPos.top,
+          left: menuPos.left,
+          width: MENU_WIDTH,
+          ...(menuPos.maxHeightPx != null ? { maxHeight: menuPos.maxHeightPx } : {}),
+        }}
+        role="menu"
+      >
+        <button
+          type="button"
+          role="menuitem"
+          className={itemClass(true)}
+          onClick={() => {
+            close();
+            onNavigateDetail(quote.id);
+          }}
+        >
+          Apri
+        </button>
+        <button
+          type="button"
+          role="menuitem"
+          className={itemClass(downloadPrevEnabled)}
+          disabled={!downloadPrevEnabled}
+          onClick={handleDownloadPreventivo}
+        >
+          Scarica preventivo
+        </button>
+        <button type="button" role="menuitem" className={itemClass(true)} onClick={handleExportPdf}>
+          Esporta
+        </button>
+        <button
+          type="button"
+          role="menuitem"
+          className={itemClass(operatorStandbyEnabled)}
+          disabled={!operatorStandbyEnabled}
+          onClick={() => {
+            if (!operatorStandbyEnabled || !onOpenOperatorStandby) return;
+            close();
+            onOpenOperatorStandby(quote);
+          }}
+        >
+          Standby
+        </button>
+        <button
+          type="button"
+          role="menuitem"
+          className={itemClass(operatorInLavEnabled)}
+          disabled={!operatorInLavEnabled}
+          onClick={() => {
+            if (!operatorInLavEnabled || !onOpenOperatorInLavorazione) return;
+            close();
+            onOpenOperatorInLavorazione(quote);
+          }}
+        >
+          In lavorazione
+        </button>
+        <button
+          type="button"
+          role="menuitem"
+          className={itemClass(operatorElaborataEnabled)}
+          disabled={!operatorElaborataEnabled}
+          onClick={() => {
+            if (!operatorElaborataEnabled || !onOpenOperatorElaborata) return;
+            close();
+            onOpenOperatorElaborata(quote);
+          }}
+        >
+          Elaborata
         </button>
         <button
           type="button"

@@ -285,7 +285,7 @@ router.put('/reminders/:id/read', authenticateToken, authorizeRoles('operatore')
   })();
 });
 
-router.get('/:id/summary-pdf', authenticateToken, authorizeRoles('admin', 'supervisore'), (req, res) => {
+router.get('/:id/summary-pdf', authenticateToken, (req, res) => {
   (async () => {
     const quoteId = parseInt(req.params.id, 10);
     if (Number.isNaN(quoteId)) {
@@ -296,6 +296,13 @@ router.get('/:id/summary-pdf', authenticateToken, authorizeRoles('admin', 'super
       const row = await getById('quotes', quoteId);
       if (!row) return res.status(404).json({ error: 'Preventivo non trovato' });
       const quote = enrichQuote(row, ctx);
+      if (req.user.role === 'operatore') {
+        if (Number(quote.operatore_id) !== Number(req.user.id)) {
+          return res.status(403).json({ error: 'Accesso non autorizzato' });
+        }
+      } else if (req.user.role !== 'admin' && req.user.role !== 'supervisore') {
+        return res.status(403).json({ error: 'Accesso non autorizzato' });
+      }
       pipeQuoteSummaryPdf(quote, ctx, res);
     } catch (err) {
       console.error('Error generating quote summary PDF:', err);
@@ -541,27 +548,47 @@ router.put('/:id/status', authenticateToken, (req, res) => {
       return res.json({ message: 'Stato invariato' });
     }
 
-    const validTransitions = {
-      'ASSEGNATA': ['IN LAVORAZIONE'],
+    const operatorValidTransitions = {
+      ASSEGNATA: ['IN LAVORAZIONE', 'STANDBY'],
       'IN LAVORAZIONE': ['STANDBY', 'ELABORATA'],
-      'STANDBY': ['IN LAVORAZIONE']
+      STANDBY: ['IN LAVORAZIONE', 'ELABORATA'],
     };
 
     if (req.user.role === 'operatore') {
       if (quote.operatore_id !== req.user.id) return res.status(403).json({ error: 'Non sei l\'operatore assegnato' });
-      if (!validTransitions[quote.stato] || !validTransitions[quote.stato].includes(statoNormalized)) {
+      const allowed = operatorValidTransitions[quote.stato];
+      if (!allowed || !allowed.includes(statoNormalized)) {
         return res.status(400).json({ error: `Transizione da ${quote.stato} a ${statoNormalized} non consentita` });
+      }
+      if (statoNormalized === 'ELABORATA') {
+        const ctxPre = await loadContext();
+        const hasFinale = ctxPre.attachments.some(
+          (a) => a.entity_type === 'quote'
+            && Number(a.entity_id) === Number(req.params.id)
+            && a.tipo === 'preventivo_elaborato',
+        );
+        if (!hasFinale) {
+          return res.status(400).json({ error: 'Per passare a Elaborata è necessario caricare il file finale del preventivo' });
+        }
       }
     }
 
-    if (statoNormalized === 'STANDBY' && !motivo) {
+    if (statoNormalized === 'STANDBY' && !String(motivo || '').trim()) {
       return res.status(400).json({ error: 'Motivo standby obbligatorio' });
     }
 
     const prevStato = quote.stato;
+    const motivoToStore =
+      statoNormalized === 'STANDBY' ? String(motivo).trim() : motivo ? String(motivo).trim() : null;
 
     await upsertById('quotes', req.params.id, { stato: statoNormalized });
-    await insert('quote_status_history', { quote_id: Number(req.params.id), stato_precedente: prevStato, stato_nuovo: statoNormalized, motivo: motivo || null, utente_id: req.user.id });
+    await insert('quote_status_history', {
+      quote_id: Number(req.params.id),
+      stato_precedente: prevStato,
+      stato_nuovo: statoNormalized,
+      motivo: motivoToStore,
+      utente_id: req.user.id,
+    });
     await logActivity({
       utente_id: req.user.id,
       utente_nome: getUserDisplayName(req.user),
@@ -570,7 +597,7 @@ router.put('/:id/status', authenticateToken, (req, res) => {
       modulo: 'preventivi',
       riferimento_id: parseInt(req.params.id),
       riferimento_tipo: 'quote',
-      dettaglio: `Preventivo ${quote.numero}: ${prevStato} → ${statoNormalized}${motivo ? ` (Motivo: ${motivo})` : ''}`
+      dettaglio: `Preventivo ${quote.numero}: ${prevStato} → ${statoNormalized}${motivoToStore ? ` (Motivo: ${motivoToStore})` : ''}`
     });
 
     const ctxStatus = await loadContext();
@@ -591,7 +618,7 @@ router.put('/:id/status', authenticateToken, (req, res) => {
         statoPrecedente: prevStato,
         statoNuovo: statoNormalized,
         dataAggiornamento,
-        motivoStandby: statoNormalized === 'STANDBY' ? (motivo || null) : null,
+        motivoStandby: statoNormalized === 'STANDBY' ? motivoToStore : null,
       });
     }
 
