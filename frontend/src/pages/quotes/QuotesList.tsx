@@ -1,18 +1,9 @@
 import { useCallback, useEffect, useState, type ReactNode } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
-import {
-  Plus,
-  Eye,
-  UserCheck,
-  FileText,
-  ExternalLink,
-  Trash2,
-  ArrowRight,
-  Clock,
-} from 'lucide-react';
+import { Plus, Eye, FileText, ExternalLink, Trash2, ArrowRight, Clock } from 'lucide-react';
 import { api, ApiError } from '../../utils/api';
 import type { Quote, InsuranceType, PaginatedResponse, User, StatusHistory } from '../../types';
-import { formatDate, formatDateTime, getUserDisplayName, isQuoteClosedForAssignment } from '../../utils/helpers';
+import { formatDate, formatDateTime, getUserDisplayName } from '../../utils/helpers';
 import { useAuth } from '../../context/AuthContext';
 import StatusBadge from '../../components/common/StatusBadge';
 import TablePagination from '../../components/common/TablePagination';
@@ -21,7 +12,7 @@ import { TABLE_PAGE_SIZE } from '../../constants/tablePagination';
 import { useSyncPageToTotalPages } from '../../hooks/useSyncPageToTotalPages';
 import { useListTableSort } from '../../hooks/useListTableSort';
 import SortableTh from '../../components/common/SortableTh';
-import AdminQuoteRowActions from '../../components/quotes/AdminQuoteRowActions';
+import QuoteRowActions from '../../components/quotes/QuoteRowActions';
 const STATI = ['PRESENTATA', 'ASSEGNATA', 'IN LAVORAZIONE', 'STANDBY', 'ELABORATA'] as const;
 
 function quoteHistoryActorLabel(h: StatusHistory): string {
@@ -307,8 +298,8 @@ export default function QuotesList() {
 
   const rows = result?.data ?? [];
   const canCreate = role === 'struttura';
-  const canAssign = role === 'admin' || role === 'supervisore';
   const canDeleteQuote = role === 'admin';
+  const useQuoteActionsMenu = role === 'admin' || role === 'supervisore';
   const canFilterStruttura = role === 'admin' || role === 'supervisore';
 
   const assignTargetRow = assignQuoteId != null ? rows.find((r) => r.id === assignQuoteId) : undefined;
@@ -557,8 +548,8 @@ export default function QuotesList() {
                         {formatDate(q.created_at)}
                       </td>
                       <td className="px-4 py-3">
-                        {role === 'admin' ? (
-                          <AdminQuoteRowActions
+                        {useQuoteActionsMenu ? (
+                          <QuoteRowActions
                             quote={q}
                             onNavigateDetail={(id) => navigate(`/preventivi/${id}`)}
                             onOpenAssign={(row) => {
@@ -571,9 +562,9 @@ export default function QuotesList() {
                               setAssignOperatorId(row.operatore_id ? String(row.operatore_id) : '');
                               setAssignError(null);
                             }}
-                            onOpenDelete={setDeleteQuoteId}
                             onOpenHistory={setHistoryQuoteId}
                             onActionError={setActionError}
+                            {...(canDeleteQuote ? { onOpenDelete: setDeleteQuoteId } : {})}
                           />
                         ) : (
                           <div className="flex flex-wrap items-center justify-end gap-1">
@@ -585,22 +576,6 @@ export default function QuotesList() {
                               <Eye className="h-3.5 w-3.5" />
                               Apri
                             </Link>
-
-                            {canAssign && !isQuoteClosedForAssignment(q.stato) && (
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  setAssignQuoteId(q.id);
-                                  setAssignOperatorId(q.operatore_id ? String(q.operatore_id) : '');
-                                  setAssignError(null);
-                                }}
-                                className="inline-flex h-9 cursor-pointer items-center gap-1.5 rounded-lg border border-gray-200 bg-white px-3 text-xs font-medium text-gray-600 transition hover:border-amber-300 hover:bg-amber-50 hover:text-amber-800 disabled:cursor-not-allowed"
-                                title="Assegna"
-                              >
-                                <UserCheck className="h-3.5 w-3.5" />
-                                Assegna
-                              </button>
-                            )}
 
                             {role === 'struttura' && q.stato === 'ELABORATA' && q.has_policy === 0 && (
                               <Link

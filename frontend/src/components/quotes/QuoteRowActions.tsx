@@ -19,25 +19,26 @@ const MENU_VH_CAP = 0.7;
 
 type MenuPos = { top: number; left: number; maxHeightPx?: number };
 
-type Props = {
+export type QuoteRowActionsProps = {
   quote: Quote;
   onNavigateDetail: (id: number) => void;
   onOpenAssign: (quote: Quote) => void;
   onOpenReassign: (quote: Quote) => void;
-  onOpenDelete: (id: number) => void;
   onOpenHistory: (id: number) => void;
   onActionError: (message: string) => void;
+  /** Se valorizzato, mostra la voce Elimina (solo ruoli con permesso effettivo, es. admin). */
+  onOpenDelete?: (id: number) => void;
 };
 
-export default function AdminQuoteRowActions({
+export default function QuoteRowActions({
   quote,
   onNavigateDetail,
   onOpenAssign,
   onOpenReassign,
-  onOpenDelete,
   onOpenHistory,
   onActionError,
-}: Props) {
+  onOpenDelete,
+}: QuoteRowActionsProps) {
   const [open, setOpen] = useState(false);
   const wrapRef = useRef<HTMLDivElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
@@ -112,6 +113,8 @@ export default function AdminQuoteRowActions({
 
   useLayoutEffect(() => {
     if (!open) return;
+    // Misura il menu nel portale subito dopo il mount; aggiorna posizione nello stesso frame.
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- posizionamento dropdown (stesso schema lista admin)
     updatePosition();
     const el = menuRef.current;
     if (!el) return;
@@ -234,17 +237,19 @@ export default function AdminQuoteRowActions({
       >
         Riassegna
       </button>
-      <button
-        type="button"
-        role="menuitem"
-        className={itemClass(true)}
-        onClick={() => {
-          close();
-          onOpenDelete(quote.id);
-        }}
-      >
-        Elimina
-      </button>
+      {onOpenDelete ? (
+        <button
+          type="button"
+          role="menuitem"
+          className={itemClass(true)}
+          onClick={() => {
+            close();
+            onOpenDelete(quote.id);
+          }}
+        >
+          Elimina
+        </button>
+      ) : null}
       <button
         type="button"
         role="menuitem"

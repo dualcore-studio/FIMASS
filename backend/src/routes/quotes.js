@@ -285,7 +285,7 @@ router.put('/reminders/:id/read', authenticateToken, authorizeRoles('operatore')
   })();
 });
 
-router.get('/:id/summary-pdf', authenticateToken, authorizeRoles('admin'), (req, res) => {
+router.get('/:id/summary-pdf', authenticateToken, authorizeRoles('admin', 'supervisore'), (req, res) => {
   (async () => {
     const quoteId = parseInt(req.params.id, 10);
     if (Number.isNaN(quoteId)) {
@@ -442,7 +442,7 @@ router.put('/:id/assign', authenticateToken, authorizeRoles('supervisore', 'admi
     if (isQuoteClosedForAssignment(quote.stato)) {
       return res.status(400).json({ error: 'Non è possibile assegnare una pratica già elaborata' });
     }
-    if (req.user.role === 'admin' && quote.stato !== 'PRESENTATA' && quote.stato !== 'ASSEGNATA') {
+    if (quote.stato !== 'PRESENTATA' && quote.stato !== 'ASSEGNATA') {
       return res.status(400).json({
         error: 'Operazione non consentita: l’assegnazione è consentita solo da stato Presentata; la riassegnazione solo da stato Assegnata.',
       });
