@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState, type ReactNode } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { Plus, Eye, ExternalLink, Trash2, ArrowRight, Clock } from 'lucide-react';
 import { api, ApiError } from '../../utils/api';
-import type { Quote, InsuranceType, PaginatedResponse, User, StatusHistory } from '../../types';
+import type { Quote, InsuranceType, PaginatedResponse, StructureOption, User, StatusHistory } from '../../types';
 import { formatDate, formatDateTime, getUserDisplayName } from '../../utils/helpers';
 import { useAuth } from '../../context/AuthContext';
 import StatusBadge from '../../components/common/StatusBadge';
@@ -165,7 +165,7 @@ export default function QuotesList() {
   const [deleteSubmitting, setDeleteSubmitting] = useState(false);
 
   const [insuranceTypes, setInsuranceTypes] = useState<InsuranceType[]>([]);
-  const [structures, setStructures] = useState<User[]>([]);
+  const [structures, setStructures] = useState<StructureOption[]>([]);
   const [operators, setOperators] = useState<User[]>([]);
 
   const [assignQuoteId, setAssignQuoteId] = useState<number | null>(null);
@@ -190,7 +190,7 @@ export default function QuotesList() {
   useEffect(() => {
     api.get<InsuranceType[]>('/settings/insurance-types/active').then(setInsuranceTypes).catch(() => {});
     if (role === 'admin' || role === 'supervisore') {
-      api.get<User[]>('/users/structures').then(setStructures).catch(() => {});
+      api.get<StructureOption[]>('/users/structures').then(setStructures).catch(() => {});
       api.get<User[]>('/users/operators').then(setOperators).catch(() => {});
     }
   }, [role]);

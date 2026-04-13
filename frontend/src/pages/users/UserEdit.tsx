@@ -2,7 +2,7 @@ import { useEffect, useState, type FormEvent } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { ArrowLeft } from 'lucide-react';
 import { api, ApiError } from '../../utils/api';
-import type { InsuranceType, User } from '../../types';
+import type { CommissionStructureType, InsuranceType, User } from '../../types';
 
 type UserRole = User['role'];
 
@@ -39,6 +39,7 @@ export default function UserEdit() {
   const [telefono, setTelefono] = useState('');
   const [username, setUsername] = useState('');
   const [stato, setStato] = useState<User['stato']>('attivo');
+  const [commissionType, setCommissionType] = useState<CommissionStructureType>('SEGNALATORE');
 
   const [tutteTipologie, setTutteTipologie] = useState(true);
   const [tipologieSelezionate, setTipologieSelezionate] = useState<Set<string>>(() => new Set());
@@ -80,6 +81,7 @@ export default function UserEdit() {
         setTelefono(u.telefono ?? '');
         setUsername(u.username ?? '');
         setStato(u.stato);
+        setCommissionType(u.commission_type === 'PARTNER' ? 'PARTNER' : 'SEGNALATORE');
 
         const enabledList = normalizeEnabledList(u.enabled_types);
         const allT = tipologieAreAll(enabledList.length ? enabledList : null, activeCodes);
@@ -171,6 +173,7 @@ export default function UserEdit() {
     if (role === 'struttura') {
       base.denominazione = denominazione.trim();
       base.telefono = telefono.trim();
+      base.commission_type = commissionType;
       base.enabled_types = tutteTipologie ? ['all'] : Array.from(tipologieSelezionate);
       base.nome = null;
       base.cognome = null;
@@ -339,6 +342,22 @@ export default function UserEdit() {
               >
                 <option value="attivo">Attivo</option>
                 <option value="disattivo">Disattivo</option>
+              </select>
+            </div>
+            <div className="sm:col-span-2">
+              <label className="mb-1 block text-sm font-medium text-gray-700">
+                Tipo provvigione struttura <span className="text-red-500">*</span>
+              </label>
+              <p className="mb-2 text-xs text-gray-500">
+                Modificabile solo dall&apos;admin. Segnalatore 30% · Partner 60% sulla provvigione Sportello Amico.
+              </p>
+              <select
+                value={commissionType}
+                onChange={(e) => setCommissionType(e.target.value as CommissionStructureType)}
+                className="input-field"
+              >
+                <option value="SEGNALATORE">Segnalatore (30%)</option>
+                <option value="PARTNER">Partner (60%)</option>
               </select>
             </div>
 

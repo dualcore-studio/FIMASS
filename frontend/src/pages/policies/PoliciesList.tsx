@@ -4,7 +4,7 @@ import {
   Shield,
 } from 'lucide-react';
 import { api, ApiError } from '../../utils/api';
-import type { Policy, InsuranceType, PaginatedResponse, User } from '../../types';
+import type { Policy, InsuranceType, PaginatedResponse, StructureOption, User } from '../../types';
 import { formatDate, getUserDisplayName } from '../../utils/helpers';
 import { useAuth } from '../../context/AuthContext';
 import StatusBadge from '../../components/common/StatusBadge';
@@ -88,7 +88,7 @@ export default function PoliciesList() {
   const [listError, setListError] = useState<string | null>(null);
 
   const [insuranceTypes, setInsuranceTypes] = useState<InsuranceType[]>([]);
-  const [structures, setStructures] = useState<User[]>([]);
+  const [structures, setStructures] = useState<StructureOption[]>([]);
   const [operators, setOperators] = useState<User[]>([]);
   const [actionError, setActionError] = useState<string | null>(null);
 
@@ -97,7 +97,7 @@ export default function PoliciesList() {
   useEffect(() => {
     api.get<InsuranceType[]>('/settings/insurance-types/active').then(setInsuranceTypes).catch(() => {});
     if (role === 'admin' || role === 'supervisore') {
-      api.get<User[]>('/users/structures').then(setStructures).catch(() => {});
+      api.get<StructureOption[]>('/users/structures').then(setStructures).catch(() => {});
       api.get<User[]>('/users/operators').then(setOperators).catch(() => {});
     }
   }, [role]);

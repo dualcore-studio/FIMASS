@@ -101,3 +101,22 @@ export function getRoleLabel(role: string): string {
   };
   return labels[role] || role;
 }
+
+export function formatEuro(value: number | null | undefined): string {
+  if (value === null || value === undefined || Number.isNaN(Number(value))) return '—';
+  return new Intl.NumberFormat('it-IT', { style: 'currency', currency: 'EUR' }).format(Number(value));
+}
+
+export function commissionPercentForType(type: string): number {
+  return type === 'PARTNER' ? 60 : 30;
+}
+
+export function getCommissionTypeBadgeClass(type: string): string {
+  return type === 'PARTNER'
+    ? 'bg-emerald-100 text-emerald-900'
+    : 'bg-sky-100 text-sky-900';
+}
+
+export function getCommissionTypeLabel(type: string): string {
+  return type === 'PARTNER' ? 'Partner' : 'Segnalatore';
+}

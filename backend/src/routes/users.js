@@ -7,6 +7,8 @@ const { logActivity } = require('./logs');
 
 const router = express.Router();
 
+const COMMISSION_TYPES = new Set(['SEGNALATORE', 'PARTNER']);
+
 function getUserDisplayName(user) {
   return user.role === 'struttura' ? user.denominazione : `${user.nome} ${user.cognome}`;
 }
@@ -57,7 +59,13 @@ router.get('/structures', authenticateToken, authorizeRoles('admin', 'supervisor
   (async () => {
     const structures = (await list('users', (u) => u.role === 'struttura' && u.stato === 'attivo'))
       .sort((a, b) => String(a.denominazione || '').localeCompare(String(b.denominazione || ''), 'it'))
-      .map((u) => ({ id: u.id, denominazione: u.denominazione, email: u.email }));
+      .map((u) => ({
+        id: u.id,
+        denominazione: u.denominazione,
+        email: u.email,
+        role: 'struttura',
+        commission_type: u.commission_type && COMMISSION_TYPES.has(u.commission_type) ? u.commission_type : 'SEGNALATORE',
+      }));
     res.json(structures);
   })();
 });
@@ -73,16 +81,37 @@ router.get('/:id', authenticateToken, authorizeRoles('admin', 'supervisore'), (r
 
 router.post('/', authenticateToken, authorizeRoles('admin'), (req, res) => {
   (async () => {
-    const { username, password, role, nome, cognome, denominazione, email, telefono, stato, enabled_types } = req.body;
+    const {
+      username,
+      password,
+      role,
+      nome,
+      cognome,
+      denominazione,
+      email,
+      telefono,
+      stato,
+      enabled_types,
+      commission_type,
+    } = req.body;
 
     if (!username || !password || !role || !email) {
       return res.status(400).json({ error: 'Campi obbligatori mancanti' });
+    }
+
+    if (role === 'struttura') {
+      const ct = commission_type != null ? String(commission_type).toUpperCase() : '';
+      if (!COMMISSION_TYPES.has(ct)) {
+        return res.status(400).json({ error: 'Tipo provvigione struttura obbligatorio (Segnalatore o Partner)' });
+      }
     }
 
     const existing = await findOne('users', (u) => u.username === username);
     if (existing) return res.status(409).json({ error: 'Username già in uso' });
 
     const hashedPassword = bcrypt.hashSync(password, 10);
+    const ctInsert =
+      role === 'struttura' ? String(commission_type).toUpperCase() : null;
     const result = await insert('users', {
       username,
       password: hashedPassword,
@@ -94,6 +123,7 @@ router.post('/', authenticateToken, authorizeRoles('admin'), (req, res) => {
       telefono: telefono || null,
       stato: stato || 'attivo',
       enabled_types: enabled_types || null,
+      commission_type: ctInsert,
     });
 
     await logActivity({
@@ -116,11 +146,24 @@ router.post('/', authenticateToken, authorizeRoles('admin'), (req, res) => {
 
 router.put('/:id', authenticateToken, authorizeRoles('admin'), (req, res) => {
   (async () => {
-    const { nome, cognome, denominazione, email, telefono, stato, enabled_types, role } = req.body;
+    const { nome, cognome, denominazione, email, telefono, stato, enabled_types, role, commission_type } = req.body;
     const userId = req.params.id;
 
     const user = await getById('users', userId);
     if (!user) return res.status(404).json({ error: 'Utente non trovato' });
+    const nextRole = role !== undefined && role !== null && role !== '' ? role : user.role;
+    let nextCommissionType = null;
+    if (nextRole === 'struttura') {
+      const raw =
+        commission_type !== undefined && commission_type !== null && commission_type !== ''
+          ? String(commission_type).toUpperCase()
+          : user.commission_type || 'SEGNALATORE';
+      if (!COMMISSION_TYPES.has(raw)) {
+        return res.status(400).json({ error: 'Tipo provvigione struttura non valido' });
+      }
+      nextCommissionType = raw;
+    }
+
     await upsertById('users', userId, {
       nome: nome || null,
       cognome: cognome || null,
@@ -129,7 +172,8 @@ router.put('/:id', authenticateToken, authorizeRoles('admin'), (req, res) => {
       telefono: telefono || null,
       stato: stato || 'attivo',
       enabled_types: enabled_types || null,
-      role: role || user.role,
+      role: nextRole,
+      commission_type: nextCommissionType,
     });
 
     await logActivity({

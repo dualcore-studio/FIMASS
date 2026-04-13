@@ -36,6 +36,7 @@ function createApp() {
   app.use('/api/logs', require('./routes/logs'));
   app.use('/api/settings', require('./routes/settings'));
   app.use('/api/attachments', require('./routes/attachments'));
+  app.use('/api/commissions', require('./routes/commissions'));
 
   app.get('/api/health', (req, res) => {
     const { getMailEnv } = require('./lib/resend');

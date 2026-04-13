@@ -11,6 +11,7 @@ import {
   Settings,
   ChevronLeft,
   ChevronRight,
+  Banknote,
 } from 'lucide-react';
 
 const menuItems = [
@@ -19,6 +20,7 @@ const menuItems = [
   { path: '/preventivi', label: 'Preventivi', icon: FileText, roles: ['admin', 'supervisore', 'operatore', 'struttura'] },
   { path: '/polizze', label: 'Polizze', icon: Shield, roles: ['admin', 'supervisore', 'operatore', 'struttura'] },
   { path: '/assistiti', label: 'Assistiti', icon: UserCheck, roles: ['admin', 'supervisore', 'operatore', 'struttura'] },
+  { path: '/provvigioni', label: 'Provvigioni', icon: Banknote, roles: ['admin', 'struttura'] },
   { path: '/report', label: 'Report', icon: BarChart3, roles: ['admin', 'supervisore'] },
   { path: '/log-attivita', label: 'Log Attività', icon: ClipboardList, roles: ['admin', 'supervisore'] },
 ];

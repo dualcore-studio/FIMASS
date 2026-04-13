@@ -55,6 +55,7 @@ router.post('/login', (req, res) => {
         denominazione: user.denominazione,
         email: user.email,
         telefono: user.telefono,
+        commission_type: user.commission_type || null,
         enabled_types: typeof user.enabled_types === 'string' ? JSON.parse(user.enabled_types) : (user.enabled_types || null)
       }
     });

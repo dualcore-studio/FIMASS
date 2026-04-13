@@ -13,6 +13,7 @@ const TABLES = [
   'attachments',
   'activity_logs',
   'settings',
+  'commissions',
 ];
 
 function nowIso() {

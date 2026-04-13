@@ -33,6 +33,7 @@ function initializeDatabase() {
       stato TEXT NOT NULL DEFAULT 'attivo' CHECK(stato IN ('attivo','disattivo')),
       enabled_types TEXT,
       last_login TEXT,
+      commission_type TEXT CHECK(commission_type IS NULL OR commission_type IN ('SEGNALATORE','PARTNER')),
       created_at TEXT DEFAULT (datetime('now')),
       updated_at TEXT DEFAULT (datetime('now'))
     );
@@ -171,6 +172,28 @@ function initializeDatabase() {
       updated_at TEXT DEFAULT (datetime('now'))
     );
 
+    CREATE TABLE IF NOT EXISTS commissions (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      date TEXT NOT NULL,
+      customer_name TEXT NOT NULL,
+      policy_number TEXT NOT NULL,
+      structure_id INTEGER NOT NULL REFERENCES users(id),
+      structure_name TEXT,
+      collaborator_name TEXT,
+      portal TEXT,
+      company TEXT,
+      policy_premium REAL,
+      broker_commission REAL,
+      client_invoice REAL,
+      sportello_amico_commission REAL NOT NULL,
+      structure_commission_type TEXT NOT NULL CHECK(structure_commission_type IN ('SEGNALATORE','PARTNER')),
+      structure_commission_percentage INTEGER NOT NULL,
+      structure_commission_amount REAL NOT NULL,
+      notes TEXT,
+      created_at TEXT DEFAULT (datetime('now')),
+      updated_at TEXT DEFAULT (datetime('now'))
+    );
+
     CREATE INDEX IF NOT EXISTS idx_quotes_stato ON quotes(stato);
     CREATE INDEX IF NOT EXISTS idx_quotes_struttura ON quotes(struttura_id);
     CREATE INDEX IF NOT EXISTS idx_quotes_operatore ON quotes(operatore_id);
@@ -182,6 +205,8 @@ function initializeDatabase() {
     CREATE INDEX IF NOT EXISTS idx_activity_logs_utente ON activity_logs(utente_id);
     CREATE INDEX IF NOT EXISTS idx_activity_logs_created ON activity_logs(created_at);
     CREATE INDEX IF NOT EXISTS idx_assisted_cf ON assisted_people(codice_fiscale);
+    CREATE INDEX IF NOT EXISTS idx_commissions_structure ON commissions(structure_id);
+    CREATE INDEX IF NOT EXISTS idx_commissions_date ON commissions(date);
   `);
 
   // Migrazione difensiva: DB esistenti creati prima dell'introduzione dei solleciti
@@ -220,6 +245,49 @@ function initializeDatabase() {
     }
   } catch (e) {
     console.error('ensure quotes.note_allegati migration:', e);
+  }
+
+  try {
+    const ucols = db.prepare('PRAGMA table_info(users)').all();
+    const hasCommissionType = Array.isArray(ucols) && ucols.some((c) => c.name === 'commission_type');
+    if (!hasCommissionType) {
+      db.exec(
+        "ALTER TABLE users ADD COLUMN commission_type TEXT CHECK(commission_type IS NULL OR commission_type IN ('SEGNALATORE','PARTNER'))",
+      );
+      db.exec("UPDATE users SET commission_type = 'SEGNALATORE' WHERE role = 'struttura' AND commission_type IS NULL");
+    }
+  } catch (e) {
+    console.error('ensure users.commission_type migration:', e);
+  }
+
+  try {
+    db.exec(`
+      CREATE TABLE IF NOT EXISTS commissions (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        date TEXT NOT NULL,
+        customer_name TEXT NOT NULL,
+        policy_number TEXT NOT NULL,
+        structure_id INTEGER NOT NULL REFERENCES users(id),
+        structure_name TEXT,
+        collaborator_name TEXT,
+        portal TEXT,
+        company TEXT,
+        policy_premium REAL,
+        broker_commission REAL,
+        client_invoice REAL,
+        sportello_amico_commission REAL NOT NULL,
+        structure_commission_type TEXT NOT NULL CHECK(structure_commission_type IN ('SEGNALATORE','PARTNER')),
+        structure_commission_percentage INTEGER NOT NULL,
+        structure_commission_amount REAL NOT NULL,
+        notes TEXT,
+        created_at TEXT DEFAULT (datetime('now')),
+        updated_at TEXT DEFAULT (datetime('now'))
+      );
+      CREATE INDEX IF NOT EXISTS idx_commissions_structure ON commissions(structure_id);
+      CREATE INDEX IF NOT EXISTS idx_commissions_date ON commissions(date);
+    `);
+  } catch (e) {
+    console.error('ensure commissions table migration:', e);
   }
 }
 

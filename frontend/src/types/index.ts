@@ -1,3 +1,5 @@
+export type CommissionStructureType = 'SEGNALATORE' | 'PARTNER';
+
 export interface User {
   id: number;
   username: string;
@@ -8,10 +10,52 @@ export interface User {
   email: string;
   telefono: string | null;
   stato: 'attivo' | 'disattivo';
+  /** Solo utenti con ruolo struttura; impostabile solo dall’admin. */
+  commission_type?: CommissionStructureType | null;
   enabled_types: string[] | null;
   last_login: string | null;
   created_at?: string;
   updated_at?: string;
+}
+
+/** Voce per select strutture (es. provvigioni, filtri polizze). */
+export interface StructureOption {
+  id: number;
+  denominazione: string | null;
+  email: string;
+  role: 'struttura';
+  commission_type: CommissionStructureType;
+}
+
+export interface Commission {
+  id: number;
+  date: string;
+  customer_name: string;
+  policy_number: string;
+  structure_id: number;
+  structure_name: string | null;
+  collaborator_name: string | null;
+  portal: string | null;
+  company: string | null;
+  policy_premium: number | null;
+  broker_commission: number | null;
+  client_invoice: number | null;
+  sportello_amico_commission: number;
+  structure_commission_type: CommissionStructureType;
+  structure_commission_percentage: number;
+  structure_commission_amount: number;
+  notes: string | null;
+  created_at?: string;
+  updated_at?: string;
+}
+
+export interface CommissionsListResponse extends PaginatedResponse<Commission> {
+  summary: {
+    totale_polizze: number;
+    totale_premi: number;
+    totale_sportello_amico: number;
+    totale_provigioni_strutture: number;
+  };
 }
 
 export interface InsuranceType {
