@@ -338,13 +338,12 @@ export default function CommissionsPage() {
             </label>
             <input id="comm-a" type="date" value={dataAl} onChange={(e) => setDataAl(e.target.value)} className={tf} />
           </div>
-          <div className="flex w-full min-w-[9rem] flex-col justify-end gap-1 pt-1 lg:ml-auto lg:w-auto lg:pt-0">
-            <label className="pointer-events-none text-[11px] font-normal text-transparent select-none">.</label>
+          <div className="flex w-full min-w-[9rem] shrink-0 justify-end pt-2 lg:ml-auto lg:w-auto lg:pt-0">
             <button
               type="button"
               onClick={() => void handleExportPdf()}
               disabled={exportingPdf}
-              className="btn-secondary inline-flex h-9 items-center justify-center gap-2 whitespace-nowrap px-3 text-sm disabled:opacity-60"
+              className="btn-secondary inline-flex h-9 w-full items-center justify-center gap-2 whitespace-nowrap px-3 text-sm sm:w-auto disabled:opacity-60"
             >
               <FileDown className="h-4 w-4 shrink-0" />
               {exportingPdf ? 'PDF…' : 'Esporta PDF'}
