@@ -15,6 +15,11 @@ import {
 import { api, ApiError } from '../../utils/api';
 import type { InsuranceType, FormField, ChecklistItem, AssistedPerson } from '../../types';
 import { formatDate } from '../../utils/helpers';
+import {
+  activeCampiForFlow,
+  activeChecklistForFlow,
+  mandatoryChecklistMissing,
+} from '../../utils/insuranceTypeConfig';
 
 const STEPS = [
   { label: 'Tipologia', icon: Shield },
@@ -140,7 +145,7 @@ export default function QuoteCreate() {
       if (!assisted.cellulare.trim()) errors.push('Il cellulare è obbligatorio.');
     }
     if (s === 2 && selectedType) {
-      for (const field of selectedType.campi_specifici) {
+      for (const field of activeCampiForFlow(selectedType.campi_specifici)) {
         if (field.obbligatorio) {
           const val = datiSpecifici[field.nome];
           if (val === undefined || val === null || val === '') {
@@ -148,6 +153,15 @@ export default function QuoteCreate() {
           }
         }
       }
+    }
+    if (s === 3 && selectedType) {
+      errors.push(
+        ...mandatoryChecklistMissing(
+          selectedType.checklist_allegati,
+          attachmentFiles,
+          datiSpecifici,
+        ),
+      );
     }
     return errors;
   };
@@ -170,6 +184,15 @@ export default function QuoteCreate() {
   const handleSubmit = async () => {
     if (!selectedType) return;
     setSubmitError(null);
+    const allegatiErr = mandatoryChecklistMissing(
+      selectedType.checklist_allegati,
+      attachmentFiles,
+      datiSpecifici,
+    );
+    if (allegatiErr.length) {
+      setSubmitError(allegatiErr[0]);
+      return;
+    }
     setSubmitting(true);
     try {
       const body = {
@@ -298,14 +321,14 @@ export default function QuoteCreate() {
         )}
         {step === 2 && selectedType && (
           <Step3DatiSpecifici
-            fields={selectedType.campi_specifici}
+            fields={activeCampiForFlow(selectedType.campi_specifici)}
             values={datiSpecifici}
             onChange={updateDatiSpecifici}
           />
         )}
         {step === 3 && selectedType && (
           <Step4Attachments
-            checklist={selectedType.checklist_allegati}
+            checklist={activeChecklistForFlow(selectedType.checklist_allegati, datiSpecifici)}
             files={attachmentFiles}
             onChange={(nome, file) => setAttachmentFiles((prev) => ({ ...prev, [nome]: file }))}
           />
@@ -423,6 +446,9 @@ function Step1Types({
                   </span>
                   {t.codice && (
                     <p className="mt-0.5 text-xs text-gray-500 font-mono">{t.codice}</p>
+                  )}
+                  {t.descrizione && (
+                    <p className="mt-1 text-xs leading-snug text-gray-600">{t.descrizione}</p>
                   )}
                 </div>
               </div>
@@ -608,14 +634,26 @@ function DynamicField({
       return (
         <div>
           <label className="mb-1 block text-sm font-medium text-gray-700">{label}</label>
-          <input type="text" value={value ?? ''} onChange={(e) => onChange(e.target.value)} className="input-field" />
+          <input
+            type="text"
+            value={value ?? ''}
+            onChange={(e) => onChange(e.target.value)}
+            className="input-field"
+            placeholder={field.placeholder || undefined}
+          />
         </div>
       );
     case 'number':
       return (
         <div>
           <label className="mb-1 block text-sm font-medium text-gray-700">{label}</label>
-          <input type="number" value={value ?? ''} onChange={(e) => onChange(e.target.value)} className="input-field" />
+          <input
+            type="number"
+            value={value ?? ''}
+            onChange={(e) => onChange(e.target.value)}
+            className="input-field"
+            placeholder={field.placeholder || undefined}
+          />
         </div>
       );
     case 'date':
@@ -654,7 +692,34 @@ function DynamicField({
       return (
         <div className="sm:col-span-2">
           <label className="mb-1 block text-sm font-medium text-gray-700">{label}</label>
-          <textarea rows={3} value={value ?? ''} onChange={(e) => onChange(e.target.value)} className="input-field" />
+          <textarea
+            rows={3}
+            value={value ?? ''}
+            onChange={(e) => onChange(e.target.value)}
+            className="input-field"
+            placeholder={field.placeholder || undefined}
+          />
+        </div>
+      );
+    case 'radio':
+      return (
+        <div className="sm:col-span-2">
+          <p className="mb-2 text-sm font-medium text-gray-700">{label}</p>
+          <div className="flex flex-wrap gap-4">
+            {(field.opzioni ?? []).map((opt) => (
+              <label key={opt} className="inline-flex items-center gap-2 text-sm text-gray-700">
+                <input
+                  type="radio"
+                  name={`field-${field.nome}`}
+                  value={opt}
+                  checked={value === opt}
+                  onChange={() => onChange(opt)}
+                  className="h-4 w-4 border-gray-300 text-blue-600 focus:ring-blue-500"
+                />
+                {opt}
+              </label>
+            ))}
+          </div>
         </div>
       );
     default:
@@ -702,6 +767,9 @@ function Step4Attachments({
                         {item.nome.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase())}
                         {item.obbligatorio && <span className="text-red-500"> *</span>}
                       </span>
+                      {item.descrizione && (
+                        <p className="mt-1 text-xs text-gray-600">{item.descrizione}</p>
+                      )}
                       {file && (
                         <p className="mt-0.5 text-xs text-gray-500">{file.name} ({(file.size / 1024).toFixed(1)} KB)</p>
                       )}

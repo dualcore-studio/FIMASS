@@ -43,6 +43,7 @@ function initializeDatabase() {
       codice TEXT UNIQUE NOT NULL,
       stato TEXT NOT NULL DEFAULT 'attivo' CHECK(stato IN ('attivo','disattivo')),
       ordine INTEGER DEFAULT 0,
+      descrizione TEXT,
       campi_specifici TEXT,
       checklist_allegati TEXT,
       created_at TEXT DEFAULT (datetime('now')),
@@ -198,6 +199,16 @@ function initializeDatabase() {
     `);
   } catch (e) {
     console.error('ensure quote_reminders migration:', e);
+  }
+
+  try {
+    const cols = db.prepare('PRAGMA table_info(insurance_types)').all();
+    const hasDescr = Array.isArray(cols) && cols.some((c) => c.name === 'descrizione');
+    if (!hasDescr) {
+      db.exec('ALTER TABLE insurance_types ADD COLUMN descrizione TEXT');
+    }
+  } catch (e) {
+    console.error('ensure insurance_types.descrizione migration:', e);
   }
 }
 

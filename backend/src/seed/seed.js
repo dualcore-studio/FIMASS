@@ -216,11 +216,18 @@ const insuranceTypes = [
 ];
 
 const insertType = db.prepare(`
-  INSERT INTO insurance_types (nome, codice, stato, ordine, campi_specifici, checklist_allegati) VALUES (?, ?, 'attivo', ?, ?, ?)
+  INSERT INTO insurance_types (nome, codice, stato, ordine, descrizione, campi_specifici, checklist_allegati) VALUES (?, ?, 'attivo', ?, ?, ?, ?)
 `);
 
 const typesTx = db.transaction(() => {
-  insuranceTypes.forEach(t => insertType.run(t.nome, t.codice, t.ordine, JSON.stringify(t.campi), JSON.stringify(t.allegati)));
+  insuranceTypes.forEach((t) => insertType.run(
+    t.nome,
+    t.codice,
+    t.ordine,
+    null,
+    JSON.stringify(t.campi),
+    JSON.stringify(t.allegati),
+  ));
 });
 typesTx();
 
@@ -330,8 +337,6 @@ notesTx();
 const insertSetting = db.prepare("INSERT INTO settings (chiave, valore) VALUES (?, ?)");
 const settingsTx = db.transaction(() => {
   insertSetting.run('nome_portale', 'Fimass Sportello Amico');
-  insertSetting.run('colore_primario', '#1e40af');
-  insertSetting.run('colore_secondario', '#3b82f6');
 });
 settingsTx();
 

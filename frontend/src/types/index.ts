@@ -20,6 +20,7 @@ export interface InsuranceType {
   codice: string;
   stato: string;
   ordine: number;
+  descrizione?: string | null;
   campi_specifici: FormField[];
   checklist_allegati: ChecklistItem[];
 }
@@ -27,15 +28,21 @@ export interface InsuranceType {
 export interface FormField {
   nome: string;
   label: string;
-  tipo: 'text' | 'number' | 'date' | 'select' | 'boolean' | 'textarea';
+  tipo: 'text' | 'number' | 'date' | 'select' | 'boolean' | 'textarea' | 'radio';
   obbligatorio: boolean;
   opzioni?: string[];
+  placeholder?: string | null;
+  ordine?: number;
+  stato?: 'attivo' | 'disattivo';
 }
 
 export interface ChecklistItem {
   nome: string;
   obbligatorio: boolean;
   condizione?: string;
+  descrizione?: string | null;
+  ordine?: number;
+  stato?: 'attivo' | 'disattivo';
 }
 
 export interface AssistedPerson {

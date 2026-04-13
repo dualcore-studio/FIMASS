@@ -21,12 +21,11 @@ async function bootstrapDatabaseIfEmpty() {
     codice: 'rc_auto',
     stato: 'attivo',
     ordine: 1,
+    descrizione: null,
     campi_specifici: [{ nome: 'targa', label: 'Targa o Telaio', tipo: 'text', obbligatorio: true }],
     checklist_allegati: [{ nome: 'Documento Identita', obbligatorio: true }],
   });
   await insert('settings', { chiave: 'nome_portale', valore: 'Fimass Sportello Amico' });
-  await insert('settings', { chiave: 'colore_primario', valore: '#1e40af' });
-  await insert('settings', { chiave: 'colore_secondario', valore: '#3b82f6' });
   console.log('Bootstrap DB eseguito: creati utenti e dati base.');
 }
 

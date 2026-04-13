@@ -1,4 +1,4 @@
-import { useState, type FormEvent } from 'react';
+import { useEffect, useState, type FormEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   ArrowLeft,
@@ -9,25 +9,9 @@ import {
   Check,
 } from 'lucide-react';
 import { api, ApiError } from '../../utils/api';
-import type { User } from '../../types';
+import type { InsuranceType, User } from '../../types';
 
 type UserRole = User['role'];
-
-const TIPOLOGIE = [
-  { codice: 'rc_auto', label: 'RC Auto / Moto / Autocarri' },
-  { codice: 'casa', label: 'Casa' },
-  { codice: 'affitto', label: 'Affitto Assicurato' },
-  { codice: 'sanitaria', label: 'Sanitaria / Infortuni' },
-  { codice: 'scudo_amico', label: 'Scudo Amico' },
-  { codice: 'animali', label: 'Miglior Amico Cane / Gatto' },
-  { codice: 'stranieri', label: 'Stranieri' },
-  { codice: 'rc_prof', label: 'RC Professionale' },
-  { codice: 'risparmio', label: 'Piani di Risparmio' },
-  { codice: 'tcm_mutuo', label: 'TCM / Mutuo' },
-  { codice: 'checkup', label: 'Check-up Esigenze Varie' },
-] as const;
-
-const ALL_CODES = TIPOLOGIE.map((t) => t.codice);
 
 const ROLE_CARDS: {
   role: UserRole;
@@ -82,13 +66,35 @@ export default function UserCreate() {
   const [stato, setStato] = useState<User['stato']>('attivo');
 
   const [tutteTipologie, setTutteTipologie] = useState(true);
-  const [tipologieSelezionate, setTipologieSelezionate] = useState<Set<string>>(
-    () => new Set(ALL_CODES)
-  );
+  const [tipologieSelezionate, setTipologieSelezionate] = useState<Set<string>>(() => new Set());
+  const [portalTipologie, setPortalTipologie] = useState<{ codice: string; label: string }[]>([]);
+  const [tipologieLoadError, setTipologieLoadError] = useState<string | null>(null);
 
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
+
+  useEffect(() => {
+    let cancelled = false;
+    api
+      .get<InsuranceType[]>('/settings/insurance-types')
+      .then((types) => {
+        if (cancelled) return;
+        const active = types.filter((t) => String(t.stato).toLowerCase() === 'attivo');
+        const opts = active.map((t) => ({ codice: t.codice, label: t.nome }));
+        setPortalTipologie(opts);
+        setTipologieSelezionate(new Set(opts.map((o) => o.codice)));
+        setTipologieLoadError(null);
+      })
+      .catch((e) => {
+        if (!cancelled) {
+          setTipologieLoadError(e instanceof ApiError ? e.message : 'Impossibile caricare le tipologie.');
+        }
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const toggleTipologia = (codice: string) => {
     if (tutteTipologie) return;
@@ -102,7 +108,7 @@ export default function UserCreate() {
 
   const setTutte = (checked: boolean) => {
     setTutteTipologie(checked);
-    if (checked) setTipologieSelezionate(new Set(ALL_CODES));
+    if (checked) setTipologieSelezionate(new Set(portalTipologie.map((t) => t.codice)));
   };
 
   const validate = (): boolean => {
@@ -161,7 +167,7 @@ export default function UserCreate() {
     if (role === 'struttura') {
       base.denominazione = denominazione.trim();
       base.telefono = telefono.trim();
-      base.enabled_types = tutteTipologie ? ALL_CODES : Array.from(tipologieSelezionate);
+      base.enabled_types = tutteTipologie ? ['all'] : Array.from(tipologieSelezionate);
       base.nome = null;
       base.cognome = null;
     } else if (role === 'admin') {
@@ -370,8 +376,11 @@ export default function UserCreate() {
                   />
                   Tutte le tipologie
                 </label>
+                {tipologieLoadError ? (
+                  <p className="text-xs text-red-600">{tipologieLoadError}</p>
+                ) : null}
                 <div className="grid gap-2 sm:grid-cols-2">
-                  {TIPOLOGIE.map(({ codice, label }) => (
+                  {portalTipologie.map(({ codice, label }) => (
                     <label
                       key={codice}
                       className={`flex items-start gap-2 text-sm ${

@@ -2,31 +2,25 @@ import { useEffect, useState, type FormEvent } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { ArrowLeft } from 'lucide-react';
 import { api, ApiError } from '../../utils/api';
-import type { User } from '../../types';
+import type { InsuranceType, User } from '../../types';
 
 type UserRole = User['role'];
 
-const TIPOLOGIE = [
-  { codice: 'rc_auto', label: 'RC Auto / Moto / Autocarri' },
-  { codice: 'casa', label: 'Casa' },
-  { codice: 'affitto', label: 'Affitto Assicurato' },
-  { codice: 'sanitaria', label: 'Sanitaria / Infortuni' },
-  { codice: 'scudo_amico', label: 'Scudo Amico' },
-  { codice: 'animali', label: 'Miglior Amico Cane / Gatto' },
-  { codice: 'stranieri', label: 'Stranieri' },
-  { codice: 'rc_prof', label: 'RC Professionale' },
-  { codice: 'risparmio', label: 'Piani di Risparmio' },
-  { codice: 'tcm_mutuo', label: 'TCM / Mutuo' },
-  { codice: 'checkup', label: 'Check-up Esigenze Varie' },
-] as const;
+function normalizeEnabledList(enabled: string[] | null | undefined): string[] {
+  if (!enabled || enabled.length === 0) return [];
+  return enabled.map((c) => String(c).trim()).filter(Boolean);
+}
 
-const ALL_CODES = TIPOLOGIE.map((t) => t.codice);
-
-function tipologieAreAll(enabled: string[] | null | undefined): boolean {
+function tipologieAreAll(
+  enabled: string[] | null | undefined,
+  activeCodes: string[],
+): boolean {
   if (!enabled || enabled.length === 0) return true;
-  return (
-    enabled.length === ALL_CODES.length && ALL_CODES.every((c) => enabled.includes(c))
-  );
+  const n = enabled.map((c) => String(c).toLowerCase());
+  if (n.includes('all')) return true;
+  if (!activeCodes.length) return false;
+  const set = new Set(n);
+  return activeCodes.length > 0 && activeCodes.every((c) => set.has(c.toLowerCase()));
 }
 
 export default function UserEdit() {
@@ -47,9 +41,8 @@ export default function UserEdit() {
   const [stato, setStato] = useState<User['stato']>('attivo');
 
   const [tutteTipologie, setTutteTipologie] = useState(true);
-  const [tipologieSelezionate, setTipologieSelezionate] = useState<Set<string>>(
-    () => new Set(ALL_CODES)
-  );
+  const [tipologieSelezionate, setTipologieSelezionate] = useState<Set<string>>(() => new Set());
+  const [portalTipologie, setPortalTipologie] = useState<{ codice: string; label: string }[]>([]);
 
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -68,8 +61,16 @@ export default function UserEdit() {
       setLoading(true);
       setLoadError(null);
       try {
-        const u = await api.get<User>(`/users/${userId}`);
+        const [types, u] = await Promise.all([
+          api.get<InsuranceType[]>('/settings/insurance-types'),
+          api.get<User>(`/users/${userId}`),
+        ]);
         if (cancelled) return;
+
+        const active = types.filter((t) => String(t.stato).toLowerCase() === 'attivo');
+        const opts = active.map((t) => ({ codice: t.codice, label: t.nome }));
+        const activeCodes = opts.map((o) => o.codice);
+        setPortalTipologie(opts);
 
         setRole(u.role);
         setNome(u.nome ?? '');
@@ -80,12 +81,13 @@ export default function UserEdit() {
         setUsername(u.username ?? '');
         setStato(u.stato);
 
-        const allT = tipologieAreAll(u.enabled_types);
+        const enabledList = normalizeEnabledList(u.enabled_types);
+        const allT = tipologieAreAll(enabledList.length ? enabledList : null, activeCodes);
         setTutteTipologie(allT);
         if (allT) {
-          setTipologieSelezionate(new Set(ALL_CODES));
-        } else if (u.enabled_types?.length) {
-          setTipologieSelezionate(new Set(u.enabled_types));
+          setTipologieSelezionate(new Set(activeCodes));
+        } else if (enabledList.length) {
+          setTipologieSelezionate(new Set(enabledList));
         } else {
           setTipologieSelezionate(new Set());
         }
@@ -116,7 +118,7 @@ export default function UserEdit() {
 
   const setTutte = (checked: boolean) => {
     setTutteTipologie(checked);
-    if (checked) setTipologieSelezionate(new Set(ALL_CODES));
+    if (checked) setTipologieSelezionate(new Set(portalTipologie.map((t) => t.codice)));
   };
 
   const validate = (): boolean => {
@@ -169,7 +171,7 @@ export default function UserEdit() {
     if (role === 'struttura') {
       base.denominazione = denominazione.trim();
       base.telefono = telefono.trim();
-      base.enabled_types = tutteTipologie ? ALL_CODES : Array.from(tipologieSelezionate);
+      base.enabled_types = tutteTipologie ? ['all'] : Array.from(tipologieSelezionate);
       base.nome = null;
       base.cognome = null;
     } else if (role === 'admin') {
@@ -352,7 +354,7 @@ export default function UserEdit() {
                 Tutte le tipologie
               </label>
               <div className="grid gap-2 sm:grid-cols-2">
-                {TIPOLOGIE.map(({ codice, label }) => (
+                {portalTipologie.map(({ codice, label }) => (
                   <label
                     key={codice}
                     className={`flex items-start gap-2 text-sm ${

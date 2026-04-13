@@ -11,6 +11,7 @@ const { isQuoteClosedForAssignment, normalizeQuoteStato } = require('../utils/qu
 const { sendQuoteAssignedToOperatorMail, sendQuoteStatusChangeToStructureMail } = require('../lib/resend');
 const { pipeQuoteSummaryPdf } = require('../lib/quoteSummaryPdf');
 const { sendAttachmentDownload } = require('../lib/attachmentDownload');
+const { isInsuranceTypeActive, strutturaCanUseInsuranceType } = require('../lib/insuranceTypes');
 
 const ALLOWED_QUOTE_STATI = new Set(['PRESENTATA', 'ASSEGNATA', 'IN LAVORAZIONE', 'STANDBY', 'ELABORATA']);
 
@@ -416,6 +417,17 @@ router.post('/', authenticateToken, authorizeRoles('struttura'), (req, res) => {
 
     if (!tipo_assicurazione_id || !assistito) {
       return res.status(400).json({ error: 'Dati obbligatori mancanti' });
+    }
+
+    const insType = await getById('insurance_types', tipo_assicurazione_id);
+    if (!insType) {
+      return res.status(400).json({ error: 'Tipologia assicurativa non valida' });
+    }
+    if (!isInsuranceTypeActive(insType)) {
+      return res.status(400).json({ error: 'Questa tipologia non è più attiva per nuove richieste' });
+    }
+    if (!strutturaCanUseInsuranceType(req.user, insType.codice)) {
+      return res.status(403).json({ error: 'Tipologia non abilitata per la tua struttura' });
     }
 
     const struttura_id = req.user.id;
