@@ -125,7 +125,7 @@ export default function StructureDashboard() {
   }
 
   const operativitaRows = [
-    { label: 'Preventivi presentati dalla struttura', value: quoteStats.PRESENTATA },
+    { label: 'Assegnati ad un operatore', value: quoteStats.PRESENTATA },
     { label: 'In lavorazione presso lo sportello', value: quoteStats['IN LAVORAZIONE'] },
     { label: 'In stand-by', value: quoteStats.STANDBY },
     { label: 'Elaborati', value: quoteStats.ELABORATA },
@@ -179,15 +179,19 @@ export default function StructureDashboard() {
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-12 lg:gap-5">
         <div className="lg:col-span-7">
           <DashboardPanel
-            title="Operatività recente"
+            title="Operatività Preventivi"
             description="Panoramica dei volumi preventivo per la tua struttura."
           >
             <div className="overflow-x-auto">
               <table className="min-w-full text-sm">
-                <thead>
-                  <tr className="border-b border-slate-100 bg-slate-50/50 text-left text-[11px] font-semibold uppercase tracking-wide text-slate-500">
-                    <th className="px-4 py-2.5 sm:px-5">Indicatore</th>
-                    <th className="px-4 py-2.5 text-right sm:px-5">Valore</th>
+                <thead className="bg-[var(--portal-table-header-bg)]">
+                  <tr>
+                    <th className="border-b border-[var(--portal-border-subtle)] px-4 py-3 text-left font-medium text-slate-600 sm:px-5">
+                      Indicatore
+                    </th>
+                    <th className="border-b border-[var(--portal-border-subtle)] px-4 py-3 text-right font-medium text-slate-600 sm:px-5">
+                      Valore
+                    </th>
                   </tr>
                 </thead>
                 <tbody>
@@ -207,15 +211,19 @@ export default function StructureDashboard() {
 
         <div className="lg:col-span-5">
           <DashboardPanel
-            title="Pipeline polizze"
+            title="Operatività Polizze"
             description="Stato delle richieste di polizza collegate alla struttura."
           >
             <div className="overflow-x-auto">
               <table className="min-w-full text-sm">
-                <thead>
-                  <tr className="border-b border-slate-100 bg-slate-50/50 text-left text-[11px] font-semibold uppercase tracking-wide text-slate-500">
-                    <th className="px-4 py-2.5 sm:px-5">Fase</th>
-                    <th className="px-4 py-2.5 text-right sm:px-5">N.</th>
+                <thead className="bg-[var(--portal-table-header-bg)]">
+                  <tr>
+                    <th className="border-b border-[var(--portal-border-subtle)] px-4 py-3 text-left font-medium text-slate-600 sm:px-5">
+                      Fase
+                    </th>
+                    <th className="border-b border-[var(--portal-border-subtle)] px-4 py-3 text-right font-medium text-slate-600 sm:px-5">
+                      N.
+                    </th>
                   </tr>
                 </thead>
                 <tbody>
