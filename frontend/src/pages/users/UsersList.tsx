@@ -222,31 +222,34 @@ export default function UsersList() {
         </div>
       ) : null}
 
-      <div className="card px-2.5 py-2 sm:px-3 sm:py-2">
-        <div className="flex items-center gap-2">
-          <Search className="h-4 w-4 shrink-0 text-gray-400" aria-hidden />
-          <input
-            id="users-search"
-            type="search"
-            placeholder="Cerca nome, email o username…"
-            value={searchInput}
-            onChange={(e) => setSearchInput(e.target.value)}
-            className="input-field h-9 min-w-0 max-w-xl flex-1 py-1.5 pl-3 text-sm"
-            aria-label="Cerca utenti"
-          />
-        </div>
-      </div>
-
       <div className="card px-2.5 py-2 sm:px-3 sm:py-2.5">
-        <div className="mb-1.5 flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-slate-500">
-          <Filter className="h-3.5 w-3.5 text-slate-400" aria-hidden />
-          Ruoli
+        <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between lg:gap-6">
+          <div className="flex min-w-0 flex-1 flex-col gap-2 sm:flex-row sm:items-center sm:gap-3">
+            <div className="flex shrink-0 items-center gap-2 text-xs font-semibold uppercase tracking-wide text-slate-500">
+              <Filter className="h-3.5 w-3.5 shrink-0 text-slate-400" aria-hidden />
+              Ruoli
+            </div>
+            <div className="min-w-0 flex-1">
+              <UsersRoleFilterTabs
+                activeRole={roleFilter}
+                onRoleChange={setRoleFilter}
+                counts={roleTabCounts}
+              />
+            </div>
+          </div>
+          <div className="flex w-full shrink-0 items-center gap-2 lg:w-auto lg:min-w-[12rem] lg:max-w-sm xl:max-w-md">
+            <Search className="h-4 w-4 shrink-0 text-gray-400" aria-hidden />
+            <input
+              id="users-search"
+              type="search"
+              placeholder="Cerca nome, email o username…"
+              value={searchInput}
+              onChange={(e) => setSearchInput(e.target.value)}
+              className="input-field h-9 min-w-0 w-full py-1.5 pl-3 text-sm"
+              aria-label="Cerca utenti"
+            />
+          </div>
         </div>
-        <UsersRoleFilterTabs
-          activeRole={roleFilter}
-          onRoleChange={setRoleFilter}
-          counts={roleTabCounts}
-        />
       </div>
 
       <div className="card overflow-hidden">
