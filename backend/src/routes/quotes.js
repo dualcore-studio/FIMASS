@@ -8,7 +8,11 @@ const { list, getById, findOne, insert, upsertById, removeById, like, paginate }
 const { loadContext, enrichQuote } = require('../data/views');
 const { sortQuotesForList } = require('../utils/practiceListSort');
 const { isQuoteClosedForAssignment, normalizeQuoteStato } = require('../utils/quoteStato');
-const { sendQuoteAssignedToOperatorMail, sendQuoteStatusChangeToStructureMail } = require('../lib/resend');
+const {
+  sendQuoteAssignedToOperatorMail,
+  sendQuoteStatusChangeToStructureMail,
+  sendQuotePresentedByStructureToAdminMail,
+} = require('../lib/resend');
 const { pipeQuoteSummaryPdf } = require('../lib/quoteSummaryPdf');
 const { sendAttachmentDownload } = require('../lib/attachmentDownload');
 const { isInsuranceTypeActive, strutturaCanUseInsuranceType } = require('../lib/insuranceTypes');
@@ -464,6 +468,43 @@ router.post('/', authenticateToken, authorizeRoles('struttura'), (req, res) => {
       riferimento_tipo: 'quote',
       dettaglio: `Creato preventivo ${numero} - ${assistito.nome} ${assistito.cognome}`
     });
+
+    const ctxPresented = await loadContext();
+    const enrichedPresented = enrichQuote(await getById('quotes', quoteId), ctxPresented);
+    const assistitoLabelPresented = [enrichedPresented.assistito_nome, enrichedPresented.assistito_cognome]
+      .filter(Boolean)
+      .join(' ')
+      .trim() || '—';
+    const dataPresentazione =
+      enrichedPresented.created_at
+      || enrichedPresented.updated_at
+      || new Date().toISOString().slice(0, 19).replace('T', ' ');
+    const strutturaNomePresented = enrichedPresented.struttura_nome || getUserDisplayName(req.user);
+    const admins = (await list('users')).filter((u) => u.role === 'admin');
+    const adminEmailsSeen = new Set();
+    for (const u of admins) {
+      const adminMail = u.email && String(u.email).trim();
+      if (!adminMail) {
+        console.warn(`[FIMASS email] Admin id=${u.id} senza email in DB: notifica nuova pratica presentata saltata.`);
+        continue;
+      }
+      if (adminEmailsSeen.has(adminMail)) continue;
+      adminEmailsSeen.add(adminMail);
+      const adminName = [u.nome, u.cognome].filter(Boolean).join(' ').trim() || u.username || 'Amministratore';
+      console.log(
+        `[FIMASS email] Nuova pratica ${numero} (id ${quoteId}) presentata da struttura → admin id ${u.id}, invio a ${adminMail}`,
+      );
+      await sendQuotePresentedByStructureToAdminMail({
+        to: adminMail,
+        adminName,
+        quoteId,
+        quoteNumero: numero,
+        assistitoLabel: assistitoLabelPresented,
+        tipoNome: enrichedPresented.tipo_nome || insType.nome || '—',
+        strutturaNome: strutturaNomePresented,
+        dataPresentazione,
+      });
+    }
 
     res.status(201).json({ id: quoteId, numero, message: 'Preventivo creato con successo' });
   })().catch((err) => {

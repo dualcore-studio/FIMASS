@@ -275,6 +275,48 @@ async function sendQuoteStatusChangeToStructureMail({
   }
 }
 
+/**
+ * Notifica admin: nuova pratica preventivo presentata da una struttura.
+ */
+async function sendQuotePresentedByStructureToAdminMail({
+  to,
+  adminName,
+  quoteId,
+  quoteNumero,
+  assistitoLabel,
+  tipoNome,
+  strutturaNome,
+  dataPresentazione,
+}) {
+  try {
+    const practiceUrl = buildPracticeUrl(quoteId);
+    const linkBlock = practiceUrl
+      ? `<p style="margin:20px 0 0;"><a href="${escapeHtml(practiceUrl)}" style="display:inline-block;background:#0f172a;color:#f8fafc;text-decoration:none;padding:10px 18px;border-radius:6px;font-weight:600;">Apri la pratica nel portale</a></p>`
+      : '';
+    const inner = `
+      <p style="margin:0 0 16px;">Gentile <strong>${escapeHtml(adminName)}</strong>,</p>
+      <p style="margin:0 0 16px;">è stata presentata una <strong>nuova pratica preventivo</strong> da una struttura. Di seguito il riepilogo.</p>
+      <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="border-collapse:collapse;">
+        ${row('ID pratica', `#${quoteId} (${quoteNumero})`)}
+        ${row('Assistito', assistitoLabel)}
+        ${row('Tipologia', tipoNome)}
+        ${row('Struttura', strutturaNome)}
+        ${row('Stato', 'PRESENTATA')}
+        ${row('Data presentazione', dataPresentazione)}
+      </table>
+      ${linkBlock}
+    `;
+    const html = emailShell('Nuova pratica presentata', inner);
+    await sendHtmlEmail({
+      to,
+      subject: 'Nuova pratica presentata - FIMASS',
+      html,
+    });
+  } catch (err) {
+    console.error('[FIMASS email] sendQuotePresentedByStructureToAdminMail:', err);
+  }
+}
+
 module.exports = {
   getMailEnv,
   buildPracticeUrl,
@@ -282,4 +324,5 @@ module.exports = {
   sendQuoteAssignedToOperatorMail,
   sendQuoteStatusChangeToStructureMail,
   sendPolicyEmissionRequestedToOperatorMail,
+  sendQuotePresentedByStructureToAdminMail,
 };
