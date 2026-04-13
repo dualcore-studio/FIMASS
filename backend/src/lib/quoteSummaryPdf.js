@@ -51,12 +51,14 @@ function writeParagraph(doc, text) {
   });
 }
 
-function writeRowsFromObject(doc, obj, labelFn) {
+function writeRowsFromObject(doc, obj, labelFn, options = {}) {
+  const skipInternalKeys = !!options.skipInternalKeys;
   if (!obj || typeof obj !== 'object' || Object.keys(obj).length === 0) {
     writeParagraph(doc, 'Nessun dato.');
     return;
   }
   for (const [k, v] of Object.entries(obj)) {
+    if (skipInternalKeys && String(k).startsWith('_')) continue;
     const label = labelFn(k);
     doc.fontSize(9).font('Helvetica-Bold').fillColor('#475569').text(`${label}:`, { continued: true });
     doc.font('Helvetica').text(` ${formatValue(v)}`, { lineGap: 1 });
@@ -144,7 +146,7 @@ function pipeQuoteSummaryPdf(quote, ctx, res) {
   );
 
   writeHeading(doc, 'Dati specifici (caricati con la richiesta)');
-  writeRowsFromObject(doc, quote.dati_specifici, (k) => labelForCampo(typeRow, k));
+  writeRowsFromObject(doc, quote.dati_specifici, (k) => labelForCampo(typeRow, k), { skipInternalKeys: true });
 
   writeHeading(doc, 'Dati preventivo');
   writeRowsFromObject(doc, quote.dati_preventivo, humanizeKey);

@@ -554,7 +554,7 @@ function TabDati({ quote }: { quote: Quote }) {
       {quote.dati_specifici && Object.keys(quote.dati_specifici).length > 0 && (
         <div className="card p-6 lg:col-span-2">
           <h3 className="mb-4 text-sm font-semibold uppercase tracking-wider text-gray-500">Dati Specifici</h3>
-          <dl className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 text-sm">
+          <dl className="space-y-3 text-sm">
             {Object.entries(quote.dati_specifici)
               .filter(([key]) => !String(key).startsWith('_'))
               .map(([key, value]) => (

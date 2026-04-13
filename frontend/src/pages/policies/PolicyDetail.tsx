@@ -206,6 +206,12 @@ function TabDati({ policy }: { policy: Policy }) {
         <dl className="space-y-3 text-sm">
           <InfoRow label="Nome e Cognome" value={`${policy.assistito_nome || ''} ${policy.assistito_cognome || ''}`} />
           <InfoRow label="Codice Fiscale" value={policy.assistito_cf} mono />
+          <InfoRow label="Data di Nascita" value={formatDate(policy.assistito_data_nascita)} />
+          <InfoRow label="Cellulare" value={policy.assistito_cellulare} />
+          <InfoRow label="Email" value={policy.assistito_email} />
+          <InfoRow label="Indirizzo" value={policy.assistito_indirizzo} />
+          <InfoRow label="CAP" value={policy.assistito_cap} />
+          <InfoRow label="Città" value={policy.assistito_citta} />
         </dl>
       </div>
 
@@ -246,14 +252,22 @@ function TabDati({ policy }: { policy: Policy }) {
       {policy.dati_specifici && Object.keys(policy.dati_specifici).length > 0 && (
         <div className="card p-6 lg:col-span-2">
           <h3 className="mb-4 text-sm font-semibold uppercase tracking-wider text-gray-500">Dati Specifici</h3>
-          <dl className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 text-sm">
-            {Object.entries(policy.dati_specifici).map(([key, value]) => (
-              <InfoRow
-                key={key}
-                label={key.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase())}
-                value={typeof value === 'boolean' ? (value ? 'Sì' : 'No') : String(value ?? '-')}
-              />
-            ))}
+          <dl className="space-y-3 text-sm">
+            {Object.entries(policy.dati_specifici)
+              .filter(([key]) => !String(key).startsWith('_'))
+              .map(([key, value]) => (
+                <InfoRow
+                  key={key}
+                  label={key.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase())}
+                  value={
+                    typeof value === 'boolean'
+                      ? (value ? 'Sì' : 'No')
+                      : Array.isArray(value)
+                        ? (value.length ? value.join('; ') : '-')
+                        : String(value ?? '-')
+                  }
+                />
+              ))}
           </dl>
         </div>
       )}

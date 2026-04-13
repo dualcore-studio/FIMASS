@@ -31,6 +31,8 @@ export interface FormField {
   tipo: 'text' | 'number' | 'date' | 'select' | 'boolean' | 'textarea' | 'radio' | 'multiselect' | 'heading' | 'info';
   obbligatorio: boolean;
   opzioni?: string[];
+  /** Testo mostrato sotto il select quando l'opzione corrispondente è selezionata (chiave = valore opzione). */
+  descrizioni_opzione?: Record<string, string>;
   placeholder?: string | null;
   ordine?: number;
   stato?: 'attivo' | 'disattivo';
@@ -122,6 +124,12 @@ export interface Policy {
   assistito_nome?: string;
   assistito_cognome?: string;
   assistito_cf?: string;
+  assistito_data_nascita?: string;
+  assistito_cellulare?: string;
+  assistito_email?: string;
+  assistito_indirizzo?: string;
+  assistito_cap?: string;
+  assistito_citta?: string;
   tipo_nome?: string;
   tipo_codice?: string;
   struttura_nome?: string;

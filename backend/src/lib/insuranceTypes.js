@@ -42,6 +42,18 @@ function normalizeCampo(raw, index) {
   const condizione = raw?.condizione != null && String(raw.condizione).trim() !== ''
     ? String(raw.condizione).trim()
     : null;
+  let descrizioni_opzione = null;
+  const rawDesc = raw?.descrizioni_opzione;
+  if (rawDesc != null && typeof rawDesc === 'object' && !Array.isArray(rawDesc)) {
+    const o = {};
+    for (const [k, v] of Object.entries(rawDesc)) {
+      const key = String(k || '').trim();
+      if (!key || v == null) continue;
+      const text = String(v).trim();
+      if (text) o[key] = text;
+    }
+    if (Object.keys(o).length) descrizioni_opzione = o;
+  }
   const out = {
     nome,
     label,
@@ -53,6 +65,7 @@ function normalizeCampo(raw, index) {
     stato,
   };
   if (condizione) out.condizione = condizione;
+  if (descrizioni_opzione) out.descrizioni_opzione = descrizioni_opzione;
   return out;
 }
 

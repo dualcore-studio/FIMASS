@@ -190,9 +190,20 @@ module.exports.INSURANCE_TYPES_FORM_DEFINITIONS = [
       { nome: 'razza', label: 'Razza', tipo: 'text', obbligatorio: true, ordine: 2 },
       { nome: 'data_nascita_animale', label: 'Data Nascita Animale', tipo: 'date', obbligatorio: true, ordine: 3 },
       { nome: 'microchip', label: 'Numero Microchip', tipo: 'text', obbligatorio: true, ordine: 4 },
-      { nome: 'piano', label: 'Piano', tipo: 'select', opzioni: ['Silver', 'Gold'], obbligatorio: true, ordine: 5 },
-      { nome: '_info_piano_silver', label: 'Include coperture con massimali ridotti, ideale per una protezione essenziale a costo contenuto', tipo: 'info', obbligatorio: false, condizione: 'piano=Silver', ordine: 6 },
-      { nome: '_info_piano_gold', label: 'Include massimali più elevati, in particolare per spese veterinarie, responsabilità civile e tutela legale', tipo: 'info', obbligatorio: false, condizione: 'piano=Gold', ordine: 7 },
+      {
+        nome: 'piano',
+        label: 'Piano',
+        tipo: 'select',
+        opzioni: ['Silver', 'Gold'],
+        descrizioni_opzione: {
+          Silver:
+            'Include coperture con massimali ridotti, ideale per una protezione essenziale a costo contenuto',
+          Gold:
+            'Include massimali più elevati, in particolare per spese veterinarie, responsabilità civile e tutela legale',
+        },
+        obbligatorio: true,
+        ordine: 5,
+      },
     ],
     allegati: [
       { nome: 'Documento Identità', obbligatorio: true },

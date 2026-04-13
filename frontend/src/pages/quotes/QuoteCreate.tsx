@@ -775,7 +775,11 @@ function DynamicField({
           <input type="date" value={str} onChange={(e) => onChange(e.target.value)} className="input-field" />
         </div>
       );
-    case 'select':
+    case 'select': {
+      const sotto =
+        str && field.descrizioni_opzione && field.descrizioni_opzione[str]
+          ? field.descrizioni_opzione[str]
+          : null;
       return (
         <div>
           <label className="mb-1 block text-sm font-medium text-gray-700">{label}</label>
@@ -785,8 +789,14 @@ function DynamicField({
               <option key={opt} value={opt}>{opt}</option>
             ))}
           </select>
+          {sotto ? (
+            <p className="mt-2 text-sm leading-relaxed text-amber-950 bg-amber-50 border border-amber-100 rounded-lg px-3 py-2.5">
+              {sotto}
+            </p>
+          ) : null}
         </div>
       );
+    }
     case 'boolean':
       return (
         <div className="flex items-center gap-3">
@@ -1096,7 +1106,7 @@ function ReviewSection({ title, children }: { title: string; children: React.Rea
   return (
     <div className="rounded-lg border border-gray-200 p-4">
       <h3 className="mb-3 text-sm font-semibold uppercase tracking-wider text-gray-500">{title}</h3>
-      <dl className="grid gap-2 sm:grid-cols-2">{children}</dl>
+      <dl className="grid gap-4 sm:grid-cols-2">{children}</dl>
     </div>
   );
 }
