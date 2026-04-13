@@ -34,7 +34,6 @@ export interface Commission {
   policy_number: string;
   structure_id: number;
   structure_name: string | null;
-  collaborator_name: string | null;
   portal: string | null;
   company: string | null;
   policy_premium: number | null;

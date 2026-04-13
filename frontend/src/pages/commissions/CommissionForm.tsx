@@ -31,7 +31,6 @@ export default function CommissionForm() {
   const [customerName, setCustomerName] = useState('');
   const [policyNumber, setPolicyNumber] = useState('');
   const [structureId, setStructureId] = useState('');
-  const [collaboratorName, setCollaboratorName] = useState('');
   const [portal, setPortal] = useState('');
   const [company, setCompany] = useState('');
   const [policyPremium, setPolicyPremium] = useState('');
@@ -70,7 +69,6 @@ export default function CommissionForm() {
         setCustomerName(row.customer_name);
         setPolicyNumber(row.policy_number);
         setStructureId(String(row.structure_id));
-        setCollaboratorName(row.collaborator_name ?? '');
         setPortal(row.portal ?? '');
         setCompany(row.company ?? '');
         setPolicyPremium(row.policy_premium != null ? String(row.policy_premium) : '');
@@ -122,7 +120,6 @@ export default function CommissionForm() {
       customer_name: customerName.trim(),
       policy_number: policyNumber.trim(),
       structure_id: Number(structureId),
-      collaborator_name: collaboratorName.trim() || null,
       portal: portal.trim() || null,
       company: company.trim() || null,
       policy_premium: policyPremium.trim() === '' ? null : Number(String(policyPremium).replace(',', '.')),
@@ -239,10 +236,6 @@ export default function CommissionForm() {
             </label>
             <input value={policyNumber} onChange={(e) => setPolicyNumber(e.target.value)} className="input-field" />
             {fieldErrors.policyNumber ? <p className="mt-1 text-xs text-red-600">{fieldErrors.policyNumber}</p> : null}
-          </div>
-          <div>
-            <label className="mb-1 block text-sm font-medium text-gray-700">Collaboratore</label>
-            <input value={collaboratorName} onChange={(e) => setCollaboratorName(e.target.value)} className="input-field" />
           </div>
           <div>
             <label className="mb-1 block text-sm font-medium text-gray-700">Portale</label>

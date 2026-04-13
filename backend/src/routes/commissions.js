@@ -77,7 +77,6 @@ function rowMatchesFilters(row, { search, structureId, company, portal, dataDa, 
     const ok =
       like(row.customer_name, search) ||
       like(row.policy_number, search) ||
-      like(row.collaborator_name, search) ||
       like(row.notes, search) ||
       like(row.structure_name, search);
     if (!ok) return false;
@@ -168,7 +167,6 @@ router.post('/', authenticateToken, authorizeRoles('admin'), (req, res) => {
       customer_name: customerName,
       policy_number: policyNumber,
       structure_id: structureIdRaw,
-      collaborator_name: collaboratorName,
       portal,
       company,
       policy_premium: policyPremiumRaw,
@@ -215,7 +213,7 @@ router.post('/', authenticateToken, authorizeRoles('admin'), (req, res) => {
       policy_number,
       structure_id,
       structure_name: structure.denominazione || null,
-      collaborator_name: collaboratorName != null ? String(collaboratorName).trim() || null : null,
+      collaborator_name: null,
       portal: portal != null ? String(portal).trim() || null : null,
       company: company != null ? String(company).trim() || null : null,
       policy_premium: policy_premium ?? null,
@@ -259,7 +257,6 @@ router.put('/:id', authenticateToken, authorizeRoles('admin'), (req, res) => {
       customer_name: customerName,
       policy_number: policyNumber,
       structure_id: structureIdRaw,
-      collaborator_name: collaboratorName,
       portal,
       company,
       policy_premium: policyPremiumRaw,
@@ -315,10 +312,7 @@ router.put('/:id', authenticateToken, authorizeRoles('admin'), (req, res) => {
       policy_number,
       structure_id,
       structure_name: structure.denominazione || null,
-      collaborator_name:
-        collaboratorName !== undefined
-          ? String(collaboratorName).trim() || null
-          : current.collaborator_name,
+      collaborator_name: null,
       portal: portal !== undefined ? String(portal).trim() || null : current.portal,
       company: company !== undefined ? String(company).trim() || null : current.company,
       policy_premium: policy_premium ?? null,

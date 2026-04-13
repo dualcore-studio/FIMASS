@@ -236,7 +236,7 @@ export default function CommissionsPage() {
               id="comm-search"
               value={searchInput}
               onChange={(e) => setSearchInput(e.target.value)}
-              placeholder="Cliente, polizza, collaboratore…"
+              placeholder="Cliente, polizza, note…"
               className={tf}
             />
           </div>
@@ -336,16 +336,6 @@ export default function CommissionsPage() {
                       Struttura
                     </SortableTh>
                   ) : null}
-                  {isAdmin ? (
-                    <SortableTh
-                      sortKey="collaborator_name"
-                      activeKey={tableSort.sortBy}
-                      direction={tableSort.sortDir}
-                      onRequestSort={tableSort.requestSort}
-                    >
-                      Collaboratore
-                    </SortableTh>
-                  ) : null}
                   <SortableTh sortKey="portal" activeKey={tableSort.sortBy} direction={tableSort.sortDir} onRequestSort={tableSort.requestSort}>
                     Portale
                   </SortableTh>
@@ -404,7 +394,7 @@ export default function CommissionsPage() {
               <tbody>
                 {rows.length === 0 ? (
                   <tr>
-                    <td colSpan={isAdmin ? 15 : 10} className="px-4 py-12 text-center text-gray-500">
+                    <td colSpan={isAdmin ? 14 : 10} className="px-4 py-12 text-center text-gray-500">
                       Nessuna provvigione con i filtri selezionati.
                     </td>
                   </tr>
@@ -417,7 +407,6 @@ export default function CommissionsPage() {
                       {isAdmin ? (
                         <td className="px-4 py-3 text-gray-700">{r.structure_name ?? '—'}</td>
                       ) : null}
-                      {isAdmin ? <td className="px-4 py-3 text-gray-700">{r.collaborator_name ?? '—'}</td> : null}
                       <td className="px-4 py-3 text-gray-700">{r.portal ?? '—'}</td>
                       <td className="px-4 py-3 text-gray-700">{r.company ?? '—'}</td>
                       <td className="whitespace-nowrap px-4 py-3 text-gray-800">{formatEuro(r.policy_premium)}</td>
