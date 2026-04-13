@@ -15,10 +15,12 @@ const { pipeCommissionsListPdf } = require('../lib/commissionsExportPdf');
 
 const router = express.Router();
 
-const COMMISSION_TYPES = new Set(['SEGNALATORE', 'PARTNER']);
+const COMMISSION_TYPES = new Set(['SEGNALATORE', 'PARTNER', 'SPORTELLO_AMICO']);
 
 function pctForType(t) {
-  return t === 'PARTNER' ? 60 : 30;
+  if (t === 'PARTNER') return 60;
+  if (t === 'SPORTELLO_AMICO') return 100;
+  return 30;
 }
 
 function roundMoney(n) {

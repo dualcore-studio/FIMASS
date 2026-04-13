@@ -7,7 +7,7 @@ const { logActivity } = require('./logs');
 
 const router = express.Router();
 
-const COMMISSION_TYPES = new Set(['SEGNALATORE', 'PARTNER']);
+const COMMISSION_TYPES = new Set(['SEGNALATORE', 'PARTNER', 'SPORTELLO_AMICO']);
 
 function getUserDisplayName(user) {
   return user.role === 'struttura' ? user.denominazione : `${user.nome} ${user.cognome}`;
@@ -102,7 +102,9 @@ router.post('/', authenticateToken, authorizeRoles('admin'), (req, res) => {
     if (role === 'struttura') {
       const ct = commission_type != null ? String(commission_type).toUpperCase() : '';
       if (!COMMISSION_TYPES.has(ct)) {
-        return res.status(400).json({ error: 'Tipo provvigione struttura obbligatorio (Segnalatore o Partner)' });
+        return res.status(400).json({
+          error: 'Tipo provvigione struttura obbligatorio (Segnalatore, Partner o Sportello Amico)',
+        });
       }
     }
 

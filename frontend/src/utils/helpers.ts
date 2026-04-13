@@ -1,3 +1,5 @@
+import type { CommissionStructureType } from '../types';
+
 export function formatDate(dateStr: string | null | undefined): string {
   if (!dateStr) return '-';
   try {
@@ -108,15 +110,25 @@ export function formatEuro(value: number | null | undefined): string {
 }
 
 export function commissionPercentForType(type: string): number {
-  return type === 'PARTNER' ? 60 : 30;
+  if (type === 'PARTNER') return 60;
+  if (type === 'SPORTELLO_AMICO') return 100;
+  return 30;
+}
+
+export function normalizeCommissionStructureType(type: string | null | undefined): CommissionStructureType {
+  const u = String(type ?? '').toUpperCase();
+  if (u === 'PARTNER' || u === 'SPORTELLO_AMICO') return u;
+  return 'SEGNALATORE';
 }
 
 export function getCommissionTypeBadgeClass(type: string): string {
-  return type === 'PARTNER'
-    ? 'bg-emerald-100 text-emerald-900'
-    : 'bg-sky-100 text-sky-900';
+  if (type === 'PARTNER') return 'bg-emerald-100 text-emerald-900';
+  if (type === 'SPORTELLO_AMICO') return 'bg-violet-100 text-violet-900';
+  return 'bg-sky-100 text-sky-900';
 }
 
 export function getCommissionTypeLabel(type: string): string {
-  return type === 'PARTNER' ? 'Partner' : 'Segnalatore';
+  if (type === 'PARTNER') return 'Partner';
+  if (type === 'SPORTELLO_AMICO') return 'Sportello Amico';
+  return 'Segnalatore';
 }

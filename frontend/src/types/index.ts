@@ -1,4 +1,4 @@
-export type CommissionStructureType = 'SEGNALATORE' | 'PARTNER';
+export type CommissionStructureType = 'SEGNALATORE' | 'PARTNER' | 'SPORTELLO_AMICO';
 
 export interface User {
   id: number;

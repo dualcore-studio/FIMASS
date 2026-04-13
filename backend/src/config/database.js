@@ -33,7 +33,7 @@ function initializeDatabase() {
       stato TEXT NOT NULL DEFAULT 'attivo' CHECK(stato IN ('attivo','disattivo')),
       enabled_types TEXT,
       last_login TEXT,
-      commission_type TEXT CHECK(commission_type IS NULL OR commission_type IN ('SEGNALATORE','PARTNER')),
+      commission_type TEXT CHECK(commission_type IS NULL OR commission_type IN ('SEGNALATORE','PARTNER','SPORTELLO_AMICO')),
       created_at TEXT DEFAULT (datetime('now')),
       updated_at TEXT DEFAULT (datetime('now'))
     );
@@ -186,7 +186,7 @@ function initializeDatabase() {
       broker_commission REAL,
       client_invoice REAL,
       sportello_amico_commission REAL NOT NULL,
-      structure_commission_type TEXT NOT NULL CHECK(structure_commission_type IN ('SEGNALATORE','PARTNER')),
+      structure_commission_type TEXT NOT NULL CHECK(structure_commission_type IN ('SEGNALATORE','PARTNER','SPORTELLO_AMICO')),
       structure_commission_percentage INTEGER NOT NULL,
       structure_commission_amount REAL NOT NULL,
       notes TEXT,
@@ -252,7 +252,7 @@ function initializeDatabase() {
     const hasCommissionType = Array.isArray(ucols) && ucols.some((c) => c.name === 'commission_type');
     if (!hasCommissionType) {
       db.exec(
-        "ALTER TABLE users ADD COLUMN commission_type TEXT CHECK(commission_type IS NULL OR commission_type IN ('SEGNALATORE','PARTNER'))",
+        "ALTER TABLE users ADD COLUMN commission_type TEXT CHECK(commission_type IS NULL OR commission_type IN ('SEGNALATORE','PARTNER','SPORTELLO_AMICO'))",
       );
       db.exec("UPDATE users SET commission_type = 'SEGNALATORE' WHERE role = 'struttura' AND commission_type IS NULL");
     }
@@ -276,7 +276,7 @@ function initializeDatabase() {
         broker_commission REAL,
         client_invoice REAL,
         sportello_amico_commission REAL NOT NULL,
-        structure_commission_type TEXT NOT NULL CHECK(structure_commission_type IN ('SEGNALATORE','PARTNER')),
+        structure_commission_type TEXT NOT NULL CHECK(structure_commission_type IN ('SEGNALATORE','PARTNER','SPORTELLO_AMICO')),
         structure_commission_percentage INTEGER NOT NULL,
         structure_commission_amount REAL NOT NULL,
         notes TEXT,
@@ -288,6 +288,93 @@ function initializeDatabase() {
     `);
   } catch (e) {
     console.error('ensure commissions table migration:', e);
+  }
+
+  migrateCommissionTypeEnumsIfNeeded();
+}
+
+/** SQLite: estende i CHECK su enum provvigioni per DB creati prima di SPORTELLO_AMICO. */
+function migrateCommissionTypeEnumsIfNeeded() {
+  const inList = "('SEGNALATORE','PARTNER','SPORTELLO_AMICO')";
+
+  try {
+    const comm = db.prepare(`SELECT sql FROM sqlite_master WHERE type='table' AND name='commissions'`).get();
+    if (comm?.sql && !comm.sql.includes('SPORTELLO_AMICO')) {
+      db.pragma('foreign_keys = OFF');
+      db.exec(`
+        CREATE TABLE commissions__enum_new (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          date TEXT NOT NULL,
+          customer_name TEXT NOT NULL,
+          policy_number TEXT NOT NULL,
+          structure_id INTEGER NOT NULL REFERENCES users(id),
+          structure_name TEXT,
+          collaborator_name TEXT,
+          portal TEXT,
+          company TEXT,
+          policy_premium REAL,
+          broker_commission REAL,
+          client_invoice REAL,
+          sportello_amico_commission REAL NOT NULL,
+          structure_commission_type TEXT NOT NULL CHECK(structure_commission_type IN ${inList}),
+          structure_commission_percentage INTEGER NOT NULL,
+          structure_commission_amount REAL NOT NULL,
+          notes TEXT,
+          created_at TEXT DEFAULT (datetime('now')),
+          updated_at TEXT DEFAULT (datetime('now'))
+        );
+      `);
+      db.exec('INSERT INTO commissions__enum_new SELECT * FROM commissions');
+      db.exec('DROP TABLE commissions');
+      db.exec('ALTER TABLE commissions__enum_new RENAME TO commissions');
+      db.exec('CREATE INDEX IF NOT EXISTS idx_commissions_structure ON commissions(structure_id)');
+      db.exec('CREATE INDEX IF NOT EXISTS idx_commissions_date ON commissions(date)');
+      db.pragma('foreign_keys = ON');
+    }
+  } catch (e) {
+    try {
+      db.pragma('foreign_keys = ON');
+    } catch (_) {
+      /* ignore */
+    }
+    console.error('migrate commissions structure_commission_type enum:', e);
+  }
+
+  try {
+    const usersRow = db.prepare(`SELECT sql FROM sqlite_master WHERE type='table' AND name='users'`).get();
+    if (usersRow?.sql && !usersRow.sql.includes('SPORTELLO_AMICO')) {
+      db.pragma('foreign_keys = OFF');
+      db.exec(`
+        CREATE TABLE users__enum_new (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          username TEXT UNIQUE NOT NULL,
+          password TEXT NOT NULL,
+          role TEXT NOT NULL CHECK(role IN ('admin','supervisore','operatore','struttura')),
+          nome TEXT,
+          cognome TEXT,
+          denominazione TEXT,
+          email TEXT NOT NULL,
+          telefono TEXT,
+          stato TEXT NOT NULL DEFAULT 'attivo' CHECK(stato IN ('attivo','disattivo')),
+          enabled_types TEXT,
+          last_login TEXT,
+          commission_type TEXT CHECK(commission_type IS NULL OR commission_type IN ${inList}),
+          created_at TEXT DEFAULT (datetime('now')),
+          updated_at TEXT DEFAULT (datetime('now'))
+        );
+      `);
+      db.exec('INSERT INTO users__enum_new SELECT * FROM users');
+      db.exec('DROP TABLE users');
+      db.exec('ALTER TABLE users__enum_new RENAME TO users');
+      db.pragma('foreign_keys = ON');
+    }
+  } catch (e) {
+    try {
+      db.pragma('foreign_keys = ON');
+    } catch (_) {
+      /* ignore */
+    }
+    console.error('migrate users commission_type enum:', e);
   }
 }
 

@@ -23,7 +23,9 @@ function ellipsize(s, max) {
 }
 
 function commissionTypeLabel(t) {
-  return t === 'PARTNER' ? 'Partner' : 'Segnalatore';
+  if (t === 'PARTNER') return 'Partner';
+  if (t === 'SPORTELLO_AMICO') return 'Sportello Amico';
+  return 'Segnalatore';
 }
 
 /**

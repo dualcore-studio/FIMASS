@@ -371,7 +371,8 @@ export default function UserCreate() {
                   Tipo provvigione struttura <span className="text-red-500">*</span>
                 </label>
                 <p className="mb-2 text-xs text-gray-500">
-                  Segnalatore 30% · Partner 60% sulla provvigione Sportello Amico (calcolo automatico nelle provvigioni).
+                  Segnalatore 30% · Partner 60% · Sportello Amico 100% sulla provvigione Sportello Amico (calcolo
+                  automatico nelle provvigioni).
                 </p>
                 <select
                   value={commissionType}
@@ -380,6 +381,7 @@ export default function UserCreate() {
                 >
                   <option value="SEGNALATORE">Segnalatore (30%)</option>
                   <option value="PARTNER">Partner (60%)</option>
+                  <option value="SPORTELLO_AMICO">Sportello Amico (100%)</option>
                 </select>
               </div>
 

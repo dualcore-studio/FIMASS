@@ -18,6 +18,7 @@ import {
   getRoleBadgeColor,
   getCommissionTypeBadgeClass,
   getCommissionTypeLabel,
+  normalizeCommissionStructureType,
 } from '../../utils/helpers';
 import { useAuth } from '../../context/AuthContext';
 import TablePagination from '../../components/common/TablePagination';
@@ -343,8 +344,10 @@ export default function UsersList() {
                         </td>
                         <td className="px-4 py-3">
                           {u.role === 'struttura' ? (
-                            <span className={`badge ${getCommissionTypeBadgeClass(u.commission_type === 'PARTNER' ? 'PARTNER' : 'SEGNALATORE')}`}>
-                              {getCommissionTypeLabel(u.commission_type === 'PARTNER' ? 'PARTNER' : 'SEGNALATORE')}
+                            <span
+                              className={`badge ${getCommissionTypeBadgeClass(normalizeCommissionStructureType(u.commission_type))}`}
+                            >
+                              {getCommissionTypeLabel(normalizeCommissionStructureType(u.commission_type))}
                             </span>
                           ) : (
                             <span className="text-gray-400">—</span>

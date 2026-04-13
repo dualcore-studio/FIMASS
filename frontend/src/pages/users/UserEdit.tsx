@@ -2,6 +2,7 @@ import { useEffect, useState, type FormEvent } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { ArrowLeft } from 'lucide-react';
 import { api, ApiError } from '../../utils/api';
+import { normalizeCommissionStructureType } from '../../utils/helpers';
 import type { CommissionStructureType, InsuranceType, User } from '../../types';
 
 type UserRole = User['role'];
@@ -81,7 +82,7 @@ export default function UserEdit() {
         setTelefono(u.telefono ?? '');
         setUsername(u.username ?? '');
         setStato(u.stato);
-        setCommissionType(u.commission_type === 'PARTNER' ? 'PARTNER' : 'SEGNALATORE');
+        setCommissionType(normalizeCommissionStructureType(u.commission_type));
 
         const enabledList = normalizeEnabledList(u.enabled_types);
         const allT = tipologieAreAll(enabledList.length ? enabledList : null, activeCodes);
@@ -349,7 +350,8 @@ export default function UserEdit() {
                 Tipo provvigione struttura <span className="text-red-500">*</span>
               </label>
               <p className="mb-2 text-xs text-gray-500">
-                Modificabile solo dall&apos;admin. Segnalatore 30% · Partner 60% sulla provvigione Sportello Amico.
+                Modificabile solo dall&apos;admin. Percentuali sulla provvigione Sportello Amico: Segnalatore 30% · Partner
+                60% · Sportello Amico 100%.
               </p>
               <select
                 value={commissionType}
@@ -358,6 +360,7 @@ export default function UserEdit() {
               >
                 <option value="SEGNALATORE">Segnalatore (30%)</option>
                 <option value="PARTNER">Partner (60%)</option>
+                <option value="SPORTELLO_AMICO">Sportello Amico (100%)</option>
               </select>
             </div>
 
