@@ -535,20 +535,23 @@ function TabDati({ quote }: { quote: Quote }) {
         </dl>
       </div>
 
-      {/* Note struttura */}
-      {quote.note_struttura && (
-        <div className="card p-6 lg:col-span-2">
-          <h3 className="mb-3 text-sm font-semibold uppercase tracking-wider text-gray-500">Note della Struttura</h3>
+      <div className="card p-6 lg:col-span-2">
+        <h3 className="mb-3 text-sm font-semibold uppercase tracking-wider text-gray-500">Note della Struttura</h3>
+        {quote.note_struttura?.trim() ? (
           <p className="whitespace-pre-wrap text-sm text-gray-700">{quote.note_struttura}</p>
-        </div>
-      )}
+        ) : (
+          <p className="text-sm text-gray-400">—</p>
+        )}
+      </div>
 
-      {quote.note_allegati && String(quote.note_allegati).trim() && (
-        <div className="card p-6 lg:col-span-2">
-          <h3 className="mb-3 text-sm font-semibold uppercase tracking-wider text-gray-500">Note sugli allegati</h3>
+      <div className="card p-6 lg:col-span-2">
+        <h3 className="mb-3 text-sm font-semibold uppercase tracking-wider text-gray-500">Note sugli allegati</h3>
+        {quote.note_allegati && String(quote.note_allegati).trim() ? (
           <p className="whitespace-pre-wrap text-sm text-gray-700">{String(quote.note_allegati).trim()}</p>
-        </div>
-      )}
+        ) : (
+          <p className="text-sm text-gray-400">—</p>
+        )}
+      </div>
 
       {/* Dati specifici */}
       {quote.dati_specifici && Object.keys(quote.dati_specifici).length > 0 && (

@@ -235,19 +235,23 @@ function TabDati({ policy }: { policy: Policy }) {
         </dl>
       </div>
 
-      {policy.note_struttura && (
-        <div className="card p-6 lg:col-span-2">
-          <h3 className="mb-3 text-sm font-semibold uppercase tracking-wider text-gray-500">Note della Struttura</h3>
+      <div className="card p-6 lg:col-span-2">
+        <h3 className="mb-3 text-sm font-semibold uppercase tracking-wider text-gray-500">Note della Struttura</h3>
+        {policy.note_struttura?.trim() ? (
           <p className="whitespace-pre-wrap text-sm text-gray-700">{policy.note_struttura}</p>
-        </div>
-      )}
+        ) : (
+          <p className="text-sm text-gray-400">—</p>
+        )}
+      </div>
 
-      {policy.note_interne && (
-        <div className="card p-6 lg:col-span-2">
-          <h3 className="mb-3 text-sm font-semibold uppercase tracking-wider text-gray-500">Note Interne</h3>
+      <div className="card p-6 lg:col-span-2">
+        <h3 className="mb-3 text-sm font-semibold uppercase tracking-wider text-gray-500">Note Interne</h3>
+        {policy.note_interne?.trim() ? (
           <p className="whitespace-pre-wrap text-sm text-gray-700">{policy.note_interne}</p>
-        </div>
-      )}
+        ) : (
+          <p className="text-sm text-gray-400">—</p>
+        )}
+      </div>
 
       {policy.dati_specifici && Object.keys(policy.dati_specifici).length > 0 && (
         <div className="card p-6 lg:col-span-2">

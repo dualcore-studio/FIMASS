@@ -86,6 +86,7 @@ export default function QuoteCreate() {
   const [datiSpecifici, setDatiSpecifici] = useState<Record<string, unknown>>({});
 
   // Step 4
+  const [noteStruttura, setNoteStruttura] = useState('');
   const [noteAllegati, setNoteAllegati] = useState('');
   const [attachmentFiles, setAttachmentFiles] = useState<Record<string, File | null>>({});
 
@@ -252,7 +253,7 @@ export default function QuoteCreate() {
         },
         dati_specifici: mergedDati,
         data_decorrenza: dataDecorrenza || null,
-        note_struttura: null,
+        note_struttura: noteStruttura.trim() || null,
         note_allegati: noteAllegati.trim() || null,
       };
 
@@ -353,6 +354,7 @@ export default function QuoteCreate() {
               setDataDecorrenza('');
               setFrazionamento('');
               setIndirizzoStudioProfessionale('');
+              setNoteStruttura('');
               setNoteAllegati('');
               setStepErrors([]);
               setStep(1);
@@ -384,6 +386,8 @@ export default function QuoteCreate() {
         )}
         {step === 3 && selectedType && (
           <Step4Attachments
+            noteStruttura={noteStruttura}
+            onNoteStrutturaChange={setNoteStruttura}
             noteAllegati={noteAllegati}
             onNoteAllegatiChange={setNoteAllegati}
             checklist={activeChecklistForFlow(selectedType.checklist_allegati, datiSpecifici)}
@@ -398,6 +402,7 @@ export default function QuoteCreate() {
             dataDecorrenza={dataDecorrenza}
             frazionamento={frazionamento}
             indirizzoStudioProfessionale={indirizzoStudioProfessionale}
+            noteStruttura={noteStruttura}
             noteAllegati={noteAllegati}
             datiSpecifici={datiSpecifici}
             attachmentFiles={attachmentFiles}
@@ -891,12 +896,16 @@ function DynamicField({
 /* ───────────── Step 4: Attachments ───────────── */
 
 function Step4Attachments({
+  noteStruttura,
+  onNoteStrutturaChange,
   noteAllegati,
   onNoteAllegatiChange,
   checklist,
   files,
   onChange,
 }: {
+  noteStruttura: string;
+  onNoteStrutturaChange: (v: string) => void;
   noteAllegati: string;
   onNoteAllegatiChange: (v: string) => void;
   checklist: ChecklistItem[];
@@ -910,15 +919,33 @@ function Step4Attachments({
         Carica i documenti richiesti. I documenti obbligatori sono contrassegnati con *.
       </p>
 
-      <div className="mb-6">
-        <label className="mb-1 block text-sm font-medium text-gray-700">Note sugli allegati</label>
-        <textarea
-          rows={3}
-          value={noteAllegati}
-          onChange={(e) => onNoteAllegatiChange(e.target.value)}
-          className="input-field"
-          placeholder="Eventuali indicazioni sui documenti che caricherai…"
-        />
+      <div className="mb-6 space-y-4">
+        <div>
+          <label htmlFor="note-struttura-richiesta" className="mb-1 block text-sm font-medium text-gray-700">
+            Note per l&apos;operatore
+          </label>
+          <textarea
+            id="note-struttura-richiesta"
+            rows={3}
+            value={noteStruttura}
+            onChange={(e) => onNoteStrutturaChange(e.target.value)}
+            className="input-field"
+            placeholder="Opzionale: indicazioni o riferimenti utili per chi gestisce la pratica…"
+          />
+        </div>
+        <div>
+          <label htmlFor="note-allegati-richiesta" className="mb-1 block text-sm font-medium text-gray-700">
+            Note sugli allegati
+          </label>
+          <textarea
+            id="note-allegati-richiesta"
+            rows={3}
+            value={noteAllegati}
+            onChange={(e) => onNoteAllegatiChange(e.target.value)}
+            className="input-field"
+            placeholder="Eventuali indicazioni sui documenti che caricherai…"
+          />
+        </div>
       </div>
 
       {(!checklist || checklist.length === 0) ? (
@@ -992,6 +1019,7 @@ function Step5Review({
   dataDecorrenza,
   frazionamento,
   indirizzoStudioProfessionale,
+  noteStruttura,
   noteAllegati,
   datiSpecifici,
   attachmentFiles,
@@ -1001,6 +1029,7 @@ function Step5Review({
   dataDecorrenza: string;
   frazionamento: string;
   indirizzoStudioProfessionale: string;
+  noteStruttura: string;
   noteAllegati: string;
   datiSpecifici: Record<string, unknown>;
   attachmentFiles: Record<string, File | null>;
@@ -1057,6 +1086,7 @@ function Step5Review({
           {cod === 'rc_prof' && (
             <ReviewItem label="Indirizzo dello studio professionale" value={indirizzoStudioProfessionale || '-'} />
           )}
+          <ReviewItem label="Note per l&apos;operatore" value={noteStruttura?.trim() ? noteStruttura.trim() : '-'} />
           <ReviewItem label="Note sugli allegati" value={noteAllegati?.trim() ? noteAllegati.trim() : '-'} />
         </ReviewSection>
 
