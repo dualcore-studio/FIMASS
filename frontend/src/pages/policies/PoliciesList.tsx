@@ -316,6 +316,14 @@ export default function PoliciesList() {
               <thead>
                 <tr>
                   <SortableTh
+                    sortKey="stato"
+                    activeKey={tableSort.sortBy}
+                    direction={tableSort.sortDir}
+                    onRequestSort={tableSort.requestSort}
+                  >
+                    Stato
+                  </SortableTh>
+                  <SortableTh
                     sortKey="numero"
                     activeKey={tableSort.sortBy}
                     direction={tableSort.sortDir}
@@ -364,14 +372,6 @@ export default function PoliciesList() {
                     Operatore
                   </SortableTh>
                   <SortableTh
-                    sortKey="stato"
-                    activeKey={tableSort.sortBy}
-                    direction={tableSort.sortDir}
-                    onRequestSort={tableSort.requestSort}
-                  >
-                    Stato
-                  </SortableTh>
-                  <SortableTh
                     sortKey="created_at"
                     activeKey={tableSort.sortBy}
                     direction={tableSort.sortDir}
@@ -393,6 +393,9 @@ export default function PoliciesList() {
                 ) : (
                   rows.map((p) => (
                     <tr key={p.id}>
+                      <td className="px-4 py-3">
+                        <StatusBadge stato={p.stato} type="policy" />
+                      </td>
                       <td className="px-4 py-3">
                         <Link
                           to={`/polizze/${p.id}`}
@@ -422,9 +425,6 @@ export default function PoliciesList() {
                         {p.operatore_id
                           ? [p.operatore_nome, p.operatore_cognome].filter(Boolean).join(' ')
                           : <span className="text-gray-400 italic">—</span>}
-                      </td>
-                      <td className="px-4 py-3">
-                        <StatusBadge stato={p.stato} type="policy" />
                       </td>
                       <td className="px-4 py-3 whitespace-nowrap text-gray-600">
                         {formatDate(p.created_at)}
