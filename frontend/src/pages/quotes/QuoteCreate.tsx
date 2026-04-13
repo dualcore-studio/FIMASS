@@ -444,9 +444,6 @@ function Step1Types({
                   <span className={`text-sm font-semibold ${isSelected ? 'text-blue-700' : 'text-gray-900'}`}>
                     {t.nome}
                   </span>
-                  {t.codice && (
-                    <p className="mt-0.5 text-xs text-gray-500 font-mono">{t.codice}</p>
-                  )}
                   {t.descrizione && (
                     <p className="mt-1 text-xs leading-snug text-gray-600">{t.descrizione}</p>
                   )}
@@ -821,8 +818,11 @@ function Step5Review({
       <div className="space-y-6">
         {/* Tipologia */}
         <ReviewSection title="Tipologia Assicurativa">
-          <ReviewItem label="Tipo" value={selectedType.nome} />
-          {selectedType.codice && <ReviewItem label="Codice" value={selectedType.codice} />}
+          <ReviewItem label="Nome" value={selectedType.nome} />
+          <ReviewItem
+            label="Descrizione"
+            value={selectedType.descrizione?.trim() ? selectedType.descrizione.trim() : '-'}
+          />
         </ReviewSection>
 
         {/* Assistito */}
