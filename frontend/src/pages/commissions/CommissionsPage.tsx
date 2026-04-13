@@ -415,16 +415,6 @@ export default function CommissionsPage() {
                   </SortableTh>
                   {isAdmin ? (
                     <SortableTh
-                      sortKey="broker_commission"
-                      activeKey={tableSort.sortBy}
-                      direction={tableSort.sortDir}
-                      onRequestSort={tableSort.requestSort}
-                    >
-                      Prov. broker
-                    </SortableTh>
-                  ) : null}
-                  {isAdmin ? (
-                    <SortableTh
                       sortKey="client_invoice"
                       activeKey={tableSort.sortBy}
                       direction={tableSort.sortDir}
@@ -459,7 +449,7 @@ export default function CommissionsPage() {
               <tbody>
                 {rows.length === 0 ? (
                   <tr>
-                    <td colSpan={isAdmin ? 14 : 9} className="px-4 py-12 text-center text-gray-500">
+                    <td colSpan={isAdmin ? 13 : 9} className="px-4 py-12 text-center text-gray-500">
                       Nessuna provvigione con i filtri selezionati.
                     </td>
                   </tr>
@@ -475,9 +465,6 @@ export default function CommissionsPage() {
                       <td className="px-4 py-3 text-gray-700">{r.portal ?? '—'}</td>
                       <td className="px-4 py-3 text-gray-700">{r.company ?? '—'}</td>
                       <td className="whitespace-nowrap px-4 py-3 text-gray-800">{formatEuro(r.policy_premium)}</td>
-                      {isAdmin ? (
-                        <td className="whitespace-nowrap px-4 py-3 text-gray-800">{formatEuro(r.broker_commission)}</td>
-                      ) : null}
                       {isAdmin ? (
                         <td className="whitespace-nowrap px-4 py-3 text-gray-800">{formatEuro(r.client_invoice)}</td>
                       ) : null}

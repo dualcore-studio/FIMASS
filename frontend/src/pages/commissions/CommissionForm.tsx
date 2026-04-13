@@ -34,7 +34,6 @@ export default function CommissionForm() {
   const [portal, setPortal] = useState('');
   const [company, setCompany] = useState('');
   const [policyPremium, setPolicyPremium] = useState('');
-  const [brokerCommission, setBrokerCommission] = useState('');
   const [clientInvoice, setClientInvoice] = useState('');
   const [sportelloAmico, setSportelloAmico] = useState('');
   const [notes, setNotes] = useState('');
@@ -72,7 +71,6 @@ export default function CommissionForm() {
         setPortal(row.portal ?? '');
         setCompany(row.company ?? '');
         setPolicyPremium(row.policy_premium != null ? String(row.policy_premium) : '');
-        setBrokerCommission(row.broker_commission != null ? String(row.broker_commission) : '');
         setClientInvoice(row.client_invoice != null ? String(row.client_invoice) : '');
         setSportelloAmico(String(row.sportello_amico_commission));
         setNotes(row.notes ?? '');
@@ -123,7 +121,7 @@ export default function CommissionForm() {
       portal: portal.trim() || null,
       company: company.trim() || null,
       policy_premium: policyPremium.trim() === '' ? null : Number(String(policyPremium).replace(',', '.')),
-      broker_commission: brokerCommission.trim() === '' ? null : Number(String(brokerCommission).replace(',', '.')),
+      broker_commission: null,
       client_invoice: clientInvoice.trim() === '' ? null : Number(String(clientInvoice).replace(',', '.')),
       sportello_amico_commission: Number(String(sportelloAmico).replace(',', '.')),
       notes: notes.trim() || null,
@@ -257,18 +255,6 @@ export default function CommissionForm() {
               min="0"
               value={policyPremium}
               onChange={(e) => setPolicyPremium(e.target.value)}
-              className="input-field"
-            />
-          </div>
-          <div>
-            <label className="mb-1 block text-sm font-medium text-gray-700">Provvigione broker (€)</label>
-            <input
-              type="number"
-              inputMode="decimal"
-              step="0.01"
-              min="0"
-              value={brokerCommission}
-              onChange={(e) => setBrokerCommission(e.target.value)}
               className="input-field"
             />
           </div>

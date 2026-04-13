@@ -37,7 +37,7 @@ export interface Commission {
   portal: string | null;
   company: string | null;
   policy_premium: number | null;
-  broker_commission: number | null;
+  broker_commission?: number | null;
   client_invoice: number | null;
   /** Assente nelle risposte API per il ruolo struttura. */
   sportello_amico_commission?: number | null;
