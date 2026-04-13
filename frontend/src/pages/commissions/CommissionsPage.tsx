@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Banknote, Pencil, Plus, Trash2 } from 'lucide-react';
+import { Banknote, FileDown, Pencil, Plus, Trash2 } from 'lucide-react';
 import { api, ApiError } from '../../utils/api';
 import type { Commission, CommissionsListResponse, StructureOption } from '../../types';
 import {
@@ -42,6 +42,30 @@ function buildQuery(params: {
     qs.set('sort_dir', params.sortDir);
   }
   return `/commissions?${qs.toString()}`;
+}
+
+function buildExportPdfQuery(params: {
+  search: string;
+  structureId: string;
+  company: string;
+  portal: string;
+  dataDa: string;
+  dataAl: string;
+  sortBy: string | null;
+  sortDir: 'asc' | 'desc';
+}): string {
+  const qs = new URLSearchParams();
+  if (params.search.trim()) qs.set('search', params.search.trim());
+  if (params.structureId) qs.set('structure_id', params.structureId);
+  if (params.company.trim()) qs.set('company', params.company.trim());
+  if (params.portal.trim()) qs.set('portal', params.portal.trim());
+  if (params.dataDa) qs.set('data_da', params.dataDa);
+  if (params.dataAl) qs.set('data_a', params.dataAl);
+  if (params.sortBy) {
+    qs.set('sort_by', params.sortBy);
+    qs.set('sort_dir', params.sortDir);
+  }
+  return `/commissions/export-pdf?${qs.toString()}`;
 }
 
 function SummaryCard({
@@ -91,6 +115,8 @@ export default function CommissionsPage() {
   const [deleteId, setDeleteId] = useState<number | null>(null);
   const [deleteSubmitting, setDeleteSubmitting] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
+  const [exportingPdf, setExportingPdf] = useState(false);
+  const [exportPdfError, setExportPdfError] = useState<string | null>(null);
 
   const tableSort = useListTableSort();
 
@@ -156,6 +182,29 @@ export default function CommissionsPage() {
 
   const rows = result?.data ?? [];
   const summary = result?.summary;
+
+  const handleExportPdf = async () => {
+    setExportPdfError(null);
+    setExportingPdf(true);
+    try {
+      const endpoint = buildExportPdfQuery({
+        search: debouncedSearch,
+        structureId: isAdmin ? structureFilter : '',
+        company: companyFilter,
+        portal: portalFilter,
+        dataDa,
+        dataAl,
+        sortBy: tableSort.sortBy,
+        sortDir: tableSort.sortDir,
+      });
+      const fname = `provvigioni-${new Date().toISOString().slice(0, 10)}.pdf`;
+      await api.download(endpoint, fname);
+    } catch (e) {
+      setExportPdfError(e instanceof ApiError ? e.message : 'Esportazione PDF non riuscita.');
+    } finally {
+      setExportingPdf(false);
+    }
+  };
 
   const handleDelete = async () => {
     if (deleteId == null) return;
@@ -289,7 +338,22 @@ export default function CommissionsPage() {
             </label>
             <input id="comm-a" type="date" value={dataAl} onChange={(e) => setDataAl(e.target.value)} className={tf} />
           </div>
+          <div className="flex w-full min-w-[9rem] flex-col justify-end gap-1 pt-1 lg:ml-auto lg:w-auto lg:pt-0">
+            <label className="pointer-events-none text-[11px] font-normal text-transparent select-none">.</label>
+            <button
+              type="button"
+              onClick={() => void handleExportPdf()}
+              disabled={exportingPdf}
+              className="btn-secondary inline-flex h-9 items-center justify-center gap-2 whitespace-nowrap px-3 text-sm disabled:opacity-60"
+            >
+              <FileDown className="h-4 w-4 shrink-0" />
+              {exportingPdf ? 'PDF…' : 'Esporta PDF'}
+            </button>
+          </div>
         </div>
+        {exportPdfError ? (
+          <p className="mt-2 text-sm text-red-700">{exportPdfError}</p>
+        ) : null}
       </div>
 
       <div className="card overflow-hidden">

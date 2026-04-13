@@ -11,6 +11,7 @@ const {
 } = require('../data/store');
 const { authenticateToken, authorizeRoles } = require('../middleware/auth');
 const { logActivity } = require('./logs');
+const { pipeCommissionsListPdf } = require('../lib/commissionsExportPdf');
 
 const router = express.Router();
 
@@ -160,6 +161,63 @@ router.get('/', authenticateToken, assertCommissionReader, (req, res) => {
   })().catch((err) => {
     console.error('commissions list:', err);
     res.status(500).json({ error: 'Errore nel recupero provvigioni' });
+  });
+});
+
+router.get('/export-pdf', authenticateToken, assertCommissionReader, (req, res) => {
+  (async () => {
+    const {
+      search,
+      structure_id: structureId,
+      company,
+      portal,
+      data_da: dataDa,
+      data_a: dataAl,
+      sort_by: sortByField,
+      sort_dir: sortDir,
+    } = req.query;
+
+    let rows = await list('commissions');
+    if (req.user.role === 'struttura') {
+      rows = rows.filter((r) => Number(r.structure_id) === Number(req.user.id));
+    }
+
+    rows = rows.filter((r) =>
+      rowMatchesFilters(r, {
+        search,
+        structureId: req.user.role === 'admin' ? structureId : null,
+        company,
+        portal,
+        dataDa,
+        dataAl,
+      }),
+    );
+
+    const fullSummary = summarize(rows);
+    const summary =
+      req.user.role === 'struttura'
+        ? {
+            totale_polizze: fullSummary.totale_polizze,
+            totale_premi: fullSummary.totale_premi,
+            totale_provigioni_strutture: fullSummary.totale_provigioni_strutture,
+          }
+        : fullSummary;
+
+    const sortKey = sortByField && typeof sortByField === 'string' ? sortByField : 'date';
+    const dir = sortDir === 'asc' ? 'asc' : 'desc';
+    rows = sortBy(rows, sortKey, dir);
+
+    pipeCommissionsListPdf(
+      {
+        rows,
+        summary,
+        role: req.user.role === 'admin' ? 'admin' : 'struttura',
+      },
+      res,
+    );
+  })().catch((err) => {
+    console.error('commissions export-pdf:', err);
+    if (!res.headersSent) res.status(500).json({ error: 'Errore nella generazione del PDF provvigioni' });
   });
 });
 
