@@ -18,7 +18,10 @@ function asJsonArray(val, fallback = []) {
   return fallback;
 }
 
-const ALLOWED_FIELD_TYPES = new Set(['text', 'number', 'date', 'select', 'boolean', 'textarea', 'radio']);
+const ALLOWED_FIELD_TYPES = new Set([
+  'text', 'number', 'date', 'select', 'boolean', 'textarea', 'radio',
+  'multiselect', 'heading', 'info',
+]);
 
 function normalizeCampo(raw, index) {
   const nome = String(raw?.nome || '').trim();
@@ -36,7 +39,10 @@ function normalizeCampo(raw, index) {
   const ordine = raw?.ordine != null && raw.ordine !== '' ? Number(raw.ordine) : index;
   let stato = String(raw?.stato || 'attivo').toLowerCase().trim();
   if (stato !== 'attivo' && stato !== 'disattivo') stato = 'attivo';
-  return {
+  const condizione = raw?.condizione != null && String(raw.condizione).trim() !== ''
+    ? String(raw.condizione).trim()
+    : null;
+  const out = {
     nome,
     label,
     tipo: safeTipo,
@@ -46,6 +52,8 @@ function normalizeCampo(raw, index) {
     ordine: Number.isFinite(ordine) ? ordine : index,
     stato,
   };
+  if (condizione) out.condizione = condizione;
+  return out;
 }
 
 function normalizeChecklistItem(raw, index) {
@@ -60,6 +68,9 @@ function normalizeChecklistItem(raw, index) {
   const ordine = raw?.ordine != null && raw.ordine !== '' ? Number(raw.ordine) : index;
   let stato = String(raw?.stato || 'attivo').toLowerCase().trim();
   if (stato !== 'attivo' && stato !== 'disattivo') stato = 'attivo';
+  const sezione = raw?.sezione != null && String(raw.sezione).trim() !== ''
+    ? String(raw.sezione).trim()
+    : null;
   const out = {
     nome,
     obbligatorio,
@@ -68,6 +79,7 @@ function normalizeChecklistItem(raw, index) {
   };
   if (descrizione) out.descrizione = descrizione;
   if (condizione) out.condizione = condizione;
+  if (sezione) out.sezione = sezione;
   return out;
 }
 

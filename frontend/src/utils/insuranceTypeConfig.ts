@@ -1,5 +1,19 @@
 import type { ChecklistItem, FormField } from '../types';
 
+/** Valuta condizione `campo=valore` (stesso formato di checklist e campi condizionali). */
+export function campoAppliesToDati(condizione: string | undefined, datiSpecifici: Record<string, unknown>): boolean {
+  const raw = condizione;
+  if (raw == null || String(raw).trim() === '') return true;
+  const cond = String(raw).trim();
+  const eq = cond.indexOf('=');
+  if (eq <= 0) return true;
+  const key = cond.slice(0, eq).trim();
+  const expected = cond.slice(eq + 1).trim();
+  const actual = datiSpecifici[key];
+  if (actual === undefined || actual === null) return false;
+  return String(actual).trim() === expected;
+}
+
 export function isFormFieldActive(f: FormField): boolean {
   const s = (f as { stato?: string }).stato;
   if (s == null || s === '') return true;
@@ -16,22 +30,15 @@ export function sortByOrdine<T extends { ordine?: number }>(items: T[]): T[] {
   return [...items].sort((a, b) => (a.ordine ?? 0) - (b.ordine ?? 0));
 }
 
-export function activeCampiForFlow(campi: FormField[]): FormField[] {
-  return sortByOrdine(campi.filter(isFormFieldActive));
+export function activeCampiForFlow(campi: FormField[], datiSpecifici: Record<string, unknown> = {}): FormField[] {
+  return sortByOrdine(
+    campi.filter((f) => isFormFieldActive(f) && campoAppliesToDati(f.condizione, datiSpecifici)),
+  );
 }
 
 /** Valuta condizione tipo `campo=valore` sui dati specifici (stesso formato del seed). */
 export function checklistItemApplies(item: ChecklistItem, datiSpecifici: Record<string, unknown>): boolean {
-  const raw = (item as { condizione?: string }).condizione;
-  if (raw == null || String(raw).trim() === '') return true;
-  const cond = String(raw).trim();
-  const eq = cond.indexOf('=');
-  if (eq <= 0) return true;
-  const key = cond.slice(0, eq).trim();
-  const expected = cond.slice(eq + 1).trim();
-  const actual = datiSpecifici[key];
-  if (actual === undefined || actual === null) return false;
-  return String(actual).trim() === expected;
+  return campoAppliesToDati(item.condizione, datiSpecifici);
 }
 
 export function activeChecklistForFlow(

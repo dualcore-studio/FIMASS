@@ -417,10 +417,15 @@ router.get('/:id', authenticateToken, (req, res) => {
 
 router.post('/', authenticateToken, authorizeRoles('struttura'), (req, res) => {
   (async () => {
-    const { tipo_assicurazione_id, assistito, dati_specifici, data_decorrenza, note_struttura } = req.body;
+    const {
+      tipo_assicurazione_id, assistito, dati_specifici, data_decorrenza, note_struttura, note_allegati,
+    } = req.body;
 
     if (!tipo_assicurazione_id || !assistito) {
       return res.status(400).json({ error: 'Dati obbligatori mancanti' });
+    }
+    if (!assistito.email || !String(assistito.email).trim()) {
+      return res.status(400).json({ error: 'Email assistito obbligatoria' });
     }
 
     const insType = await getById('insurance_types', tipo_assicurazione_id);
@@ -455,7 +460,21 @@ router.post('/', authenticateToken, authorizeRoles('struttura'), (req, res) => {
     }
 
     const numero = await generateQuoteNumber();
-    const result = await insert('quotes', { numero, assistito_id, tipo_assicurazione_id, struttura_id, stato: 'PRESENTATA', data_decorrenza, note_struttura, dati_specifici: dati_specifici || null, has_policy: 0 });
+    const noteAllegatiVal = note_allegati != null && String(note_allegati).trim() !== ''
+      ? String(note_allegati).trim()
+      : null;
+    const result = await insert('quotes', {
+      numero,
+      assistito_id,
+      tipo_assicurazione_id,
+      struttura_id,
+      stato: 'PRESENTATA',
+      data_decorrenza,
+      note_struttura,
+      note_allegati: noteAllegatiVal,
+      dati_specifici: dati_specifici || null,
+      has_policy: 0,
+    });
     const quoteId = result.id;
     await insert('quote_status_history', { quote_id: quoteId, stato_nuovo: 'PRESENTATA', utente_id: req.user.id });
     await logActivity({
@@ -703,7 +722,7 @@ router.put('/:id/status', authenticateToken, (req, res) => {
 
 router.put('/:id', authenticateToken, (req, res) => {
   (async () => {
-    const { dati_specifici, dati_preventivo, note_struttura } = req.body;
+    const { dati_specifici, dati_preventivo, note_struttura, note_allegati } = req.body;
     const quote = await getById('quotes', req.params.id);
     if (!quote) return res.status(404).json({ error: 'Preventivo non trovato' });
 
@@ -711,6 +730,11 @@ router.put('/:id', authenticateToken, (req, res) => {
     if (dati_specifici !== undefined) patch.dati_specifici = dati_specifici;
     if (dati_preventivo !== undefined) patch.dati_preventivo = dati_preventivo;
     if (note_struttura !== undefined) patch.note_struttura = note_struttura;
+    if (note_allegati !== undefined) {
+      patch.note_allegati = note_allegati != null && String(note_allegati).trim() !== ''
+        ? String(note_allegati).trim()
+        : null;
+    }
     if (Object.keys(patch).length > 0) await upsertById('quotes', req.params.id, patch);
     await logActivity({
       utente_id: req.user.id,

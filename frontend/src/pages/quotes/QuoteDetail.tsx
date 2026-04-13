@@ -543,16 +543,31 @@ function TabDati({ quote }: { quote: Quote }) {
         </div>
       )}
 
+      {quote.note_allegati && String(quote.note_allegati).trim() && (
+        <div className="card p-6 lg:col-span-2">
+          <h3 className="mb-3 text-sm font-semibold uppercase tracking-wider text-gray-500">Note sugli allegati</h3>
+          <p className="whitespace-pre-wrap text-sm text-gray-700">{String(quote.note_allegati).trim()}</p>
+        </div>
+      )}
+
       {/* Dati specifici */}
       {quote.dati_specifici && Object.keys(quote.dati_specifici).length > 0 && (
         <div className="card p-6 lg:col-span-2">
           <h3 className="mb-4 text-sm font-semibold uppercase tracking-wider text-gray-500">Dati Specifici</h3>
           <dl className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 text-sm">
-            {Object.entries(quote.dati_specifici).map(([key, value]) => (
+            {Object.entries(quote.dati_specifici)
+              .filter(([key]) => !String(key).startsWith('_'))
+              .map(([key, value]) => (
               <InfoRow
                 key={key}
                 label={key.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase())}
-                value={typeof value === 'boolean' ? (value ? 'Sì' : 'No') : String(value ?? '-')}
+                value={
+                  typeof value === 'boolean'
+                    ? (value ? 'Sì' : 'No')
+                    : Array.isArray(value)
+                      ? (value.length ? value.join('; ') : '-')
+                      : String(value ?? '-')
+                }
               />
             ))}
           </dl>

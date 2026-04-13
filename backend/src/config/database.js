@@ -76,6 +76,7 @@ function initializeDatabase() {
       stato TEXT NOT NULL DEFAULT 'PRESENTATA' CHECK(stato IN ('PRESENTATA','ASSEGNATA','IN LAVORAZIONE','STANDBY','ELABORATA')),
       data_decorrenza TEXT,
       note_struttura TEXT,
+      note_allegati TEXT,
       dati_specifici TEXT,
       dati_preventivo TEXT,
       has_policy INTEGER DEFAULT 0,
@@ -209,6 +210,16 @@ function initializeDatabase() {
     }
   } catch (e) {
     console.error('ensure insurance_types.descrizione migration:', e);
+  }
+
+  try {
+    const qcols = db.prepare('PRAGMA table_info(quotes)').all();
+    const hasNoteAllegati = Array.isArray(qcols) && qcols.some((c) => c.name === 'note_allegati');
+    if (!hasNoteAllegati) {
+      db.exec('ALTER TABLE quotes ADD COLUMN note_allegati TEXT');
+    }
+  } catch (e) {
+    console.error('ensure quotes.note_allegati migration:', e);
   }
 }
 

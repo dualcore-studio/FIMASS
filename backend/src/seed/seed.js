@@ -42,187 +42,17 @@ transaction();
 
 console.log('Users seeded');
 
-const insuranceTypes = [
-  { nome: 'RC Auto / Moto / Autocarri', codice: 'rc_auto', ordine: 1,
-    campi: [
-      { nome: 'targa', label: 'Targa o Telaio', tipo: 'text', obbligatorio: true },
-      { nome: 'tipo_veicolo', label: 'Tipo Veicolo', tipo: 'select', opzioni: ['Auto','Moto','Autocarro','Ciclomotore'], obbligatorio: true },
-      { nome: 'marca', label: 'Marca', tipo: 'text', obbligatorio: true },
-      { nome: 'modello', label: 'Modello', tipo: 'text', obbligatorio: true },
-      { nome: 'alimentazione', label: 'Alimentazione', tipo: 'select', opzioni: ['Benzina','Diesel','GPL','Metano','Ibrido','Elettrico'], obbligatorio: true },
-      { nome: 'kw', label: 'KW', tipo: 'number', obbligatorio: true },
-      { nome: 'anno_immatricolazione', label: 'Anno Immatricolazione', tipo: 'number', obbligatorio: true },
-      { nome: 'valore_veicolo', label: 'Valore Veicolo (€)', tipo: 'number', obbligatorio: false },
-      { nome: 'proprietario_diverso', label: 'Proprietario diverso dal contraente', tipo: 'boolean', obbligatorio: false },
-      { nome: 'tipo_guida', label: 'Tipo Guida', tipo: 'select', opzioni: ['Libera','Esperta','Esclusiva'], obbligatorio: true },
-      { nome: 'classe_cu', label: 'Classe CU', tipo: 'text', obbligatorio: true },
-      { nome: 'attestato_rischio', label: 'Attestato di Rischio', tipo: 'text', obbligatorio: false },
-      { nome: 'garanzie_richieste', label: 'Garanzie Richieste', tipo: 'textarea', obbligatorio: false },
-      { nome: 'massimale_rc', label: 'Massimale RC', tipo: 'select', opzioni: ['6.450.000€','10.000.000€','15.000.000€','25.000.000€','50.000.000€'], obbligatorio: true }
-    ],
-    allegati: [
-      { nome: 'Libretto Veicolo', obbligatorio: true },
-      { nome: 'Documento Identità', obbligatorio: true },
-      { nome: 'Codice Fiscale', obbligatorio: true },
-      { nome: 'Patente', obbligatorio: false },
-      { nome: 'Atto Acquisto / Voltura', obbligatorio: false }
-    ]
-  },
-  { nome: 'Casa', codice: 'casa', ordine: 2,
-    campi: [
-      { nome: 'tipologia_abitazione', label: 'Tipologia Abitazione', tipo: 'select', opzioni: ['Appartamento','Villa','Villetta a schiera','Attico','Altro'], obbligatorio: true },
-      { nome: 'mq', label: 'Metri Quadri', tipo: 'number', obbligatorio: true },
-      { nome: 'anno_costruzione', label: 'Anno Costruzione', tipo: 'number', obbligatorio: true },
-      { nome: 'uso', label: 'Uso', tipo: 'select', opzioni: ['Abituale','Saltuario'], obbligatorio: true },
-      { nome: 'proprieta_affitto', label: 'Proprietà o Affitto', tipo: 'select', opzioni: ['Proprietà','Affitto'], obbligatorio: true },
-      { nome: 'indirizzo_immobile', label: 'Indirizzo Immobile', tipo: 'text', obbligatorio: true },
-      { nome: 'garanzie_richieste', label: 'Garanzie Richieste', tipo: 'textarea', obbligatorio: false },
-      { nome: 'massimale_rct', label: 'Massimale RCT', tipo: 'select', opzioni: ['250.000€','500.000€','1.000.000€'], obbligatorio: true }
-    ],
-    allegati: [
-      { nome: 'Documento Identità', obbligatorio: true },
-      { nome: 'Codice Fiscale', obbligatorio: true }
-    ]
-  },
-  { nome: 'Affitto Assicurato', codice: 'affitto', ordine: 3,
-    campi: [
-      { nome: 'canone_mensile', label: 'Canone Mensile (€)', tipo: 'number', obbligatorio: true },
-      { nome: 'durata_contratto', label: 'Durata Contratto (mesi)', tipo: 'number', obbligatorio: true },
-      { nome: 'indirizzo_immobile', label: 'Indirizzo Immobile', tipo: 'text', obbligatorio: true },
-      { nome: 'tipologia_immobile', label: 'Tipologia Immobile', tipo: 'select', opzioni: ['Residenziale','Commerciale','Ufficio'], obbligatorio: true },
-      { nome: 'tipo_inquilino', label: 'Tipo Inquilino', tipo: 'select', opzioni: ['Persona Fisica','Società'], obbligatorio: true }
-    ],
-    allegati: [
-      { nome: 'Documento Identità', obbligatorio: true },
-      { nome: 'Codice Fiscale', obbligatorio: true },
-      { nome: 'Busta Paga / CUD', obbligatorio: false, condizione: 'tipo_inquilino=Persona Fisica' },
-      { nome: 'Visura CCIAA', obbligatorio: false, condizione: 'tipo_inquilino=Società' },
-      { nome: 'Bilancio', obbligatorio: false, condizione: 'tipo_inquilino=Società' }
-    ]
-  },
-  { nome: 'Sanitaria / Infortuni', codice: 'sanitaria', ordine: 4,
-    campi: [
-      { nome: 'attivita_lavorativa', label: 'Attività Lavorativa', tipo: 'text', obbligatorio: true },
-      { nome: 'sport_pericolosi', label: 'Sport Pericolosi', tipo: 'boolean', obbligatorio: false },
-      { nome: 'patologie_pregresse', label: 'Patologie Pregresse', tipo: 'textarea', obbligatorio: false },
-      { nome: 'sinistri_precedenti', label: 'Sinistri Precedenti', tipo: 'textarea', obbligatorio: false },
-      { nome: 'polizza_attiva', label: 'Polizza Attiva', tipo: 'boolean', obbligatorio: false },
-      { nome: 'beneficiario_caso_morte', label: 'Beneficiario Caso Morte', tipo: 'text', obbligatorio: false },
-      { nome: 'garanzie_richieste', label: 'Garanzie Richieste', tipo: 'textarea', obbligatorio: false }
-    ],
-    allegati: [
-      { nome: 'Documento Identità', obbligatorio: true },
-      { nome: 'Codice Fiscale', obbligatorio: true }
-    ]
-  },
-  { nome: 'Scudo Amico', codice: 'scudo_amico', ordine: 5,
-    campi: [
-      { nome: 'attivita_lavorativa', label: 'Attività Lavorativa', tipo: 'text', obbligatorio: true },
-      { nome: 'sport_pericolosi', label: 'Sport Pericolosi', tipo: 'boolean', obbligatorio: false },
-      { nome: 'patologie_pregresse', label: 'Patologie Pregresse', tipo: 'textarea', obbligatorio: false },
-      { nome: 'sinistri_precedenti', label: 'Sinistri Precedenti', tipo: 'textarea', obbligatorio: false },
-      { nome: 'polizza_attiva', label: 'Polizza Attiva', tipo: 'boolean', obbligatorio: false },
-      { nome: 'beneficiario_caso_morte', label: 'Beneficiario Caso Morte', tipo: 'text', obbligatorio: false },
-      { nome: 'garanzie_richieste', label: 'Garanzie Richieste', tipo: 'textarea', obbligatorio: false }
-    ],
-    allegati: [
-      { nome: 'Documento Identità', obbligatorio: true },
-      { nome: 'Codice Fiscale', obbligatorio: true }
-    ]
-  },
-  { nome: 'Miglior Amico Cane/Gatto', codice: 'animali', ordine: 6,
-    campi: [
-      { nome: 'tipo_animale', label: 'Tipo Animale', tipo: 'select', opzioni: ['Cane','Gatto'], obbligatorio: true },
-      { nome: 'razza', label: 'Razza', tipo: 'text', obbligatorio: true },
-      { nome: 'data_nascita_animale', label: 'Data Nascita Animale', tipo: 'date', obbligatorio: true },
-      { nome: 'microchip', label: 'Numero Microchip', tipo: 'text', obbligatorio: true },
-      { nome: 'piano', label: 'Piano', tipo: 'select', opzioni: ['Base','Gold','Premium'], obbligatorio: true }
-    ],
-    allegati: [
-      { nome: 'Documento Identità', obbligatorio: true },
-      { nome: 'Codice Fiscale', obbligatorio: true }
-    ]
-  },
-  { nome: 'Stranieri', codice: 'stranieri', ordine: 7,
-    campi: [
-      { nome: 'nazionalita', label: 'Nazionalità', tipo: 'text', obbligatorio: true },
-      { nome: 'tipo_richiesta', label: 'Tipo Richiesta', tipo: 'select', opzioni: ['Visto','Permesso di soggiorno','Ricongiungimento','Altro'], obbligatorio: true },
-      { nome: 'durata_soggiorno', label: 'Durata Soggiorno (mesi)', tipo: 'number', obbligatorio: true },
-      { nome: 'numero_persone', label: 'Numero Persone', tipo: 'number', obbligatorio: true },
-      { nome: 'servizi_aggiuntivi', label: 'Servizi Aggiuntivi', tipo: 'textarea', obbligatorio: false }
-    ],
-    allegati: [
-      { nome: 'Documento Identità', obbligatorio: true },
-      { nome: 'Codice Fiscale', obbligatorio: false },
-      { nome: 'Passaporto', obbligatorio: true }
-    ]
-  },
-  { nome: 'RC Professionale', codice: 'rc_prof', ordine: 8,
-    campi: [
-      { nome: 'tipo_professione', label: 'Tipo Professione', tipo: 'text', obbligatorio: true },
-      { nome: 'area_professionale', label: 'Area Professionale', tipo: 'select', opzioni: ['Sanitaria','Legale','Tecnica','Consulenza','Altro'], obbligatorio: true },
-      { nome: 'fatturato', label: 'Fatturato Annuo (€)', tipo: 'number', obbligatorio: true },
-      { nome: 'iscrizione_albo', label: 'Iscrizione Albo', tipo: 'text', obbligatorio: true },
-      { nome: 'attivita_specifiche', label: 'Attività Specifiche', tipo: 'textarea', obbligatorio: false }
-    ],
-    allegati: [
-      { nome: 'Documento Identità', obbligatorio: true },
-      { nome: 'Codice Fiscale', obbligatorio: true },
-      { nome: 'Iscrizione Albo', obbligatorio: true }
-    ]
-  },
-  { nome: 'Piani di Risparmio', codice: 'risparmio', ordine: 9,
-    campi: [
-      { nome: 'categoria_lavorativa', label: 'Categoria Lavorativa', tipo: 'select', opzioni: ['Dipendente','Autonomo','Libero Professionista','Pensionato','Altro'], obbligatorio: true },
-      { nome: 'stato_civile', label: 'Stato Civile', tipo: 'select', opzioni: ['Celibe/Nubile','Coniugato/a','Separato/a','Divorziato/a','Vedovo/a'], obbligatorio: true },
-      { nome: 'capitale_disponibile', label: 'Capitale Disponibile (€)', tipo: 'number', obbligatorio: true },
-      { nome: 'orizzonte_temporale', label: 'Orizzonte Temporale', tipo: 'select', opzioni: ['1-3 anni','3-5 anni','5-10 anni','Oltre 10 anni'], obbligatorio: true },
-      { nome: 'obiettivo_investimento', label: 'Obiettivo Investimento', tipo: 'textarea', obbligatorio: false }
-    ],
-    allegati: [
-      { nome: 'Documento Identità', obbligatorio: true },
-      { nome: 'Codice Fiscale', obbligatorio: true }
-    ]
-  },
-  { nome: 'TCM / Mutuo', codice: 'tcm_mutuo', ordine: 10,
-    campi: [
-      { nome: 'fumatore', label: 'Fumatore', tipo: 'boolean', obbligatorio: true },
-      { nome: 'capitale_richiesto', label: 'Capitale Richiesto (€)', tipo: 'number', obbligatorio: true },
-      { nome: 'durata_anni', label: 'Durata (anni)', tipo: 'number', obbligatorio: true },
-      { nome: 'presenza_mutuo', label: 'Presenza Mutuo', tipo: 'boolean', obbligatorio: true },
-      { nome: 'importo_mutuo', label: 'Importo Mutuo (€)', tipo: 'number', obbligatorio: false },
-      { nome: 'tipo_beneficiario', label: 'Tipo Beneficiario', tipo: 'select', opzioni: ['Eredi legittimi','Coniuge','Banca','Altro'], obbligatorio: true }
-    ],
-    allegati: [
-      { nome: 'Documento Identità', obbligatorio: true },
-      { nome: 'Codice Fiscale', obbligatorio: true }
-    ]
-  },
-  { nome: 'Check-up Esigenze Varie', codice: 'checkup', ordine: 11,
-    campi: [
-      { nome: 'attivita_lavorativa', label: 'Attività Lavorativa', tipo: 'text', obbligatorio: true },
-      { nome: 'situazione_abitativa', label: 'Situazione Abitativa', tipo: 'select', opzioni: ['Proprietà','Affitto','Comodato'], obbligatorio: true },
-      { nome: 'animali_domestici', label: 'Animali Domestici', tipo: 'boolean', obbligatorio: false },
-      { nome: 'viaggi', label: 'Viaggi Frequenti', tipo: 'boolean', obbligatorio: false },
-      { nome: 'veicoli_posseduti', label: 'Veicoli Posseduti', tipo: 'textarea', obbligatorio: false },
-      { nome: 'coperture_attuali', label: 'Coperture Attuali', tipo: 'textarea', obbligatorio: false },
-      { nome: 'persone_da_proteggere', label: 'Persone da Proteggere', tipo: 'number', obbligatorio: false }
-    ],
-    allegati: [
-      { nome: 'Documento Identità', obbligatorio: true },
-      { nome: 'Codice Fiscale', obbligatorio: true }
-    ]
-  }
-];
+const { INSURANCE_TYPES_FORM_DEFINITIONS } = require('../lib/insuranceTypeSeedData');
 
 const insertType = db.prepare(`
-  INSERT INTO insurance_types (nome, codice, stato, ordine, descrizione, campi_specifici, checklist_allegati) VALUES (?, ?, 'attivo', ?, ?, ?, ?)
+  INSERT INTO insurance_types (nome, codice, stato, ordine, descrizione, campi_specifici, checklist_allegati) VALUES (?, ?, ?, ?, ?, ?, ?)
 `);
 
 const typesTx = db.transaction(() => {
-  insuranceTypes.forEach((t) => insertType.run(
+  INSURANCE_TYPES_FORM_DEFINITIONS.forEach((t) => insertType.run(
     t.nome,
     t.codice,
+    t.stato || 'attivo',
     t.ordine,
     null,
     JSON.stringify(t.campi),
@@ -270,14 +100,13 @@ const quotes = [
   { num: 'PRV-2026-00002', ass: 2, tipo: 2, strutt: 8, op: 5, stato: 'IN LAVORAZIONE', dec: '2026-04-15', note: 'Appartamento zona EUR', dati: { tipologia_abitazione: 'Appartamento', mq: '95', anno_costruzione: '2005', uso: 'Abituale', proprieta_affitto: 'Proprietà', indirizzo_immobile: 'Via Laurentina 300', massimale_rct: '500.000€' }, hasP: 0, created: '2026-03-12 10:30:00' },
   { num: 'PRV-2026-00003', ass: 3, tipo: 1, strutt: 9, op: 6, stato: 'ELABORATA', dec: '2026-05-01', note: 'Passaggio da altra compagnia', dati: { targa: 'MI456CD', tipo_veicolo: 'Auto', marca: 'BMW', modello: 'Serie 3', alimentazione: 'Diesel', kw: '150', anno_immatricolazione: '2022', tipo_guida: 'Esperta', classe_cu: '3', massimale_rc: '10.000.000€' }, hasP: 0, created: '2026-03-08 11:00:00' },
   { num: 'PRV-2026-00004', ass: 4, tipo: 4, strutt: 7, op: 4, stato: 'STANDBY', dec: '2026-04-01', note: 'Richiesta urgente', dati: { attivita_lavorativa: 'Impiegata', sport_pericolosi: false, garanzie_richieste: 'Ricovero, Diaria' }, hasP: 0, created: '2026-03-15 14:00:00' },
-  { num: 'PRV-2026-00005', ass: 5, tipo: 3, strutt: 10, op: null, stato: 'PRESENTATA', dec: '2026-05-01', note: 'Nuovo contratto affitto', dati: { canone_mensile: '800', durata_contratto: '48', indirizzo_immobile: 'Via Roma 22, Torino', tipologia_immobile: 'Residenziale', tipo_inquilino: 'Persona Fisica' }, hasP: 0, created: '2026-03-20 08:00:00' },
-  { num: 'PRV-2026-00006', ass: 6, tipo: 8, strutt: 8, op: 5, stato: 'ASSEGNATA', dec: '2026-04-01', note: 'Architetto, necessaria RC', dati: { tipo_professione: 'Architetto', area_professionale: 'Tecnica', fatturato: '75000', iscrizione_albo: 'n. 12345' }, hasP: 0, created: '2026-03-18 09:00:00' },
-  { num: 'PRV-2026-00007', ass: 7, tipo: 6, strutt: 7, op: null, stato: 'PRESENTATA', dec: '2026-04-15', note: 'Golden Retriever, vuole piano premium', dati: { tipo_animale: 'Cane', razza: 'Golden Retriever', data_nascita_animale: '2023-06-01', microchip: '380260000123456', piano: 'Premium' }, hasP: 0, created: '2026-03-22 10:00:00' },
-  { num: 'PRV-2026-00008', ass: 8, tipo: 10, strutt: 9, op: 6, stato: 'IN LAVORAZIONE', dec: '2026-04-01', note: 'TCM collegata a mutuo casa', dati: { fumatore: false, capitale_richiesto: '200000', durata_anni: '20', presenza_mutuo: true, importo_mutuo: '180000', tipo_beneficiario: 'Banca' }, hasP: 0, created: '2026-03-14 15:00:00' },
+  { num: 'PRV-2026-00005', ass: 5, tipo: 3, strutt: 10, op: null, stato: 'PRESENTATA', dec: '2026-05-01', note: 'Nuovo contratto affitto', dati: { canone_mensile: '800', durata_contratto: '48', indirizzo_immobile: 'Via Roma 22, Torino', tipologia_immobile: 'Residenziale', affittuario_tipologia: 'Persona Fisica', affittuario_nome: 'Luigi', affittuario_cognome: 'Bianchi', affittuario_data_nascita: '1990-01-15', affittuario_comune_nascita: 'Torino', affittuario_provincia_nascita: 'TO', affittuario_codice_fiscale: 'BNCLGU90A15L219X', affittuario_indirizzo_residenza: 'Via Roma 22', affittuario_cellulare: '3401112233', affittuario_email: 'l.bianchi@email.it' }, hasP: 0, created: '2026-03-20 08:00:00' },
+  { num: 'PRV-2026-00006', ass: 6, tipo: 8, strutt: 8, op: 5, stato: 'ASSEGNATA', dec: '2026-04-01', note: 'Architetto, necessaria RC', dati: { tipo_professione: 'Architetto', laurea: 'Architettura', data_iscrizione_albo: '2015-06-01', fatturato: '75000', tipo_struttura_operativa: 'Studio associato', inquadramento_professionale: 'Socio', interventi_invasivi: 'No', medicina_estetica: 'No', chirurgia_vertebrale: 'No' }, hasP: 0, created: '2026-03-18 09:00:00' },
+  { num: 'PRV-2026-00007', ass: 7, tipo: 6, strutt: 7, op: null, stato: 'PRESENTATA', dec: '2026-04-15', note: 'Golden Retriever, piano Gold', dati: { tipo_animale: 'Cane', razza: 'Golden Retriever', data_nascita_animale: '2023-06-01', microchip: '380260000123456', piano: 'Gold' }, hasP: 0, created: '2026-03-22 10:00:00' },
+  { num: 'PRV-2026-00008', ass: 8, tipo: 10, strutt: 9, op: 6, stato: 'IN LAVORAZIONE', dec: '2026-04-01', note: 'TCM collegata a mutuo casa', dati: { categoria_lavorativa: 'Dipendente', lavoratore_dipendente: 'Impiegato', stato_civile: 'Coniugato/Convivente', soggetto_a_carico: 'Sì', fumatore: 'No (da almeno 2 anni)', durata_polizza_anni: '20 anni', capitale_scelto: '200000,00', mutuo: 'Sì', importo_mutuo: '180000', durata_mutuo: '20 anni' }, hasP: 0, created: '2026-03-14 15:00:00' },
   { num: 'PRV-2026-00009', ass: 9, tipo: 7, strutt: 10, op: null, stato: 'PRESENTATA', dec: '2026-04-01', note: 'Richiesta permesso soggiorno', dati: { nazionalita: 'Marocco', tipo_richiesta: 'Permesso di soggiorno', durata_soggiorno: '12', numero_persone: '1' }, hasP: 0, created: '2026-03-23 09:00:00' },
   { num: 'PRV-2026-00010', ass: 10, tipo: 11, strutt: 7, op: 4, stato: 'ELABORATA', dec: '2026-04-01', note: 'Check-up completo situazione assicurativa', dati: { attivita_lavorativa: 'Avvocato', situazione_abitativa: 'Proprietà', animali_domestici: true, viaggi: true, veicoli_posseduti: '2 auto', coperture_attuali: 'Solo RC Auto', persone_da_proteggere: '3' }, hasP: 0, created: '2026-03-05 11:00:00' },
-  { num: 'PRV-2026-00011', ass: 1, tipo: 9, strutt: 7, op: 5, stato: 'IN LAVORAZIONE', dec: '2026-06-01', note: 'Interessato a piano risparmio a lungo termine', dati: { categoria_lavorativa: 'Dipendente', stato_civile: 'Coniugato/a', capitale_disponibile: '30000', orizzonte_temporale: '5-10 anni', obiettivo_investimento: 'Protezione capitale e crescita moderata' }, hasP: 0, created: '2026-03-17 13:00:00' },
-  { num: 'PRV-2026-00012', ass: 3, tipo: 5, strutt: 9, op: null, stato: 'PRESENTATA', dec: '2026-05-15', note: 'Richiesta Scudo Amico base', dati: { attivita_lavorativa: 'Commercialista', sport_pericolosi: false, polizza_attiva: false }, hasP: 0, created: '2026-03-24 10:00:00' },
+  { num: 'PRV-2026-00011', ass: 1, tipo: 9, strutt: 7, op: 5, stato: 'IN LAVORAZIONE', dec: '2026-06-01', note: 'Interessato a piano risparmio a lungo termine', dati: { categoria_lavorativa: 'Dipendente', lavoratore_dipendente: 'Impiegato', stato_civile: 'Coniugato/Convivente', soggetto_a_carico: 'Sì', copertura_altra_polizza: 'Nessuna copertura assicurativa', obiettivo_principale: 'Proteggere il capitale investito', capitale_investimenti_12_mesi: 'Da 15000,00 a 50.000,00', orizzonte_liquidita: ['Ho un fondo per le emergenze posso permettermi di vincolarli anche per 3/5 anni senza particolari problemi'] }, hasP: 0, created: '2026-03-17 13:00:00' },
 ];
 
 const quotesTx = db.transaction(() => {

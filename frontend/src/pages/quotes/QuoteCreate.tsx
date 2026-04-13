@@ -21,6 +21,17 @@ import {
   mandatoryChecklistMissing,
 } from '../../utils/insuranceTypeConfig';
 
+const FRAZIONAMENTO_OPTS = ['Mensile', 'Semestrale', 'Annuale'] as const;
+
+const SENZA_DATA_DECORRENZA = new Set(['checkup', 'rc_prof', 'risparmio', 'tcm_mutuo']);
+const NASCONDI_BLOCCO_INFO_ASSISTITO = new Set(['checkup', 'risparmio', 'tcm_mutuo']);
+const CON_FRAZIONAMENTO_ASSISTITO = new Set(['animali', 'sanitaria', 'casa']);
+
+const CLEAR_DATI_ON_PARENT: Record<string, string[]> = {
+  categoria_lavorativa: ['lavoratore_dipendente', 'lavoratore_autonomo', 'altre_categorie'],
+  mutuo: ['importo_mutuo', 'durata_mutuo'],
+};
+
 const STEPS = [
   { label: 'Tipologia', icon: Shield },
   { label: 'Assistito', icon: User },
@@ -68,12 +79,14 @@ export default function QuoteCreate() {
   const [existingAssisted, setExistingAssisted] = useState(false);
   const [cfChecking, setCfChecking] = useState(false);
   const [dataDecorrenza, setDataDecorrenza] = useState('');
-  const [noteStruttura, setNoteStruttura] = useState('');
+  const [frazionamento, setFrazionamento] = useState('');
+  const [indirizzoStudioProfessionale, setIndirizzoStudioProfessionale] = useState('');
 
   // Step 3
-  const [datiSpecifici, setDatiSpecifici] = useState<Record<string, any>>({});
+  const [datiSpecifici, setDatiSpecifici] = useState<Record<string, unknown>>({});
 
   // Step 4
+  const [noteAllegati, setNoteAllegati] = useState('');
   const [attachmentFiles, setAttachmentFiles] = useState<Record<string, File | null>>({});
 
   // Submit
@@ -128,8 +141,15 @@ export default function QuoteCreate() {
     if (field === 'codice_fiscale') setExistingAssisted(false);
   };
 
-  const updateDatiSpecifici = (nome: string, value: any) => {
-    setDatiSpecifici((prev) => ({ ...prev, [nome]: value }));
+  const updateDatiSpecifici = (nome: string, value: unknown) => {
+    setDatiSpecifici((prev) => {
+      const next = { ...prev, [nome]: value };
+      const toClear = CLEAR_DATI_ON_PARENT[nome];
+      if (toClear) {
+        for (const k of toClear) delete next[k];
+      }
+      return next;
+    });
   };
 
   const validateStep = (s: number): string[] => {
@@ -143,12 +163,25 @@ export default function QuoteCreate() {
       if (!assisted.data_nascita) errors.push('La data di nascita è obbligatoria.');
       if (!assisted.codice_fiscale.trim()) errors.push('Il codice fiscale è obbligatorio.');
       if (!assisted.cellulare.trim()) errors.push('Il cellulare è obbligatorio.');
+      if (!assisted.email.trim()) errors.push('L\'email è obbligatoria.');
+      const cod = selectedType ? String(selectedType.codice || '').toLowerCase() : '';
+      if (CON_FRAZIONAMENTO_ASSISTITO.has(cod) && !frazionamento.trim()) {
+        errors.push('Il frazionamento è obbligatorio.');
+      }
+      if (cod === 'rc_prof' && !indirizzoStudioProfessionale.trim()) {
+        errors.push('L\'indirizzo dello studio professionale è obbligatorio.');
+      }
     }
     if (s === 2 && selectedType) {
-      for (const field of activeCampiForFlow(selectedType.campi_specifici)) {
+      for (const field of activeCampiForFlow(selectedType.campi_specifici, datiSpecifici)) {
+        if (field.tipo === 'heading' || field.tipo === 'info') continue;
         if (field.obbligatorio) {
           const val = datiSpecifici[field.nome];
-          if (val === undefined || val === null || val === '') {
+          if (field.tipo === 'multiselect') {
+            if (!Array.isArray(val) || val.length === 0) {
+              errors.push(`Il campo "${field.label}" è obbligatorio.`);
+            }
+          } else if (val === undefined || val === null || val === '') {
             errors.push(`Il campo "${field.label}" è obbligatorio.`);
           }
         }
@@ -195,6 +228,15 @@ export default function QuoteCreate() {
     }
     setSubmitting(true);
     try {
+      const cod = String(selectedType.codice || '').toLowerCase();
+      let mergedDati: Record<string, unknown> = { ...datiSpecifici };
+      if (CON_FRAZIONAMENTO_ASSISTITO.has(cod) && frazionamento.trim()) {
+        mergedDati = { ...mergedDati, frazionamento: frazionamento.trim() };
+      }
+      if (cod === 'rc_prof' && indirizzoStudioProfessionale.trim()) {
+        mergedDati = { ...mergedDati, indirizzo_studio_professionale: indirizzoStudioProfessionale.trim() };
+      }
+
       const body = {
         tipo_assicurazione_id: selectedType.id,
         assistito: {
@@ -203,14 +245,15 @@ export default function QuoteCreate() {
           data_nascita: assisted.data_nascita,
           codice_fiscale: assisted.codice_fiscale.trim().toUpperCase(),
           cellulare: assisted.cellulare.trim(),
-          email: assisted.email.trim() || null,
+          email: assisted.email.trim(),
           indirizzo: assisted.indirizzo.trim() || null,
           cap: assisted.cap.trim() || null,
           citta: assisted.citta.trim() || null,
         },
-        dati_specifici: datiSpecifici,
+        dati_specifici: mergedDati,
         data_decorrenza: dataDecorrenza || null,
-        note_struttura: noteStruttura.trim() || null,
+        note_struttura: null,
+        note_allegati: noteAllegati.trim() || null,
       };
 
       const result = await api.post<{ id: number }>('/quotes', body);
@@ -303,31 +346,46 @@ export default function QuoteCreate() {
             loading={typesLoading}
             error={typesError}
             selected={selectedType}
-            onSelect={(t) => { setSelectedType(t); setDatiSpecifici({}); setAttachmentFiles({}); setStepErrors([]); setStep(1); }}
+            onSelect={(t) => {
+              setSelectedType(t);
+              setDatiSpecifici({});
+              setAttachmentFiles({});
+              setDataDecorrenza('');
+              setFrazionamento('');
+              setIndirizzoStudioProfessionale('');
+              setNoteAllegati('');
+              setStepErrors([]);
+              setStep(1);
+            }}
           />
         )}
-        {step === 1 && (
+        {step === 1 && selectedType && (
           <Step2Assisted
+            tipoCodice={selectedType.codice}
             assisted={assisted}
             existingAssisted={existingAssisted}
             cfChecking={cfChecking}
             dataDecorrenza={dataDecorrenza}
-            noteStruttura={noteStruttura}
+            frazionamento={frazionamento}
+            indirizzoStudioProfessionale={indirizzoStudioProfessionale}
             onUpdate={updateAssisted}
             onCfBlur={handleCfBlur}
             onDataDecorrenzaChange={setDataDecorrenza}
-            onNoteStrutturaChange={setNoteStruttura}
+            onFrazionamentoChange={setFrazionamento}
+            onIndirizzoStudioChange={setIndirizzoStudioProfessionale}
           />
         )}
         {step === 2 && selectedType && (
           <Step3DatiSpecifici
-            fields={activeCampiForFlow(selectedType.campi_specifici)}
+            fields={activeCampiForFlow(selectedType.campi_specifici, datiSpecifici)}
             values={datiSpecifici}
             onChange={updateDatiSpecifici}
           />
         )}
         {step === 3 && selectedType && (
           <Step4Attachments
+            noteAllegati={noteAllegati}
+            onNoteAllegatiChange={setNoteAllegati}
             checklist={activeChecklistForFlow(selectedType.checklist_allegati, datiSpecifici)}
             files={attachmentFiles}
             onChange={(nome, file) => setAttachmentFiles((prev) => ({ ...prev, [nome]: file }))}
@@ -338,7 +396,9 @@ export default function QuoteCreate() {
             selectedType={selectedType}
             assisted={assisted}
             dataDecorrenza={dataDecorrenza}
-            noteStruttura={noteStruttura}
+            frazionamento={frazionamento}
+            indirizzoStudioProfessionale={indirizzoStudioProfessionale}
+            noteAllegati={noteAllegati}
             datiSpecifici={datiSpecifici}
             attachmentFiles={attachmentFiles}
           />
@@ -460,26 +520,38 @@ function Step1Types({
 /* ───────────── Step 2: Assisted Person ───────────── */
 
 function Step2Assisted({
+  tipoCodice,
   assisted,
   existingAssisted,
   cfChecking,
   dataDecorrenza,
-  noteStruttura,
+  frazionamento,
+  indirizzoStudioProfessionale,
   onUpdate,
   onCfBlur,
   onDataDecorrenzaChange,
-  onNoteStrutturaChange,
+  onFrazionamentoChange,
+  onIndirizzoStudioChange,
 }: {
+  tipoCodice: string;
   assisted: AssistedForm;
   existingAssisted: boolean;
   cfChecking: boolean;
   dataDecorrenza: string;
-  noteStruttura: string;
+  frazionamento: string;
+  indirizzoStudioProfessionale: string;
   onUpdate: (field: keyof AssistedForm, value: string) => void;
   onCfBlur: () => void;
   onDataDecorrenzaChange: (v: string) => void;
-  onNoteStrutturaChange: (v: string) => void;
+  onFrazionamentoChange: (v: string) => void;
+  onIndirizzoStudioChange: (v: string) => void;
 }) {
+  const cod = String(tipoCodice || '').toLowerCase();
+  const nascondiBlocco = NASCONDI_BLOCCO_INFO_ASSISTITO.has(cod);
+  const mostraDecorrenza = !SENZA_DATA_DECORRENZA.has(cod);
+  const mostraFrazionamento = CON_FRAZIONAMENTO_ASSISTITO.has(cod);
+  const mostraIndirizzoStudio = cod === 'rc_prof';
+
   return (
     <div>
       <h2 className="mb-1 text-lg font-semibold text-gray-900">Dati dell&apos;assistito</h2>
@@ -519,27 +591,48 @@ function Step2Assisted({
         <FormInput label="Cognome *" value={assisted.cognome} onChange={(v) => onUpdate('cognome', v)} />
         <FormInput label="Data di Nascita *" type="date" value={assisted.data_nascita} onChange={(v) => onUpdate('data_nascita', v)} />
         <FormInput label="Cellulare *" type="tel" value={assisted.cellulare} onChange={(v) => onUpdate('cellulare', v)} placeholder="+39 333 1234567" />
-        <FormInput label="Email" type="email" value={assisted.email} onChange={(v) => onUpdate('email', v)} placeholder="email@esempio.it" />
+        <FormInput label="Email *" type="email" value={assisted.email} onChange={(v) => onUpdate('email', v)} placeholder="email@esempio.it" />
         <FormInput label="Indirizzo" value={assisted.indirizzo} onChange={(v) => onUpdate('indirizzo', v)} />
         <FormInput label="CAP" value={assisted.cap} onChange={(v) => onUpdate('cap', v)} maxLength={5} />
         <FormInput label="Città" value={assisted.citta} onChange={(v) => onUpdate('citta', v)} />
 
-        <div className="sm:col-span-2 border-t pt-4 mt-2">
-          <h3 className="mb-3 text-sm font-semibold text-gray-700">Informazioni aggiuntive</h3>
-          <div className="grid gap-4 sm:grid-cols-2">
-            <FormInput label="Data Decorrenza" type="date" value={dataDecorrenza} onChange={onDataDecorrenzaChange} />
-            <div className="sm:col-span-2">
-              <label className="mb-1 block text-sm font-medium text-gray-700">Note per la struttura</label>
-              <textarea
-                rows={3}
-                value={noteStruttura}
-                onChange={(e) => onNoteStrutturaChange(e.target.value)}
-                className="input-field"
-                placeholder="Eventuali note aggiuntive…"
-              />
+        {!nascondiBlocco && (mostraDecorrenza || mostraFrazionamento || mostraIndirizzoStudio) && (
+          <div className="sm:col-span-2 border-t pt-4 mt-2 space-y-4">
+            <h3 className="text-sm font-semibold text-gray-700">Informazioni aggiuntive</h3>
+            {mostraIndirizzoStudio && (
+              <div>
+                <label className="mb-1 block text-sm font-medium text-gray-700">Indirizzo dello studio professionale *</label>
+                <textarea
+                  rows={3}
+                  value={indirizzoStudioProfessionale}
+                  onChange={(e) => onIndirizzoStudioChange(e.target.value)}
+                  className="input-field"
+                  placeholder="Indirizzo completo dello studio"
+                />
+              </div>
+            )}
+            <div className="grid gap-4 sm:grid-cols-2">
+              {mostraDecorrenza && (
+                <FormInput label="Data Decorrenza" type="date" value={dataDecorrenza} onChange={onDataDecorrenzaChange} />
+              )}
+              {mostraFrazionamento && (
+                <div className={mostraDecorrenza ? 'sm:col-span-2' : undefined}>
+                  <label className="mb-1 block text-sm font-medium text-gray-700">Frazionamento *</label>
+                  <select
+                    value={frazionamento}
+                    onChange={(e) => onFrazionamentoChange(e.target.value)}
+                    className="input-field"
+                  >
+                    <option value="">Seleziona…</option>
+                    {FRAZIONAMENTO_OPTS.map((o) => (
+                      <option key={o} value={o}>{o}</option>
+                    ))}
+                  </select>
+                </div>
+              )}
             </div>
           </div>
-        </div>
+        )}
       </div>
     </div>
   );
@@ -583,8 +676,8 @@ function Step3DatiSpecifici({
   onChange,
 }: {
   fields: FormField[];
-  values: Record<string, any>;
-  onChange: (nome: string, value: any) => void;
+  values: Record<string, unknown>;
+  onChange: (nome: string, value: unknown) => void;
 }) {
   if (!fields || fields.length === 0) {
     return (
@@ -602,14 +695,27 @@ function Step3DatiSpecifici({
       <h2 className="mb-1 text-lg font-semibold text-gray-900">Dati Specifici</h2>
       <p className="mb-6 text-sm text-gray-500">Compila i campi richiesti per la tipologia selezionata.</p>
       <div className="grid gap-4 sm:grid-cols-2">
-        {fields.map((field) => (
-          <DynamicField
-            key={field.nome}
-            field={field}
-            value={values[field.nome]}
-            onChange={(v) => onChange(field.nome, v)}
-          />
-        ))}
+        {fields.map((field) => {
+          const fullRow =
+            field.tipo === 'heading'
+            || field.tipo === 'info'
+            || field.tipo === 'multiselect'
+            || field.tipo === 'textarea'
+            || field.tipo === 'radio';
+          return (
+            <div key={field.nome} className={fullRow ? 'sm:col-span-2' : undefined}>
+              <DynamicField
+                field={field}
+                value={
+                  field.tipo === 'multiselect'
+                    ? (Array.isArray(values[field.nome]) ? values[field.nome] : [])
+                    : values[field.nome]
+                }
+                onChange={(v) => onChange(field.nome, v)}
+              />
+            </div>
+          );
+        })}
       </div>
     </div>
   );
@@ -621,8 +727,8 @@ function DynamicField({
   onChange,
 }: {
   field: FormField;
-  value: any;
-  onChange: (v: any) => void;
+  value: unknown;
+  onChange: (v: unknown) => void;
 }) {
   const label = `${field.label}${field.obbligatorio ? ' *' : ''}`;
 
@@ -674,7 +780,7 @@ function DynamicField({
       );
     case 'boolean':
       return (
-        <div className="flex items-center gap-3 sm:col-span-2">
+        <div className="flex items-center gap-3">
           <input
             type="checkbox"
             id={`field-${field.nome}`}
@@ -687,7 +793,7 @@ function DynamicField({
       );
     case 'textarea':
       return (
-        <div className="sm:col-span-2">
+        <div>
           <label className="mb-1 block text-sm font-medium text-gray-700">{label}</label>
           <textarea
             rows={3}
@@ -700,7 +806,7 @@ function DynamicField({
       );
     case 'radio':
       return (
-        <div className="sm:col-span-2">
+        <div>
           <p className="mb-2 text-sm font-medium text-gray-700">{label}</p>
           <div className="flex flex-wrap gap-4">
             {(field.opzioni ?? []).map((opt) => (
@@ -719,6 +825,45 @@ function DynamicField({
           </div>
         </div>
       );
+    case 'multiselect': {
+      const selected: string[] = Array.isArray(value) ? value : [];
+      const toggle = (opt: string) => {
+        const set = new Set(selected);
+        if (set.has(opt)) set.delete(opt);
+        else set.add(opt);
+        onChange([...set]);
+      };
+      return (
+        <div>
+          <p className="mb-2 text-sm font-medium text-gray-700">{label}</p>
+          <div className="space-y-2 rounded-lg border border-gray-100 bg-gray-50/50 p-3">
+            {field.opzioni?.map((opt) => (
+              <label key={opt} className="flex cursor-pointer items-start gap-2 text-sm text-gray-700">
+                <input
+                  type="checkbox"
+                  checked={selected.includes(opt)}
+                  onChange={() => toggle(opt)}
+                  className="mt-0.5 h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                />
+                <span className="leading-snug">{opt}</span>
+              </label>
+            ))}
+          </div>
+        </div>
+      );
+    }
+    case 'heading':
+      return (
+        <h3 className="pt-2 text-base font-semibold text-gray-900 first:pt-0">
+          {field.label}
+        </h3>
+      );
+    case 'info':
+      return (
+        <p className="text-sm leading-relaxed text-amber-950 bg-amber-50 border border-amber-100 rounded-lg px-3 py-2.5">
+          {field.label}
+        </p>
+      );
     default:
       return null;
   }
@@ -727,10 +872,14 @@ function DynamicField({
 /* ───────────── Step 4: Attachments ───────────── */
 
 function Step4Attachments({
+  noteAllegati,
+  onNoteAllegatiChange,
   checklist,
   files,
   onChange,
 }: {
+  noteAllegati: string;
+  onNoteAllegatiChange: (v: string) => void;
   checklist: ChecklistItem[];
   files: Record<string, File | null>;
   onChange: (nome: string, file: File | null) => void;
@@ -742,45 +891,63 @@ function Step4Attachments({
         Carica i documenti richiesti. I documenti obbligatori sono contrassegnati con *.
       </p>
 
+      <div className="mb-6">
+        <label className="mb-1 block text-sm font-medium text-gray-700">Note sugli allegati</label>
+        <textarea
+          rows={3}
+          value={noteAllegati}
+          onChange={(e) => onNoteAllegatiChange(e.target.value)}
+          className="input-field"
+          placeholder="Eventuali indicazioni sui documenti che caricherai…"
+        />
+      </div>
+
       {(!checklist || checklist.length === 0) ? (
         <p className="py-8 text-center text-sm text-gray-500">
           Nessun allegato richiesto per questa tipologia. Puoi procedere.
         </p>
       ) : (
         <div className="space-y-4">
-          {checklist.map((item) => {
+          {checklist.map((item, idx) => {
             const file = files[item.nome];
+            const prev = idx > 0 ? checklist[idx - 1] : null;
+            const showSezione = item.sezione && (!prev || prev.sezione !== item.sezione);
             return (
-              <div key={item.nome} className="rounded-lg border border-gray-200 p-4">
-                <div className="flex items-start justify-between gap-4">
-                  <div className="flex items-start gap-3">
-                    <div className={`mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-xs font-bold ${
-                      file ? 'bg-emerald-100 text-emerald-700' : 'bg-gray-100 text-gray-400'
-                    }`}>
-                      {file ? <Check className="h-3.5 w-3.5" /> : <Paperclip className="h-3.5 w-3.5" />}
+              <div key={item.nome}>
+                {showSezione ? (
+                  <h4 className="mb-2 text-sm font-semibold text-gray-800">{item.sezione}</h4>
+                ) : null}
+                <div className="rounded-lg border border-gray-200 p-4">
+                  <div className="flex items-start justify-between gap-4">
+                    <div className="flex items-start gap-3">
+                      <div className={`mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-xs font-bold ${
+                        file ? 'bg-emerald-100 text-emerald-700' : 'bg-gray-100 text-gray-400'
+                      }`}>
+                        {file ? <Check className="h-3.5 w-3.5" /> : <Paperclip className="h-3.5 w-3.5" />}
+                      </div>
+                      <div>
+                        <span className="text-sm font-medium text-gray-900">
+                          {item.nome}
+                          {item.obbligatorio && <span className="text-red-500"> *</span>}
+                        </span>
+                        {item.descrizione && (
+                          <p className="mt-1 text-xs text-gray-600">{item.descrizione}</p>
+                        )}
+                        {file && (
+                          <p className="mt-0.5 text-xs text-gray-500">{file.name} ({(file.size / 1024).toFixed(1)} KB)</p>
+                        )}
+                      </div>
                     </div>
-                    <div>
-                      <span className="text-sm font-medium text-gray-900">
-                        {item.nome.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase())}
-                        {item.obbligatorio && <span className="text-red-500"> *</span>}
-                      </span>
-                      {item.descrizione && (
-                        <p className="mt-1 text-xs text-gray-600">{item.descrizione}</p>
-                      )}
-                      {file && (
-                        <p className="mt-0.5 text-xs text-gray-500">{file.name} ({(file.size / 1024).toFixed(1)} KB)</p>
-                      )}
-                    </div>
+                    <label className="btn-secondary cursor-pointer py-1.5 px-3 text-xs">
+                      <Paperclip className="h-3.5 w-3.5" />
+                      {file ? 'Sostituisci' : 'Scegli file'}
+                      <input
+                        type="file"
+                        className="sr-only"
+                        onChange={(e) => onChange(item.nome, e.target.files?.[0] || null)}
+                      />
+                    </label>
                   </div>
-                  <label className="btn-secondary cursor-pointer py-1.5 px-3 text-xs">
-                    <Paperclip className="h-3.5 w-3.5" />
-                    {file ? 'Sostituisci' : 'Scegli file'}
-                    <input
-                      type="file"
-                      className="sr-only"
-                      onChange={(e) => onChange(item.nome, e.target.files?.[0] || null)}
-                    />
-                  </label>
                 </div>
               </div>
             );
@@ -793,22 +960,47 @@ function Step4Attachments({
 
 /* ───────────── Step 5: Review ───────────── */
 
+function formatReviewValue(val: unknown): string {
+  if (val === null || val === undefined) return '-';
+  if (typeof val === 'boolean') return val ? 'Sì' : 'No';
+  if (Array.isArray(val)) return val.length ? val.join('; ') : '-';
+  return String(val);
+}
+
 function Step5Review({
   selectedType,
   assisted,
   dataDecorrenza,
-  noteStruttura,
+  frazionamento,
+  indirizzoStudioProfessionale,
+  noteAllegati,
   datiSpecifici,
   attachmentFiles,
 }: {
   selectedType: InsuranceType;
   assisted: AssistedForm;
   dataDecorrenza: string;
-  noteStruttura: string;
-  datiSpecifici: Record<string, any>;
+  frazionamento: string;
+  indirizzoStudioProfessionale: string;
+  noteAllegati: string;
+  datiSpecifici: Record<string, unknown>;
   attachmentFiles: Record<string, File | null>;
 }) {
   const uploadCount = Object.values(attachmentFiles).filter(Boolean).length;
+  const cod = String(selectedType.codice || '').toLowerCase();
+  const mergedDati: Record<string, unknown> = { ...datiSpecifici };
+  if (CON_FRAZIONAMENTO_ASSISTITO.has(cod) && frazionamento.trim()) {
+    mergedDati.frazionamento = frazionamento.trim();
+  }
+  if (cod === 'rc_prof' && indirizzoStudioProfessionale.trim()) {
+    mergedDati.indirizzo_studio_professionale = indirizzoStudioProfessionale.trim();
+  }
+  const skipDatiKeys = new Set<string>();
+  if (CON_FRAZIONAMENTO_ASSISTITO.has(cod)) skipDatiKeys.add('frazionamento');
+  if (cod === 'rc_prof') skipDatiKeys.add('indirizzo_studio_professionale');
+  const datiEntries = Object.entries(mergedDati).filter(
+    ([k]) => !String(k).startsWith('_') && !skipDatiKeys.has(k),
+  );
 
   return (
     <div>
@@ -831,7 +1023,7 @@ function Step5Review({
           <ReviewItem label="Codice Fiscale" value={assisted.codice_fiscale} />
           <ReviewItem label="Data di Nascita" value={formatDate(assisted.data_nascita)} />
           <ReviewItem label="Cellulare" value={assisted.cellulare} />
-          {assisted.email && <ReviewItem label="Email" value={assisted.email} />}
+          <ReviewItem label="Email" value={assisted.email} />
           {assisted.indirizzo && <ReviewItem label="Indirizzo" value={assisted.indirizzo} />}
           {assisted.cap && <ReviewItem label="CAP" value={assisted.cap} />}
           {assisted.citta && <ReviewItem label="Città" value={assisted.citta} />}
@@ -840,22 +1032,33 @@ function Step5Review({
         {/* Info aggiuntive */}
         <ReviewSection title="Informazioni Aggiuntive">
           <ReviewItem label="Data Decorrenza" value={dataDecorrenza ? formatDate(dataDecorrenza) : '-'} />
-          <ReviewItem label="Note" value={noteStruttura || '-'} />
+          {CON_FRAZIONAMENTO_ASSISTITO.has(cod) && (
+            <ReviewItem label="Frazionamento" value={frazionamento || '-'} />
+          )}
+          {cod === 'rc_prof' && (
+            <ReviewItem label="Indirizzo dello studio professionale" value={indirizzoStudioProfessionale || '-'} />
+          )}
+          <ReviewItem label="Note sugli allegati" value={noteAllegati?.trim() ? noteAllegati.trim() : '-'} />
         </ReviewSection>
 
         {/* Dati specifici */}
-        {Object.keys(datiSpecifici).length > 0 && (
+        {datiEntries.length > 0 && (
           <ReviewSection title="Dati Specifici">
-            {Object.entries(datiSpecifici).map(([key, val]) => {
-              const field = selectedType.campi_specifici.find((f) => f.nome === key);
-              return (
-                <ReviewItem
-                  key={key}
-                  label={field?.label || key}
-                  value={typeof val === 'boolean' ? (val ? 'Sì' : 'No') : String(val || '-')}
-                />
-              );
-            })}
+            {datiEntries
+              .filter(([key]) => {
+                const field = selectedType.campi_specifici.find((f) => f.nome === key);
+                return field?.tipo !== 'heading' && field?.tipo !== 'info';
+              })
+              .map(([key, val]) => {
+                const field = selectedType.campi_specifici.find((f) => f.nome === key);
+                return (
+                  <ReviewItem
+                    key={key}
+                    label={field?.label || key}
+                    value={formatReviewValue(val)}
+                  />
+                );
+              })}
           </ReviewSection>
         )}
 
@@ -869,7 +1072,7 @@ function Step5Review({
               .map(([nome, file]) => (
                 <ReviewItem
                   key={nome}
-                  label={nome.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase())}
+                  label={nome}
                   value={file!.name}
                 />
               ))

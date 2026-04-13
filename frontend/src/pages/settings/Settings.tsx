@@ -38,7 +38,9 @@ const TABS: { key: SettingsTab; label: string; icon: typeof SettingsIcon }[] = [
   { key: 'checklist', label: 'Checklist Allegati', icon: ListChecks },
 ];
 
-const FORM_TYPES: FormField['tipo'][] = ['text', 'number', 'date', 'select', 'boolean', 'textarea', 'radio'];
+const FORM_TYPES: FormField['tipo'][] = [
+  'text', 'number', 'date', 'select', 'boolean', 'textarea', 'radio', 'multiselect', 'heading', 'info',
+];
 
 function typePayload(t: InsuranceType) {
   return {

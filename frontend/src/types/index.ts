@@ -28,12 +28,13 @@ export interface InsuranceType {
 export interface FormField {
   nome: string;
   label: string;
-  tipo: 'text' | 'number' | 'date' | 'select' | 'boolean' | 'textarea' | 'radio';
+  tipo: 'text' | 'number' | 'date' | 'select' | 'boolean' | 'textarea' | 'radio' | 'multiselect' | 'heading' | 'info';
   obbligatorio: boolean;
   opzioni?: string[];
   placeholder?: string | null;
   ordine?: number;
   stato?: 'attivo' | 'disattivo';
+  condizione?: string;
 }
 
 export interface ChecklistItem {
@@ -43,6 +44,7 @@ export interface ChecklistItem {
   descrizione?: string | null;
   ordine?: number;
   stato?: 'attivo' | 'disattivo';
+  sezione?: string;
 }
 
 export interface AssistedPerson {
@@ -73,8 +75,9 @@ export interface Quote {
   stato: 'PRESENTATA' | 'ASSEGNATA' | 'IN LAVORAZIONE' | 'STANDBY' | 'ELABORATA';
   data_decorrenza: string | null;
   note_struttura: string | null;
-  dati_specifici: Record<string, any> | null;
-  dati_preventivo: Record<string, any> | null;
+  note_allegati?: string | null;
+  dati_specifici: Record<string, unknown> | null;
+  dati_preventivo: Record<string, unknown> | null;
   has_policy: number;
   created_at: string;
   updated_at: string;
@@ -111,7 +114,7 @@ export interface Policy {
   struttura_id: number;
   operatore_id: number | null;
   stato: 'RICHIESTA PRESENTATA' | 'IN EMISSIONE' | 'EMESSA';
-  dati_specifici: Record<string, any> | null;
+  dati_specifici: Record<string, unknown> | null;
   note_struttura: string | null;
   note_interne: string | null;
   created_at: string;

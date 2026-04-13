@@ -135,6 +135,14 @@ function pipeQuoteSummaryPdf(quote, ctx, res) {
   writeHeading(doc, 'Note della struttura');
   writeParagraph(doc, quote.note_struttura || 'Nessuna nota.');
 
+  writeHeading(doc, 'Note sugli allegati');
+  writeParagraph(
+    doc,
+    quote.note_allegati && String(quote.note_allegati).trim()
+      ? String(quote.note_allegati).trim()
+      : 'Nessuna nota.',
+  );
+
   writeHeading(doc, 'Dati specifici (caricati con la richiesta)');
   writeRowsFromObject(doc, quote.dati_specifici, (k) => labelForCampo(typeRow, k));
 
