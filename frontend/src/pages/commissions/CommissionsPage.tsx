@@ -434,7 +434,7 @@ export default function CommissionsPage() {
                     </SortableTh>
                   ) : null}
                   <th className="px-4 py-3 font-semibold text-gray-700">Tipo</th>
-                  <th className="px-4 py-3 font-semibold text-gray-700">%</th>
+                  {isAdmin ? <th className="px-4 py-3 font-semibold text-gray-700">%</th> : null}
                   <SortableTh
                     sortKey="structure_commission_amount"
                     activeKey={tableSort.sortBy}
@@ -449,7 +449,7 @@ export default function CommissionsPage() {
               <tbody>
                 {rows.length === 0 ? (
                   <tr>
-                    <td colSpan={isAdmin ? 13 : 9} className="px-4 py-12 text-center text-gray-500">
+                    <td colSpan={isAdmin ? 13 : 8} className="px-4 py-12 text-center text-gray-500">
                       Nessuna provvigione con i filtri selezionati.
                     </td>
                   </tr>
@@ -476,7 +476,9 @@ export default function CommissionsPage() {
                           {getCommissionTypeLabel(r.structure_commission_type)}
                         </span>
                       </td>
-                      <td className="whitespace-nowrap px-4 py-3 text-gray-800">{r.structure_commission_percentage}%</td>
+                      {isAdmin ? (
+                        <td className="whitespace-nowrap px-4 py-3 text-gray-800">{r.structure_commission_percentage}%</td>
+                      ) : null}
                       <td className="whitespace-nowrap px-4 py-3 font-semibold text-gray-900">
                         {formatEuro(r.structure_commission_amount)}
                       </td>

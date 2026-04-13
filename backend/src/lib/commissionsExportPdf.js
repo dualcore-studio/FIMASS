@@ -103,8 +103,7 @@ function pipeCommissionsListPdf(opts, res) {
         { header: 'Compagnia', w: 0.12, cell: (r) => ellipsize(r.company || '—', 18) },
         { header: 'Premio', w: 0.12, cell: (r) => fmtEuro(r.policy_premium) },
         { header: 'Tipo', w: 0.08, cell: (r) => commissionTypeLabel(r.structure_commission_type) },
-        { header: '%', w: 0.06, cell: (r) => `${r.structure_commission_percentage ?? '—'}%` },
-        { header: 'La tua provvigione', w: 0.1, cell: (r) => fmtEuro(r.structure_commission_amount) },
+        { header: 'La tua provvigione', w: 0.16, cell: (r) => fmtEuro(r.structure_commission_amount) },
       ];
 
   const rawWs = cols.map((c) => c.w);
