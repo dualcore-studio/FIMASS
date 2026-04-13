@@ -721,6 +721,14 @@ function Step3DatiSpecifici({
   );
 }
 
+/** Valore controllato per input/select/textarea (value React non accetta `unknown`). */
+function asControlledString(v: unknown): string {
+  if (v === null || v === undefined) return '';
+  if (typeof v === 'string') return v;
+  if (typeof v === 'number' && !Number.isNaN(v)) return String(v);
+  return '';
+}
+
 function DynamicField({
   field,
   value,
@@ -731,6 +739,7 @@ function DynamicField({
   onChange: (v: unknown) => void;
 }) {
   const label = `${field.label}${field.obbligatorio ? ' *' : ''}`;
+  const str = asControlledString(value);
 
   switch (field.tipo) {
     case 'text':
@@ -739,7 +748,7 @@ function DynamicField({
           <label className="mb-1 block text-sm font-medium text-gray-700">{label}</label>
           <input
             type="text"
-            value={value ?? ''}
+            value={str}
             onChange={(e) => onChange(e.target.value)}
             className="input-field"
             placeholder={field.placeholder || undefined}
@@ -752,7 +761,7 @@ function DynamicField({
           <label className="mb-1 block text-sm font-medium text-gray-700">{label}</label>
           <input
             type="number"
-            value={value ?? ''}
+            value={str}
             onChange={(e) => onChange(e.target.value)}
             className="input-field"
             placeholder={field.placeholder || undefined}
@@ -763,14 +772,14 @@ function DynamicField({
       return (
         <div>
           <label className="mb-1 block text-sm font-medium text-gray-700">{label}</label>
-          <input type="date" value={value ?? ''} onChange={(e) => onChange(e.target.value)} className="input-field" />
+          <input type="date" value={str} onChange={(e) => onChange(e.target.value)} className="input-field" />
         </div>
       );
     case 'select':
       return (
         <div>
           <label className="mb-1 block text-sm font-medium text-gray-700">{label}</label>
-          <select value={value ?? ''} onChange={(e) => onChange(e.target.value)} className="input-field">
+          <select value={str} onChange={(e) => onChange(e.target.value)} className="input-field">
             <option value="">Seleziona…</option>
             {field.opzioni?.map((opt) => (
               <option key={opt} value={opt}>{opt}</option>
@@ -797,7 +806,7 @@ function DynamicField({
           <label className="mb-1 block text-sm font-medium text-gray-700">{label}</label>
           <textarea
             rows={3}
-            value={value ?? ''}
+            value={str}
             onChange={(e) => onChange(e.target.value)}
             className="input-field"
             placeholder={field.placeholder || undefined}
