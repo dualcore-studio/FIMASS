@@ -237,7 +237,7 @@ export default function UsersList() {
               />
             </div>
           </div>
-          <div className="flex w-full shrink-0 items-center gap-2 lg:w-auto lg:min-w-[14rem] lg:max-w-md xl:max-w-lg">
+          <div className="flex w-full shrink-0 items-center gap-2 lg:w-auto lg:min-w-[22rem] lg:max-w-2xl xl:max-w-3xl">
             <Search className="h-4 w-4 shrink-0 text-gray-400" aria-hidden />
             <input
               id="users-search"
