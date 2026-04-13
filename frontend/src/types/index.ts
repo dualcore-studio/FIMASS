@@ -39,7 +39,8 @@ export interface Commission {
   policy_premium: number | null;
   broker_commission: number | null;
   client_invoice: number | null;
-  sportello_amico_commission: number;
+  /** Assente nelle risposte API per il ruolo struttura. */
+  sportello_amico_commission?: number | null;
   structure_commission_type: CommissionStructureType;
   structure_commission_percentage: number;
   structure_commission_amount: number;
@@ -52,7 +53,8 @@ export interface CommissionsListResponse extends PaginatedResponse<Commission> {
   summary: {
     totale_polizze: number;
     totale_premi: number;
-    totale_sportello_amico: number;
+    /** Solo per admin: totale provvigioni Sportello Amico. */
+    totale_sportello_amico?: number;
     totale_provigioni_strutture: number;
   };
 }

@@ -370,14 +370,16 @@ export default function CommissionsPage() {
                       Fattura cliente
                     </SortableTh>
                   ) : null}
-                  <SortableTh
-                    sortKey="sportello_amico_commission"
-                    activeKey={tableSort.sortBy}
-                    direction={tableSort.sortDir}
-                    onRequestSort={tableSort.requestSort}
-                  >
-                    Prov. S.A.
-                  </SortableTh>
+                  {isAdmin ? (
+                    <SortableTh
+                      sortKey="sportello_amico_commission"
+                      activeKey={tableSort.sortBy}
+                      direction={tableSort.sortDir}
+                      onRequestSort={tableSort.requestSort}
+                    >
+                      Prov. S.A.
+                    </SortableTh>
+                  ) : null}
                   <th className="px-4 py-3 font-semibold text-gray-700">Tipo</th>
                   <th className="px-4 py-3 font-semibold text-gray-700">%</th>
                   <SortableTh
@@ -394,7 +396,7 @@ export default function CommissionsPage() {
               <tbody>
                 {rows.length === 0 ? (
                   <tr>
-                    <td colSpan={isAdmin ? 14 : 10} className="px-4 py-12 text-center text-gray-500">
+                    <td colSpan={isAdmin ? 14 : 9} className="px-4 py-12 text-center text-gray-500">
                       Nessuna provvigione con i filtri selezionati.
                     </td>
                   </tr>
@@ -416,7 +418,9 @@ export default function CommissionsPage() {
                       {isAdmin ? (
                         <td className="whitespace-nowrap px-4 py-3 text-gray-800">{formatEuro(r.client_invoice)}</td>
                       ) : null}
-                      <td className="whitespace-nowrap px-4 py-3 text-gray-800">{formatEuro(r.sportello_amico_commission)}</td>
+                      {isAdmin ? (
+                        <td className="whitespace-nowrap px-4 py-3 text-gray-800">{formatEuro(r.sportello_amico_commission)}</td>
+                      ) : null}
                       <td className="px-4 py-3">
                         <span className={`badge ${getCommissionTypeBadgeClass(r.structure_commission_type)}`}>
                           {getCommissionTypeLabel(r.structure_commission_type)}
@@ -498,7 +502,8 @@ export default function CommissionsPage() {
       {isStruttura ? (
         <p className="flex items-center gap-2 text-xs text-gray-500">
           <Banknote className="h-4 w-4 shrink-0 opacity-70" strokeWidth={1.75} />
-          Le provvigioni sono inserite dallo Sportello Amico; qui vedi solo i movimenti attribuiti alla tua struttura.
+          Qui vedi solo le provvigioni registrate a nome della tua struttura e l&apos;importo che ti spetta (non gli importi
+          Sportello Amico).
         </p>
       ) : null}
     </div>

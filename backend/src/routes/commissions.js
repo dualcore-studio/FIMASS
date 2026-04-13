@@ -101,6 +101,13 @@ function summarize(rows) {
   };
 }
 
+/** La struttura non deve ricevere importi di provvigione Sportello Amico (solo la propria quota). */
+function stripSportelloAmicoFromRow(row) {
+  if (!row || typeof row !== 'object') return row;
+  const { sportello_amico_commission: _sa, ...rest } = row;
+  return rest;
+}
+
 router.get('/', authenticateToken, assertCommissionReader, (req, res) => {
   (async () => {
     const {
@@ -132,14 +139,24 @@ router.get('/', authenticateToken, assertCommissionReader, (req, res) => {
       }),
     );
 
-    const summary = summarize(rows);
+    const fullSummary = summarize(rows);
+    const summary =
+      req.user.role === 'struttura'
+        ? {
+            totale_polizze: fullSummary.totale_polizze,
+            totale_premi: fullSummary.totale_premi,
+            totale_provigioni_strutture: fullSummary.totale_provigioni_strutture,
+          }
+        : fullSummary;
 
     const sortKey = sortByField && typeof sortByField === 'string' ? sortByField : 'date';
     const dir = sortDir === 'asc' ? 'asc' : 'desc';
     rows = sortBy(rows, sortKey, dir);
 
     const payload = paginate(rows, page, limit);
-    res.json({ ...payload, summary });
+    const data =
+      req.user.role === 'struttura' ? payload.data.map(stripSportelloAmicoFromRow) : payload.data;
+    res.json({ ...payload, data, summary });
   })().catch((err) => {
     console.error('commissions list:', err);
     res.status(500).json({ error: 'Errore nel recupero provvigioni' });
@@ -153,7 +170,7 @@ router.get('/:id', authenticateToken, assertCommissionReader, (req, res) => {
     if (req.user.role === 'struttura' && Number(row.structure_id) !== Number(req.user.id)) {
       return res.status(403).json({ error: 'Accesso non autorizzato' });
     }
-    res.json(row);
+    res.json(req.user.role === 'struttura' ? stripSportelloAmicoFromRow(row) : row);
   })().catch((err) => {
     console.error('commissions get:', err);
     res.status(500).json({ error: 'Errore nel recupero provvigione' });
