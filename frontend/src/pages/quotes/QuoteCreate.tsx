@@ -1,17 +1,28 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
+  AlertCircle,
   ArrowLeft,
   ArrowRight,
+  Briefcase,
+  Car,
   Check,
-  Shield,
-  User,
-  Settings2,
-  Paperclip,
   ClipboardCheck,
-  AlertCircle,
+  Globe,
+  HeartPulse,
+  Home,
+  House,
+  Landmark,
   Loader2,
+  Paperclip,
+  PawPrint,
+  Settings2,
+  Shield,
+  ShieldCheck,
+  TrendingUp,
+  User,
 } from 'lucide-react';
+import type { LucideIcon } from 'lucide-react';
 import { api, ApiError } from '../../utils/api';
 import type { InsuranceType, FormField, ChecklistItem, AssistedPerson } from '../../types';
 import { formatDate } from '../../utils/helpers';
@@ -30,6 +41,21 @@ const CON_FRAZIONAMENTO_ASSISTITO = new Set(['animali', 'sanitaria', 'casa']);
 const CLEAR_DATI_ON_PARENT: Record<string, string[]> = {
   categoria_lavorativa: ['lavoratore_dipendente', 'lavoratore_autonomo', 'altre_categorie'],
   mutuo: ['importo_mutuo', 'durata_mutuo'],
+};
+
+/** Icona per card tipologia (step 1) — mappata su `InsuranceType.codice`. */
+const INSURANCE_TYPE_CARD_ICONS: Record<string, LucideIcon> = {
+  checkup: ShieldCheck,
+  scudo_amico: ShieldCheck,
+  risparmio: TrendingUp,
+  affitto: Home,
+  casa: House,
+  tcm_mutuo: Landmark,
+  sanitaria: HeartPulse,
+  animali: PawPrint,
+  stranieri: Globe,
+  rc_auto: Car,
+  rc_prof: Briefcase,
 };
 
 const STEPS = [
@@ -488,6 +514,7 @@ function Step1Types({
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
         {types.map((t) => {
           const isSelected = selected?.id === t.id;
+          const TypeIcon = INSURANCE_TYPE_CARD_ICONS[t.codice] ?? Shield;
           return (
             <button
               key={t.id}
@@ -503,7 +530,7 @@ function Step1Types({
                 <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-lg ${
                   isSelected ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-500 group-hover:bg-blue-100 group-hover:text-blue-600'
                 }`}>
-                  <Shield className="h-5 w-5" />
+                  <TypeIcon size={20} />
                 </div>
                 <div>
                   <span className={`text-sm font-semibold ${isSelected ? 'text-blue-700' : 'text-gray-900'}`}>
