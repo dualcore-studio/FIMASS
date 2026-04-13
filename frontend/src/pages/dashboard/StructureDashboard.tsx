@@ -1,14 +1,12 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Plus, FileText, Clock, CheckCircle, Shield, ExternalLink } from 'lucide-react';
+import { Plus, ExternalLink } from 'lucide-react';
 import { api } from '../../utils/api';
 import StatusBadge from '../../components/common/StatusBadge';
 import { formatDate, getUserDisplayName } from '../../utils/helpers';
 import { useAuth } from '../../context/AuthContext';
 import type { Quote, PaginatedResponse } from '../../types';
 import DashboardPageHeader from '../../components/dashboard/DashboardPageHeader';
-import DashboardPrimaryKpi from '../../components/dashboard/DashboardPrimaryKpi';
-import DashboardSecondaryMetric from '../../components/dashboard/DashboardSecondaryMetric';
 import DashboardPanel from '../../components/dashboard/DashboardPanel';
 
 interface QuoteStats {
@@ -126,8 +124,6 @@ export default function StructureDashboard() {
     );
   }
 
-  const polizzeRichieste = policyStats['RICHIESTA PRESENTATA'] ?? 0;
-
   const operativitaRows = [
     { label: 'Preventivi presentati dalla struttura', value: quoteStats.PRESENTATA },
     { label: 'In lavorazione presso lo sportello', value: quoteStats['IN LAVORAZIONE'] },
@@ -144,7 +140,7 @@ export default function StructureDashboard() {
   ];
 
   return (
-    <div className="mx-auto w-full max-w-[88rem] space-y-7 lg:space-y-8">
+    <div className="mx-auto w-full max-w-[88rem] space-y-5 lg:space-y-6">
       <DashboardPageHeader
         title="Dashboard"
         welcomeLine={user ? `Bentornato, ${getUserDisplayName(user)}` : undefined}
@@ -160,7 +156,7 @@ export default function StructureDashboard() {
             </Link>
             <Link
               to="/polizze/nuova"
-              className="btn-primary inline-flex items-center justify-center whitespace-nowrap px-4 py-2.5 text-sm shadow-sm shadow-slate-900/10"
+              className="btn-policy-orange inline-flex items-center justify-center gap-2 whitespace-nowrap px-4 py-2.5 text-sm shadow-sm shadow-slate-900/10"
             >
               Nuova Polizza
             </Link>
@@ -179,25 +175,6 @@ export default function StructureDashboard() {
           {error}
         </div>
       ) : null}
-
-      <section aria-label="Indicatori primari">
-        <p className="mb-3 text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-600">Indicatori primari</p>
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4 lg:gap-4">
-          <DashboardPrimaryKpi label="Preventivi presentati" value={quoteStats.PRESENTATA} icon={FileText} accent="institutional" />
-          <DashboardPrimaryKpi label="In lavorazione" value={quoteStats['IN LAVORAZIONE']} icon={Clock} accent="work" />
-          <DashboardPrimaryKpi label="Elaborati" value={quoteStats.ELABORATA} icon={CheckCircle} accent="done" />
-          <DashboardPrimaryKpi label="Polizze richieste" value={polizzeRichieste} icon={Shield} accent="info" />
-        </div>
-      </section>
-
-      <section aria-label="Metriche secondarie">
-        <p className="mb-2 text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-600">Altri indicatori</p>
-        <div className="flex flex-wrap gap-2">
-          <DashboardSecondaryMetric label="Stand-by" value={quoteStats.STANDBY} />
-          <DashboardSecondaryMetric label="Assegnati" value={quoteStats.ASSEGNATA} />
-          <DashboardSecondaryMetric label="Polizze emesse" value={policyStats.EMESSA} />
-        </div>
-      </section>
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-12 lg:gap-5">
         <div className="lg:col-span-7">

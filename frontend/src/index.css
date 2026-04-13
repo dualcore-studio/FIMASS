@@ -133,6 +133,17 @@
     background-color: var(--ui-primary-hover);
   }
 
+  /** Azione distinta (es. richiesta polizza struttura): stesso profilo di .btn-primary, tinta arancio sobria. */
+  .btn-policy-orange {
+    @apply cursor-pointer font-medium py-2 px-4 rounded-lg transition-colors duration-150 inline-flex items-center gap-2 text-sm disabled:opacity-50 disabled:cursor-not-allowed;
+    background-color: #c2561b;
+    color: #fff;
+  }
+
+  .btn-policy-orange:hover:not(:disabled) {
+    background-color: #a34715;
+  }
+
   .btn-secondary {
     @apply cursor-pointer bg-white hover:bg-slate-50/95 text-slate-800 font-medium py-2 px-4 rounded-lg border transition-colors duration-150 inline-flex items-center gap-2 text-sm;
     border-color: var(--portal-border);
