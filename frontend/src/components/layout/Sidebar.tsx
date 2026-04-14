@@ -97,7 +97,10 @@ export default function Sidebar({ collapsed, onCollapsedChange }: SidebarProps) 
                   <item.icon size={20} className="shrink-0 opacity-90" strokeWidth={1.75} />
                   {item.path === '/messaggi' && unreadTotal > 0 ? (
                     <span
-                      className="absolute -right-1 -top-1 flex min-h-[1.125rem] min-w-[1.125rem] items-center justify-center rounded-full bg-orange-500 px-1 text-[10px] font-bold leading-none text-white shadow-sm ring-2 ring-[var(--portal-sidebar-bg)]"
+                      className={`absolute -right-1 -top-1 flex items-center justify-center rounded-full bg-orange-500 font-bold tabular-nums text-white shadow-sm ring-2 ring-[var(--portal-sidebar-bg)] antialiased ${
+                        unreadTotal > 9 ? 'h-[18px] min-w-[18px] px-0.5 text-[9px]' : 'size-[18px] text-[10px]'
+                      }`}
+                      style={{ lineHeight: 1 }}
                       aria-label={`${unreadTotal} messaggi non letti`}
                     >
                       {unreadTotal > 99 ? '99+' : unreadTotal}
@@ -112,7 +115,10 @@ export default function Sidebar({ collapsed, onCollapsedChange }: SidebarProps) 
                   <span className="truncate">{item.label}</span>
                   {item.path === '/messaggi' && unreadTotal > 0 ? (
                     <span
-                      className="inline-flex min-h-[1.25rem] min-w-[1.25rem] shrink-0 items-center justify-center rounded-full bg-orange-500 px-1.5 text-[11px] font-bold leading-none text-white shadow-sm"
+                      className={`inline-flex shrink-0 items-center justify-center rounded-full bg-orange-500 font-bold tabular-nums text-white shadow-sm ${
+                        unreadTotal > 9 ? 'h-5 min-w-5 px-1 text-[10px]' : 'size-5 text-[11px]'
+                      }`}
+                      style={{ lineHeight: 1 }}
                       aria-label={`${unreadTotal} messaggi non letti`}
                     >
                       {unreadTotal > 99 ? '99+' : unreadTotal}

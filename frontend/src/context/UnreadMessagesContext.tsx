@@ -10,10 +10,11 @@ type UnreadCtx = {
 const UnreadMessagesContext = createContext<UnreadCtx | null>(null);
 
 export function UnreadMessagesProvider({ children }: { children: ReactNode }) {
-  const { user } = useAuth();
+  const { user, isLoading } = useAuth();
   const [unreadTotal, setUnreadTotal] = useState(0);
 
   const refreshUnread = useCallback(async () => {
+    if (isLoading) return;
     if (!user) {
       setUnreadTotal(0);
       return;
@@ -24,22 +25,27 @@ export function UnreadMessagesProvider({ children }: { children: ReactNode }) {
     } catch {
       /* mantieni il valore precedente */
     }
-  }, [user]);
+  }, [user, isLoading]);
 
   useEffect(() => {
     void refreshUnread();
   }, [refreshUnread]);
 
   useEffect(() => {
-    if (!user) return undefined;
-    const t = window.setInterval(() => void refreshUnread(), 45000);
+    if (!user || isLoading) return undefined;
+    const t = window.setInterval(() => void refreshUnread(), 15000);
     const onFocus = () => void refreshUnread();
+    const onVisible = () => {
+      if (document.visibilityState === 'visible') void refreshUnread();
+    };
     window.addEventListener('focus', onFocus);
+    document.addEventListener('visibilitychange', onVisible);
     return () => {
       window.clearInterval(t);
       window.removeEventListener('focus', onFocus);
+      document.removeEventListener('visibilitychange', onVisible);
     };
-  }, [user, refreshUnread]);
+  }, [user, isLoading, refreshUnread]);
 
   return (
     <UnreadMessagesContext.Provider value={{ unreadTotal, refreshUnread }}>

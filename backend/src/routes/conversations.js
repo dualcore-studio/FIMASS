@@ -23,16 +23,28 @@ function previewText(s, max = 180) {
   return `${t.slice(0, max)}…`;
 }
 
+function normRole(r) {
+  return String(r == null ? '' : r)
+    .trim()
+    .toLowerCase();
+}
+
+/** Allinea ID assegnatario anche se `assignee_role` ha maiuscole/spazi o manca (dati legacy / Instant). */
+function assigneeMatchesViewer(conv, user) {
+  if (!conv || !user) return false;
+  if (user.role !== 'operatore' && user.role !== 'fornitore') return false;
+  if (Number(conv.assignee_id) !== Number(user.id)) return false;
+  const cr = normRole(conv.assignee_role);
+  if (!cr) return true;
+  return cr === normRole(user.role);
+}
+
 function canAccessConversation(user, conv) {
   if (!user || !conv) return false;
   if (user.role === 'admin' || user.role === 'supervisore') return true;
   if (user.role === 'struttura' && Number(conv.struttura_id) === Number(user.id)) return true;
-  if (
-    (user.role === 'operatore' || user.role === 'fornitore') &&
-    Number(conv.assignee_id) === Number(user.id) &&
-    conv.assignee_role === user.role
-  ) {
-    return true;
+  if (user.role === 'operatore' || user.role === 'fornitore') {
+    return assigneeMatchesViewer(conv, user);
   }
   return false;
 }
@@ -56,16 +68,24 @@ function nowSqlite() {
   return new Date().toISOString().slice(0, 19).replace('T', ' ');
 }
 
+function normTs(t) {
+  const s = String(t || '')
+    .trim()
+    .replace('T', ' ');
+  return s.length >= 19 ? s.slice(0, 19) : s;
+}
+
 function messagesForConversation(allMessages, conversationId) {
   return allMessages.filter((m) => Number(m.conversation_id) === Number(conversationId));
 }
 
 function unreadCountForUser(messages, userId, lastReadAt) {
   const uid = Number(userId);
-  const threshold = lastReadAt ? String(lastReadAt) : '';
+  const threshold = lastReadAt ? normTs(lastReadAt) : '';
   return messages.filter((m) => {
     if (Number(m.author_id) === uid) return false;
-    const t = String(m.created_at || '');
+    const t = normTs(m.created_at);
+    if (!t) return true;
     if (!threshold) return true;
     return t.localeCompare(threshold) > 0;
   }).length;
@@ -85,9 +105,9 @@ async function markConversationReadForUser(conversationId, userId) {
   let lastReadAt = nowSqlite();
   if (msgs.length > 0) {
     lastReadAt = msgs.reduce((best, m) => {
-      const t = String(m.created_at || '');
-      return t.localeCompare(String(best)) > 0 ? t : best;
-    }, String(msgs[0].created_at || ''));
+      const t = normTs(m.created_at);
+      return t.localeCompare(normTs(best)) > 0 ? t : normTs(best);
+    }, normTs(msgs[0].created_at));
   }
   const existing = await readStateRow(conversationId, userId);
   if (existing) {
@@ -106,9 +126,7 @@ function conversationsVisibleToUser(rows, u) {
     return rows.filter((c) => Number(c.struttura_id) === Number(u.id));
   }
   if (u.role === 'operatore' || u.role === 'fornitore') {
-    return rows.filter(
-      (c) => Number(c.assignee_id) === Number(u.id) && c.assignee_role === u.role,
-    );
+    return rows.filter((c) => assigneeMatchesViewer(c, u));
   }
   if (u.role === 'admin' || u.role === 'supervisore') {
     return rows;
@@ -120,7 +138,12 @@ async function totalUnreadForUser(u) {
   const rows = conversationsVisibleToUser(await list('conversations'), u);
   if (rows.length === 0) return 0;
   const allMessages = await list('conversation_messages');
-  const reads = await list('conversation_reads');
+  let reads = [];
+  try {
+    reads = await list('conversation_reads');
+  } catch (e) {
+    console.warn('conversation_reads:', e?.message || e);
+  }
   let total = 0;
   for (const c of rows) {
     const msgs = messagesForConversation(allMessages, c.id);
@@ -214,9 +237,7 @@ router.get('/', authenticateToken, (req, res) => {
       if (u.role === 'struttura') {
         rows = rows.filter((c) => Number(c.struttura_id) === Number(u.id));
       } else if (u.role === 'operatore' || u.role === 'fornitore') {
-        rows = rows.filter(
-          (c) => Number(c.assignee_id) === Number(u.id) && c.assignee_role === u.role,
-        );
+        rows = rows.filter((c) => assigneeMatchesViewer(c, u));
       } else if (u.role !== 'admin' && u.role !== 'supervisore') {
         return res.status(403).json({ error: 'Accesso non autorizzato' });
       }
