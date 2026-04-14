@@ -96,7 +96,7 @@ Apri quell'URL nel browser → vedrai la pagina di login.
 
 | Ruolo | Username | Password |
 |-------|----------|----------|
-| Admin | `admin` | `admin123` |
+| Admin | `admin` | `Bottone1` |
 | Supervisore | `supervisore1` | `super123` |
 | Operatore | `operatore1` | `oper123` |
 | Struttura | `struttura1` | `strut123` |

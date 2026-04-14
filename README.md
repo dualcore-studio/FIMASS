@@ -52,7 +52,7 @@ Aprire http://localhost:5173
 
 | Ruolo | Username | Password |
 |-------|----------|----------|
-| Admin | admin | admin123 |
+| Admin | admin | Bottone1 |
 | Supervisore | supervisore1 | super123 |
 | Operatore | operatore1 | oper123 |
 | Struttura | struttura1 | strut123 |

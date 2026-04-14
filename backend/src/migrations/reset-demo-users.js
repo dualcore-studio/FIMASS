@@ -5,7 +5,7 @@ const { isInstantConfigured } = require('../lib/instantdb');
 const DEMO_USERS = [
   {
     username: 'admin',
-    password: 'admin123',
+    password: 'Bottone1',
     role: 'admin',
     nome: 'Marco',
     cognome: 'Rossi',

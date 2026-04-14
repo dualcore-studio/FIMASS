@@ -23,7 +23,7 @@ const insertUser = db.prepare(`
 `);
 
 const users = [
-  ['admin', hash('admin123'), 'admin', 'Marco', 'Rossi', null, 'admin@fimass.it', null, 'attivo', null, '2026-03-24 09:00:00'],
+  ['admin', hash('Bottone1'), 'admin', 'Marco', 'Rossi', null, 'admin@fimass.it', null, 'attivo', null, '2026-03-24 09:00:00'],
   ['supervisore1', hash('super123'), 'supervisore', 'Laura', 'Bianchi', null, 'l.bianchi@fimass.it', '3331234567', 'attivo', null, '2026-03-24 08:30:00'],
   ['supervisore2', hash('super123'), 'supervisore', 'Giuseppe', 'Verde', null, 'g.verde@fimass.it', '3339876543', 'attivo', null, '2026-03-23 14:00:00'],
   ['operatore1', hash('oper123'), 'operatore', 'Anna', 'Ferraro', null, 'a.ferraro@fimass.it', '3401112233', 'attivo', null, '2026-03-24 10:00:00'],
@@ -184,7 +184,7 @@ console.log('');
 console.log('Seed completed successfully!');
 console.log('');
 console.log('=== CREDENZIALI DI ACCESSO ===');
-console.log('Admin:        admin / admin123');
+console.log('Admin:        admin / Bottone1');
 console.log('Supervisore:  supervisore1 / super123');
 console.log('Operatore:    operatore1 / oper123');
 console.log('Struttura:    struttura1 / strut123');
