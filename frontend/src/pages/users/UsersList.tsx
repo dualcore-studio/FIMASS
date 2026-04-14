@@ -333,6 +333,9 @@ export default function UsersList() {
                 ) : (
                   rows.map((u) => {
                     const isSelf = currentUser?.id === u.id;
+                    const isTargetAdmin = u.role === 'admin';
+                    const canActOnAdminAccount = currentUser?.role === 'admin';
+                    const rowRestrictedForRole = isTargetAdmin && !canActOnAdminAccount;
                     return (
                       <tr key={u.id}>
                         <td className="px-4 py-3 font-medium text-gray-900">
@@ -372,41 +375,61 @@ export default function UsersList() {
                         </td>
                         <td className="px-4 py-3">
                           <div className="flex flex-wrap items-center justify-end gap-1">
-                            <Link
-                              to={`/utenti/${u.id}/modifica`}
-                              className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-gray-200 bg-white text-gray-600 transition hover:border-blue-300 hover:bg-blue-50 hover:text-blue-700"
-                              title="Modifica"
-                            >
-                              <Pencil className="h-4 w-4" />
-                            </Link>
+                            {canActOnAdminAccount ? (
+                              <Link
+                                to={`/utenti/${u.id}/modifica`}
+                                className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-gray-200 bg-white text-gray-600 transition hover:border-blue-300 hover:bg-blue-50 hover:text-blue-700"
+                                title="Modifica"
+                              >
+                                <Pencil className="h-4 w-4" />
+                              </Link>
+                            ) : null}
                             <button
                               type="button"
-                              disabled={isSelf || togglingId === u.id}
+                              disabled={isSelf || rowRestrictedForRole || togglingId === u.id}
                               onClick={() => handleToggleStatus(u.id)}
                               className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-gray-200 bg-white text-gray-600 transition hover:border-amber-300 hover:bg-amber-50 hover:text-amber-800 disabled:cursor-not-allowed disabled:opacity-40"
-                              title={isSelf ? 'Non puoi modificare il tuo stato da qui' : 'Attiva / disattiva'}
+                              title={
+                                rowRestrictedForRole
+                                  ? 'Solo un amministratore può disattivare gli account admin'
+                                  : isSelf
+                                    ? 'Non puoi modificare il tuo stato da qui'
+                                    : 'Attiva / disattiva'
+                              }
                             >
                               <ToggleLeft className="h-4 w-4" />
                             </button>
                             <button
                               type="button"
-                              disabled={isSelf}
+                              disabled={isSelf || rowRestrictedForRole}
                               onClick={() => {
                                 setResetUserId(u.id);
                                 setResetPassword('');
                                 setResetError(null);
                               }}
                               className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-gray-200 bg-white text-gray-600 transition hover:border-violet-300 hover:bg-violet-50 hover:text-violet-800 disabled:cursor-not-allowed disabled:opacity-40"
-                              title={isSelf ? 'Non disponibile sul proprio account' : 'Reimposta password'}
+                              title={
+                                rowRestrictedForRole
+                                  ? 'Solo un amministratore può reimpostare la password degli account admin'
+                                  : isSelf
+                                    ? 'Non disponibile sul proprio account'
+                                    : 'Reimposta password'
+                              }
                             >
                               <KeyRound className="h-4 w-4" />
                             </button>
                             <button
                               type="button"
-                              disabled={isSelf || deleteSubmitting}
+                              disabled={isSelf || rowRestrictedForRole || deleteSubmitting}
                               onClick={() => setDeleteUserId(u.id)}
                               className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-gray-200 bg-white text-gray-600 transition hover:border-red-300 hover:bg-red-50 hover:text-red-700 disabled:cursor-not-allowed disabled:opacity-40"
-                              title={isSelf ? 'Non disponibile sul proprio account' : 'Elimina utente'}
+                              title={
+                                rowRestrictedForRole
+                                  ? 'Solo un amministratore può eliminare gli account admin'
+                                  : isSelf
+                                    ? 'Non disponibile sul proprio account'
+                                    : 'Elimina utente'
+                              }
                             >
                               <Trash2 className="h-4 w-4" />
                             </button>

@@ -13,6 +13,24 @@ function getUserDisplayName(user) {
   return user.role === 'struttura' ? user.denominazione : `${user.nome} ${user.cognome}`;
 }
 
+function assertCallerCanManageAdminTarget(req, targetUser, res) {
+  if (targetUser.role === 'admin' && req.user.role !== 'admin') {
+    res.status(403).json({ error: 'Solo un amministratore può gestire gli account admin.' });
+    return false;
+  }
+  return true;
+}
+
+async function countRole(role) {
+  const rows = await list('users', (u) => u.role === role);
+  return rows.length;
+}
+
+async function countActiveAdmins() {
+  const rows = await list('users', (u) => u.role === 'admin' && u.stato === 'attivo');
+  return rows.length;
+}
+
 router.get('/', authenticateToken, authorizeRoles('admin', 'supervisore'), (req, res) => {
   (async () => {
     const { page = 1, limit = 25, role, stato, search, sort_by: sortBy, sort_dir: sortDir } = req.query;
@@ -166,13 +184,21 @@ router.put('/:id', authenticateToken, authorizeRoles('admin'), (req, res) => {
       nextCommissionType = raw;
     }
 
+    const nextStato = stato || 'attivo';
+    if (nextStato === 'disattivo' && nextRole === 'admin' && user.stato === 'attivo') {
+      const activeAdmins = await countActiveAdmins();
+      if (activeAdmins <= 1) {
+        return res.status(400).json({ error: 'Non è possibile disattivare l\'unico amministratore attivo.' });
+      }
+    }
+
     await upsertById('users', userId, {
       nome: nome || null,
       cognome: cognome || null,
       denominazione: denominazione || null,
       email,
       telefono: telefono || null,
-      stato: stato || 'attivo',
+      stato: nextStato,
       enabled_types: enabled_types || null,
       role: nextRole,
       commission_type: nextCommissionType,
@@ -203,6 +229,7 @@ router.post('/:id/reset-password', authenticateToken, authorizeRoles('admin', 's
 
     const user = await getById('users', req.params.id);
     if (!user) return res.status(404).json({ error: 'Utente non trovato' });
+    if (!assertCallerCanManageAdminTarget(req, user, res)) return;
 
     const hashedPassword = bcrypt.hashSync(password, 10);
     await upsertById('users', req.params.id, { password: hashedPassword });
@@ -229,8 +256,15 @@ router.post('/:id/toggle-status', authenticateToken, authorizeRoles('admin', 'su
   (async () => {
     const user = await getById('users', req.params.id);
     if (!user) return res.status(404).json({ error: 'Utente non trovato' });
+    if (!assertCallerCanManageAdminTarget(req, user, res)) return;
 
     const newStato = user.stato === 'attivo' ? 'disattivo' : 'attivo';
+    if (newStato === 'disattivo' && user.role === 'admin') {
+      const activeAdmins = await countActiveAdmins();
+      if (activeAdmins <= 1) {
+        return res.status(400).json({ error: 'Non è possibile disattivare l\'unico amministratore attivo.' });
+      }
+    }
     await upsertById('users', req.params.id, { stato: newStato });
 
     await logActivity({
@@ -259,9 +293,17 @@ router.delete('/:id', authenticateToken, authorizeRoles('admin', 'supervisore'),
     }
     const user = await getById('users', userId);
     if (!user) return res.status(404).json({ error: 'Utente non trovato' });
+    if (!assertCallerCanManageAdminTarget(req, user, res)) return;
 
     if (Number(req.user.id) === userId) {
       return res.status(400).json({ error: 'Non puoi eliminare il tuo account.' });
+    }
+
+    if (user.role === 'admin') {
+      const n = await countRole('admin');
+      if (n <= 1) {
+        return res.status(400).json({ error: 'Non è possibile eliminare l\'unico amministratore.' });
+      }
     }
 
     await removeById('users', userId);
