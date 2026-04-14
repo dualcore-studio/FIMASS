@@ -227,8 +227,8 @@ export default function UsersList() {
       ) : null}
 
       <div className="card px-2.5 py-2 sm:px-3 sm:py-2.5">
-        <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between lg:gap-6">
-          <div className="flex min-w-0 flex-1 flex-col gap-2 sm:flex-row sm:items-center sm:gap-3">
+        <div className="flex w-full flex-col gap-3 lg:flex-row lg:items-center lg:justify-between lg:gap-6">
+          <div className="flex min-w-0 w-full flex-col gap-2 sm:flex-row sm:items-center sm:gap-3 lg:w-auto lg:flex-none">
             <div className="flex shrink-0 items-center gap-2 text-xs font-semibold uppercase tracking-wide text-slate-500">
               <Filter className="h-3.5 w-3.5 shrink-0 text-slate-400" aria-hidden />
               Ruoli
@@ -241,7 +241,7 @@ export default function UsersList() {
               />
             </div>
           </div>
-          <div className="flex w-full shrink-0 items-center gap-2 lg:w-auto lg:min-w-[22rem] lg:max-w-2xl xl:max-w-3xl">
+          <div className="flex min-w-0 w-full shrink-0 items-center gap-2 lg:flex-1">
             <Search className="h-4 w-4 shrink-0 text-gray-400" aria-hidden />
             <input
               id="users-search"

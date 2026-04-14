@@ -562,8 +562,8 @@ export default function Reports() {
             ))}
           </div>
           {preset === 'personalizzato' && (
-            <div className="mt-3 flex flex-wrap items-end gap-2">
-              <div>
+            <div className="mt-3 flex w-full flex-wrap items-end gap-2 lg:flex-nowrap">
+              <div className="min-w-[9rem] flex-1">
                 <label htmlFor="custom-da" className="mb-1 block text-xs font-medium text-gray-500">
                   Da
                 </label>
@@ -572,10 +572,10 @@ export default function Reports() {
                   type="date"
                   value={customDa}
                   onChange={(e) => setCustomDa(e.target.value)}
-                  className="input-field"
+                  className="input-field w-full min-w-0"
                 />
               </div>
-              <div>
+              <div className="min-w-[9rem] flex-1">
                 <label htmlFor="custom-a" className="mb-1 block text-xs font-medium text-gray-500">
                   A
                 </label>
@@ -584,7 +584,7 @@ export default function Reports() {
                   type="date"
                   value={customA}
                   onChange={(e) => setCustomA(e.target.value)}
-                  className="input-field"
+                  className="input-field w-full min-w-0"
                 />
               </div>
             </div>

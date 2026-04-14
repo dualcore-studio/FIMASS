@@ -221,7 +221,7 @@ export default function CommissionsPage() {
     }
   };
 
-  const tf = 'input-field h-9 max-w-none shrink-0 py-1.5 text-sm';
+  const tf = 'input-field h-9 w-full min-w-0 py-1.5 text-sm';
 
   if (!isAdmin && !isStruttura) return null;
 
@@ -276,8 +276,8 @@ export default function CommissionsPage() {
       ) : null}
 
       <div className="card px-2.5 py-2 sm:px-3 sm:py-2">
-        <div className="flex flex-col gap-2 lg:flex-row lg:flex-wrap lg:items-end">
-          <div className="flex min-w-0 flex-1 flex-col gap-px">
+        <div className="flex w-full flex-col flex-wrap items-end gap-2 lg:flex-row lg:flex-nowrap">
+          <div className="flex min-w-[9rem] w-full flex-1 flex-col gap-px lg:min-w-0">
             <label htmlFor="comm-search" className="text-[11px] font-normal text-gray-600">
               Ricerca
             </label>
@@ -290,7 +290,7 @@ export default function CommissionsPage() {
             />
           </div>
           {isAdmin ? (
-            <div className="flex shrink-0 flex-col gap-px">
+            <div className="flex min-w-[9rem] w-full flex-1 flex-col gap-px lg:min-w-0">
               <label htmlFor="comm-struttura" className="whitespace-nowrap text-[11px] font-normal text-gray-600">
                 Struttura
               </label>
@@ -309,7 +309,7 @@ export default function CommissionsPage() {
               </select>
             </div>
           ) : null}
-          <div className="flex shrink-0 flex-col gap-px">
+          <div className="flex min-w-[9rem] w-full flex-1 flex-col gap-px lg:min-w-0">
             <label htmlFor="comm-company" className="whitespace-nowrap text-[11px] font-normal text-gray-600">
               Compagnia
             </label>
@@ -317,28 +317,28 @@ export default function CommissionsPage() {
               id="comm-company"
               value={companyFilter}
               onChange={(e) => setCompanyFilter(e.target.value)}
-              className={`${tf} min-w-[140px]`}
+              className={tf}
             />
           </div>
-          <div className="flex shrink-0 flex-col gap-px">
+          <div className="flex min-w-[9rem] w-full flex-1 flex-col gap-px lg:min-w-0">
             <label htmlFor="comm-portal" className="whitespace-nowrap text-[11px] font-normal text-gray-600">
               Portale
             </label>
             <input id="comm-portal" value={portalFilter} onChange={(e) => setPortalFilter(e.target.value)} className={tf} />
           </div>
-          <div className="flex shrink-0 flex-col gap-px">
+          <div className="flex min-w-[9rem] w-full flex-1 flex-col gap-px lg:min-w-0">
             <label htmlFor="comm-da" className="whitespace-nowrap text-[11px] font-normal text-gray-600">
               Data da
             </label>
             <input id="comm-da" type="date" value={dataDa} onChange={(e) => setDataDa(e.target.value)} className={tf} />
           </div>
-          <div className="flex shrink-0 flex-col gap-px">
+          <div className="flex min-w-[9rem] w-full flex-1 flex-col gap-px lg:min-w-0">
             <label htmlFor="comm-a" className="whitespace-nowrap text-[11px] font-normal text-gray-600">
               Data a
             </label>
             <input id="comm-a" type="date" value={dataAl} onChange={(e) => setDataAl(e.target.value)} className={tf} />
           </div>
-          <div className="flex w-full min-w-[9rem] shrink-0 justify-end pt-2 lg:ml-auto lg:w-auto lg:pt-0">
+          <div className="flex w-full shrink-0 justify-end pt-2 lg:w-auto lg:pt-0">
             <button
               type="button"
               onClick={() => void handleExportPdf()}

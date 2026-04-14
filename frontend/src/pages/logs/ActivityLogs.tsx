@@ -115,8 +115,8 @@ export default function ActivityLogs() {
           <Filter className="h-4 w-4" />
           Filtri
         </div>
-        <div className="flex flex-col gap-3 lg:flex-row lg:flex-nowrap lg:items-end lg:gap-3">
-          <div className="min-w-0 lg:min-w-[12rem] lg:flex-1">
+        <div className="flex w-full flex-col gap-3 lg:flex-row lg:flex-nowrap lg:items-end lg:gap-3">
+          <div className="min-w-0 lg:flex-1">
             <label htmlFor="filter-search-log" className="mb-1 block text-xs font-medium text-gray-500">
               Cerca
             </label>
@@ -133,7 +133,7 @@ export default function ActivityLogs() {
             </div>
           </div>
 
-          <div className="w-full shrink-0 lg:w-44">
+          <div className="min-w-0 w-full shrink-0 lg:flex-1">
             <label htmlFor="filter-azione" className="mb-1 block text-xs font-medium text-gray-500">Azione</label>
             <select id="filter-azione" value={azioneFilter} onChange={(e) => setAzioneFilter(e.target.value)} className="input-field w-full">
               <option value="">Tutte le azioni</option>
@@ -143,7 +143,7 @@ export default function ActivityLogs() {
             </select>
           </div>
 
-          <div className="w-full shrink-0 lg:w-44">
+          <div className="min-w-0 w-full shrink-0 lg:flex-1">
             <label htmlFor="filter-modulo" className="mb-1 block text-xs font-medium text-gray-500">Modulo</label>
             <select id="filter-modulo" value={moduloFilter} onChange={(e) => setModuloFilter(e.target.value)} className="input-field w-full">
               <option value="">Tutti i moduli</option>
@@ -153,12 +153,12 @@ export default function ActivityLogs() {
             </select>
           </div>
 
-          <div className="w-full shrink-0 lg:w-40">
+          <div className="min-w-0 w-full shrink-0 lg:flex-1">
             <label htmlFor="filter-data-da" className="mb-1 block text-xs font-medium text-gray-500">Da</label>
             <input id="filter-data-da" type="date" value={dataDa} onChange={(e) => setDataDa(e.target.value)} className="input-field w-full" />
           </div>
 
-          <div className="w-full shrink-0 lg:w-40">
+          <div className="min-w-0 w-full shrink-0 lg:flex-1">
             <label htmlFor="filter-data-a" className="mb-1 block text-xs font-medium text-gray-500">A</label>
             <input id="filter-data-a" type="date" value={dataA} onChange={(e) => setDataA(e.target.value)} className="input-field w-full" />
           </div>

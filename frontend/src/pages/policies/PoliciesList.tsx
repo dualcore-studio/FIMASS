@@ -55,7 +55,7 @@ function buildQuery(params: {
 
 function FilterCell({ id, label, children }: { id: string; label: string; children: ReactNode }) {
   return (
-    <div className="flex shrink-0 flex-col gap-px">
+    <div className="flex min-w-[9rem] flex-1 flex-col gap-px">
       <label htmlFor={id} className="whitespace-nowrap text-[11px] font-normal leading-tight text-gray-600">
         {label}
       </label>
@@ -179,7 +179,7 @@ export default function PoliciesList() {
   const rows = result?.data ?? [];
   const canFilterStruttura = role === 'admin' || role === 'supervisore';
 
-  const tf = 'input-field h-9 max-w-none shrink-0 py-1.5 text-sm';
+  const tf = 'input-field h-9 w-full min-w-0 py-1.5 text-sm';
 
   return (
     <div className="space-y-6">
@@ -198,7 +198,7 @@ export default function PoliciesList() {
 
       {/* Filters — toolbar compatta (una riga su desktop) */}
       <div className="card px-2.5 py-2 sm:px-3 sm:py-2">
-        <div className="flex flex-wrap items-end gap-2 lg:flex-nowrap lg:overflow-x-auto lg:pb-0.5 lg:[scrollbar-width:thin]">
+        <div className="flex w-full flex-wrap items-end gap-2 lg:flex-nowrap">
           <span className="sr-only">Filtri elenco polizze</span>
           <FilterCell id="filter-id-polizza" label="ID Polizza">
             <input
@@ -209,7 +209,7 @@ export default function PoliciesList() {
               placeholder="ID polizza…"
               value={numeroInput}
               onChange={(e) => setNumeroInput(e.target.value)}
-              className={`${tf} w-[7.25rem]`}
+              className={tf}
             />
           </FilterCell>
           <FilterCell id="filter-assistito-pol" label="Assistito">
@@ -219,7 +219,7 @@ export default function PoliciesList() {
               placeholder="Assistito: nome, CF…"
               value={assistitoInput}
               onChange={(e) => setAssistitoInput(e.target.value)}
-              className={`${tf} w-[12.5rem] min-w-[11rem] sm:w-[13.5rem]`}
+              className={tf}
             />
           </FilterCell>
           <FilterCell id="filter-tipo-pol" label="Tipologia">
@@ -227,7 +227,7 @@ export default function PoliciesList() {
               id="filter-tipo-pol"
               value={tipoFilter}
               onChange={(e) => setTipoFilter(e.target.value)}
-              className={`${tf} w-[10.25rem]`}
+              className={tf}
             >
               <option value="">Tutte le tipologie</option>
               {insuranceTypes.map((t) => (
@@ -242,7 +242,7 @@ export default function PoliciesList() {
                   id="filter-struttura-pol"
                   value={strutturaFilter}
                   onChange={(e) => setStrutturaFilter(e.target.value)}
-                  className={`${tf} w-[10.25rem]`}
+                  className={tf}
                 >
                   <option value="">Tutte le strutture</option>
                   {structures.map((s) => (
@@ -255,7 +255,7 @@ export default function PoliciesList() {
                   id="filter-operatore-pol"
                   value={operatoreFilter}
                   onChange={(e) => setOperatoreFilter(e.target.value)}
-                  className={`${tf} w-[10.25rem]`}
+                  className={tf}
                 >
                   <option value="">Tutti gli operatori</option>
                   {operators.map((o) => (
@@ -270,7 +270,7 @@ export default function PoliciesList() {
               id="filter-stato-pol"
               value={statoFilter}
               onChange={(e) => setStatoFilter(e.target.value)}
-              className={`${tf} w-[10.25rem]`}
+              className={tf}
             >
               <option value="">Tutti gli stati</option>
               {STATI.map((s) => (
@@ -284,7 +284,7 @@ export default function PoliciesList() {
               type="date"
               value={dataDal}
               onChange={(e) => setDataDal(e.target.value)}
-              className={`${tf} w-[9.5rem]`}
+              className={tf}
             />
           </FilterCell>
           <FilterCell id="filter-data-al-pol" label="Data al">
@@ -293,7 +293,7 @@ export default function PoliciesList() {
               type="date"
               value={dataAl}
               onChange={(e) => setDataAl(e.target.value)}
-              className={`${tf} w-[9.5rem]`}
+              className={tf}
             />
           </FilterCell>
         </div>
