@@ -231,12 +231,12 @@ export default function MessagesPage() {
                   <li key={c.id}>
                     <Link
                       to={`/messaggi/${c.id}`}
-                      className={`block px-4 py-3 transition hover:bg-slate-50 ${
+                      className={`relative block px-4 py-3 transition ${
                         sel
-                          ? 'bg-blue-50/80 border-l-4 border-l-blue-600'
+                          ? 'border-l-[5px] border-l-blue-600 bg-blue-50/80 hover:bg-blue-50'
                           : unread
-                            ? 'border-l-4 border-l-amber-500 bg-amber-50/70'
-                            : ''
+                            ? 'border-l-[5px] border-l-orange-500 bg-[#fdf6e9] hover:bg-[#faf0df]'
+                            : 'bg-white hover:bg-slate-50'
                       }`}
                       aria-label={
                         unread
@@ -244,31 +244,36 @@ export default function MessagesPage() {
                           : undefined
                       }
                     >
-                      <div className="flex items-center justify-between gap-2">
+                      {unread && !sel ? (
                         <span
+                          className="absolute right-3 top-3 flex h-6 min-w-6 items-center justify-center rounded-full bg-orange-500 px-1 text-[10px] font-bold leading-none text-white shadow-sm tabular-nums ring-2 ring-white"
+                          aria-hidden
+                        >
+                          {unreadN > 99 ? '99+' : unreadN}
+                        </span>
+                      ) : null}
+                      <div className={unread && !sel ? 'pr-11' : undefined}>
+                        <p
                           className={`text-xs uppercase tracking-wide ${
-                            unread && !sel ? 'font-bold text-slate-800' : 'font-semibold text-slate-500'
+                            unread && !sel
+                              ? 'font-bold text-slate-900'
+                              : 'font-semibold text-slate-500'
                           }`}
                         >
                           {c.practice_kind} · {c.practice_numero}
-                          {unread && !sel ? (
-                            <span className="ml-2 inline-flex min-w-[1.25rem] items-center justify-center rounded-full bg-amber-600 px-1.5 py-0.5 text-[10px] font-bold leading-none text-white tabular-nums">
-                              {unreadN > 99 ? '99+' : unreadN}
-                            </span>
+                        </p>
+                      </div>
+                      <p className="mt-1 text-xs text-slate-600">Con: {c.counterpart || '—'}</p>
+                      <div className="mt-1 flex items-end justify-between gap-3">
+                        <div className="min-w-0 flex-1">
+                          {c.last_message_preview ? (
+                            <p className="line-clamp-2 text-sm text-slate-800">{c.last_message_preview}</p>
                           ) : null}
-                        </span>
-                        <time
-                          className={`text-[11px] tabular-nums ${
-                            unread && !sel ? 'font-medium text-amber-900/80' : 'text-slate-400'
-                          }`}
-                        >
+                        </div>
+                        <time className="shrink-0 text-[11px] tabular-nums text-slate-400">
                           {c.last_message_at ? formatDateTime(c.last_message_at) : ''}
                         </time>
                       </div>
-                      <p className="mt-1 text-xs text-slate-600">Con: {c.counterpart || '—'}</p>
-                      {c.last_message_preview ? (
-                        <p className="mt-1 line-clamp-2 text-sm text-slate-800">{c.last_message_preview}</p>
-                      ) : null}
                     </Link>
                   </li>
                 );
