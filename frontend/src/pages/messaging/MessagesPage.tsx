@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { MessageSquarePlus, Send, ArrowLeft } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
+import { useUnreadMessages } from '../../context/UnreadMessagesContext';
 import { api, ApiError } from '../../utils/api';
 import { formatDateTime } from '../../utils/helpers';
 import type { ConversationListItem, ConversationMessage, Policy, Quote } from '../../types';
@@ -17,6 +18,7 @@ export default function MessagesPage() {
   const { id: routeId } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { user } = useAuth();
+  const { refreshUnread } = useUnreadMessages();
   const [list, setList] = useState<ConversationListItem[]>([]);
   const [loadingList, setLoadingList] = useState(true);
   const [listError, setListError] = useState<string | null>(null);
@@ -51,8 +53,9 @@ export default function MessagesPage() {
       setListError(e instanceof ApiError ? e.message : 'Impossibile caricare le conversazioni.');
     } finally {
       setLoadingList(false);
+      void refreshUnread();
     }
-  }, []);
+  }, [refreshUnread]);
 
   const loadThread = useCallback(async (cid: number) => {
     setThreadError(null);
@@ -65,8 +68,9 @@ export default function MessagesPage() {
       setThreadError(e instanceof ApiError ? e.message : 'Conversazione non disponibile.');
     } finally {
       setLoadingThread(false);
+      void refreshUnread();
     }
-  }, []);
+  }, [refreshUnread]);
 
   useEffect(() => {
     loadList();

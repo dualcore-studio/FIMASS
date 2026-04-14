@@ -16,6 +16,7 @@ const TABLES = [
   'commissions',
   'conversations',
   'conversation_messages',
+  'conversation_reads',
 ];
 
 function nowIso() {

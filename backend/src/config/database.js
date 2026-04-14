@@ -237,6 +237,18 @@ function initializeDatabase() {
     CREATE INDEX IF NOT EXISTS idx_conversations_struttura ON conversations(struttura_id);
     CREATE INDEX IF NOT EXISTS idx_conversations_assignee ON conversations(assignee_id);
     CREATE INDEX IF NOT EXISTS idx_conv_messages_conversation ON conversation_messages(conversation_id);
+
+    CREATE TABLE IF NOT EXISTS conversation_reads (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      conversation_id INTEGER NOT NULL REFERENCES conversations(id),
+      user_id INTEGER NOT NULL REFERENCES users(id),
+      last_read_at TEXT NOT NULL,
+      created_at TEXT DEFAULT (datetime('now')),
+      updated_at TEXT DEFAULT (datetime('now')),
+      UNIQUE(conversation_id, user_id)
+    );
+    CREATE INDEX IF NOT EXISTS idx_conv_reads_user ON conversation_reads(user_id);
+    CREATE INDEX IF NOT EXISTS idx_conv_reads_conversation ON conversation_reads(conversation_id);
   `);
 
   // Migrazione difensiva: DB esistenti creati prima dell'introduzione dei solleciti
@@ -496,6 +508,24 @@ function migrateFornitoreAndMessagingSqliteIfNeeded() {
     `);
   } catch (e) {
     console.error('ensure conversations tables migration:', e);
+  }
+
+  try {
+    db.exec(`
+      CREATE TABLE IF NOT EXISTS conversation_reads (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        conversation_id INTEGER NOT NULL REFERENCES conversations(id),
+        user_id INTEGER NOT NULL REFERENCES users(id),
+        last_read_at TEXT NOT NULL,
+        created_at TEXT DEFAULT (datetime('now')),
+        updated_at TEXT DEFAULT (datetime('now')),
+        UNIQUE(conversation_id, user_id)
+      );
+      CREATE INDEX IF NOT EXISTS idx_conv_reads_user ON conversation_reads(user_id);
+      CREATE INDEX IF NOT EXISTS idx_conv_reads_conversation ON conversation_reads(conversation_id);
+    `);
+  } catch (e) {
+    console.error('ensure conversation_reads migration:', e);
   }
 }
 

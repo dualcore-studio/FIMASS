@@ -1,6 +1,6 @@
 const express = require('express');
 const { authenticateToken } = require('../middleware/auth');
-const { list, getById, insert, upsertById } = require('../data/store');
+const { list, getById, insert, upsertById, findOne } = require('../data/store');
 const { loadContext, enrichQuote, enrichPolicy } = require('../data/views');
 const {
   quoteAssigneeUserId,
@@ -52,6 +52,86 @@ async function resolvePolicyAssignee(policy) {
   return resolveQuoteAssignee(policy);
 }
 
+function nowSqlite() {
+  return new Date().toISOString().slice(0, 19).replace('T', ' ');
+}
+
+function messagesForConversation(allMessages, conversationId) {
+  return allMessages.filter((m) => Number(m.conversation_id) === Number(conversationId));
+}
+
+function unreadCountForUser(messages, userId, lastReadAt) {
+  const uid = Number(userId);
+  const threshold = lastReadAt ? String(lastReadAt) : '';
+  return messages.filter((m) => {
+    if (Number(m.author_id) === uid) return false;
+    const t = String(m.created_at || '');
+    if (!threshold) return true;
+    return t.localeCompare(threshold) > 0;
+  }).length;
+}
+
+async function readStateRow(conversationId, userId) {
+  return findOne(
+    'conversation_reads',
+    (r) =>
+      Number(r.conversation_id) === Number(conversationId) && Number(r.user_id) === Number(userId),
+  );
+}
+
+async function markConversationReadForUser(conversationId, userId) {
+  const all = await list('conversation_messages');
+  const msgs = messagesForConversation(all, conversationId);
+  let lastReadAt = nowSqlite();
+  if (msgs.length > 0) {
+    lastReadAt = msgs.reduce((best, m) => {
+      const t = String(m.created_at || '');
+      return t.localeCompare(String(best)) > 0 ? t : best;
+    }, String(msgs[0].created_at || ''));
+  }
+  const existing = await readStateRow(conversationId, userId);
+  if (existing) {
+    await upsertById('conversation_reads', existing.id, { last_read_at: lastReadAt });
+  } else {
+    await insert('conversation_reads', {
+      conversation_id: Number(conversationId),
+      user_id: Number(userId),
+      last_read_at: lastReadAt,
+    });
+  }
+}
+
+function conversationsVisibleToUser(rows, u) {
+  if (u.role === 'struttura') {
+    return rows.filter((c) => Number(c.struttura_id) === Number(u.id));
+  }
+  if (u.role === 'operatore' || u.role === 'fornitore') {
+    return rows.filter(
+      (c) => Number(c.assignee_id) === Number(u.id) && c.assignee_role === u.role,
+    );
+  }
+  if (u.role === 'admin' || u.role === 'supervisore') {
+    return rows;
+  }
+  return [];
+}
+
+async function totalUnreadForUser(u) {
+  const rows = conversationsVisibleToUser(await list('conversations'), u);
+  if (rows.length === 0) return 0;
+  const allMessages = await list('conversation_messages');
+  const reads = await list('conversation_reads');
+  let total = 0;
+  for (const c of rows) {
+    const msgs = messagesForConversation(allMessages, c.id);
+    const readRow = reads.find(
+      (r) => Number(r.conversation_id) === Number(c.id) && Number(r.user_id) === Number(u.id),
+    );
+    total += unreadCountForUser(msgs, u.id, readRow?.last_read_at);
+  }
+  return total;
+}
+
 function enrichConversationRow(conv, ctx) {
   let practiceNumero = '—';
   let practiceLabel = '';
@@ -100,6 +180,29 @@ function enrichConversationRow(conv, ctx) {
     counterpart_label: counterpartFor,
   };
 }
+
+/** GET /api/conversations/unread-total — prima di /:id (altrimenti "unread-total" viene interpretato come id). */
+router.get('/unread-total', authenticateToken, (req, res) => {
+  (async () => {
+    try {
+      const u = req.user;
+      if (
+        u.role !== 'admin' &&
+        u.role !== 'supervisore' &&
+        u.role !== 'struttura' &&
+        u.role !== 'operatore' &&
+        u.role !== 'fornitore'
+      ) {
+        return res.status(403).json({ error: 'Accesso non autorizzato' });
+      }
+      const total = await totalUnreadForUser(u);
+      res.json({ total });
+    } catch (err) {
+      console.error('conversations unread-total:', err);
+      res.status(500).json({ error: 'Errore nel conteggio messaggi' });
+    }
+  })();
+});
 
 /** GET /api/conversations */
 router.get('/', authenticateToken, (req, res) => {
@@ -170,6 +273,7 @@ router.get('/:id', authenticateToken, (req, res) => {
         const p = await getById('policies', conv.entity_id);
         practice = p ? enrichPolicy(p, ctx) : null;
       }
+      await markConversationReadForUser(id, req.user.id);
       res.json({
         conversation: {
           ...meta,
@@ -286,6 +390,7 @@ router.post('/', authenticateToken, (req, res) => {
         });
       }
 
+      await markConversationReadForUser(conv.id, req.user.id);
       res.status(201).json({ id: conv.id, message: 'Messaggio inviato' });
     } catch (err) {
       console.error('conversations create:', err);
@@ -348,6 +453,7 @@ router.post('/:id/messages', authenticateToken, (req, res) => {
         last_message_preview: previewText(text),
         last_message_at: now,
       });
+      await markConversationReadForUser(conv.id, req.user.id);
 
       const practiceKindIt = conv.entity_type === 'quote' ? 'Preventivo' : 'Polizza';
       const practiceNumero = row.numero;

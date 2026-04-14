@@ -1,5 +1,6 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
+import { UnreadMessagesProvider } from './context/UnreadMessagesContext';
 import Layout from './components/layout/Layout';
 import Login from './pages/auth/Login';
 import Dashboard from './pages/dashboard/Dashboard';
@@ -112,7 +113,9 @@ export default function App() {
   return (
     <BrowserRouter>
       <AuthProvider>
-        <AppRoutes />
+        <UnreadMessagesProvider>
+          <AppRoutes />
+        </UnreadMessagesProvider>
       </AuthProvider>
     </BrowserRouter>
   );

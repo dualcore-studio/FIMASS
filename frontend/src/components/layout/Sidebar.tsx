@@ -1,5 +1,6 @@
 import { Link, NavLink } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
+import { useUnreadMessages } from '../../context/UnreadMessagesContext';
 import {
   LayoutDashboard,
   Users,
@@ -41,6 +42,7 @@ interface SidebarProps {
 
 export default function Sidebar({ collapsed, onCollapsedChange }: SidebarProps) {
   const { user } = useAuth();
+  const { unreadTotal } = useUnreadMessages();
 
   const filteredItems = menuItems.filter((item) => user && item.roles.includes(user.role));
   const showSettings = user && settingsItem.roles.includes(user.role);
@@ -90,8 +92,34 @@ export default function Sidebar({ collapsed, onCollapsedChange }: SidebarProps) 
               }
               title={collapsed ? item.label : undefined}
             >
-              <item.icon size={20} className="shrink-0 opacity-90" strokeWidth={1.75} />
-              {!collapsed && <span className="truncate">{item.label}</span>}
+              {collapsed ? (
+                <span className="relative inline-flex shrink-0">
+                  <item.icon size={20} className="shrink-0 opacity-90" strokeWidth={1.75} />
+                  {item.path === '/messaggi' && unreadTotal > 0 ? (
+                    <span
+                      className="absolute -right-1 -top-1 flex min-h-[1.125rem] min-w-[1.125rem] items-center justify-center rounded-full bg-orange-500 px-1 text-[10px] font-bold leading-none text-white shadow-sm ring-2 ring-[var(--portal-sidebar-bg)]"
+                      aria-label={`${unreadTotal} messaggi non letti`}
+                    >
+                      {unreadTotal > 99 ? '99+' : unreadTotal}
+                    </span>
+                  ) : null}
+                </span>
+              ) : (
+                <item.icon size={20} className="shrink-0 opacity-90" strokeWidth={1.75} />
+              )}
+              {!collapsed && (
+                <span className="flex min-w-0 flex-1 items-center gap-2">
+                  <span className="truncate">{item.label}</span>
+                  {item.path === '/messaggi' && unreadTotal > 0 ? (
+                    <span
+                      className="inline-flex min-h-[1.25rem] min-w-[1.25rem] shrink-0 items-center justify-center rounded-full bg-orange-500 px-1.5 text-[11px] font-bold leading-none text-white shadow-sm"
+                      aria-label={`${unreadTotal} messaggi non letti`}
+                    >
+                      {unreadTotal > 99 ? '99+' : unreadTotal}
+                    </span>
+                  ) : null}
+                </span>
+              )}
             </NavLink>
           ))}
         </div>

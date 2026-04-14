@@ -245,6 +245,25 @@ export default function QuoteCreate() {
     setStep((s) => Math.max(s - 1, 0));
   };
 
+  const goToStep = (target: number) => {
+    if (target < 0 || target >= STEPS.length || target === step) return;
+    if (target < step) {
+      setStepErrors([]);
+      setStep(target);
+      return;
+    }
+    for (let s = step; s < target; s++) {
+      const errors = validateStep(s);
+      if (errors.length > 0) {
+        setStepErrors(errors);
+        setStep(s);
+        return;
+      }
+    }
+    setStepErrors([]);
+    setStep(target);
+  };
+
   const handleSubmit = async () => {
     if (!selectedType) return;
     setSubmitError(null);
@@ -328,33 +347,47 @@ export default function QuoteCreate() {
         </div>
       </header>
 
-      {/* Progress bar */}
-      <div className="card p-4">
-        <div className="flex items-center justify-between">
+      {/* Progress bar — step cliccabili (stessa validazione dei pulsanti Avanti) */}
+      <div className="card overflow-x-auto p-4">
+        <div className="flex min-w-[min(100%,520px)] items-center sm:min-w-0">
           {STEPS.map((s, i) => {
             const Icon = s.icon;
             const completed = i < step;
             const active = i === step;
             return (
-              <div key={i} className="flex flex-1 items-center">
-                <div className="flex flex-col items-center gap-1.5">
+              <div key={i} className="flex min-w-0 flex-1 items-center">
+                <button
+                  type="button"
+                  onClick={() => goToStep(i)}
+                  className={`group flex w-full flex-col items-center gap-1.5 rounded-lg px-0.5 py-1 outline-none transition-colors focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 ${
+                    active ? '' : 'hover:bg-gray-50/80'
+                  }`}
+                  aria-current={active ? 'step' : undefined}
+                >
                   <div
                     className={`flex h-10 w-10 items-center justify-center rounded-full border-2 transition-colors ${
                       completed
-                        ? 'border-emerald-500 bg-emerald-500 text-white'
+                        ? 'border-emerald-500 bg-emerald-500 text-white group-hover:border-emerald-600 group-hover:bg-emerald-600'
                         : active
                           ? 'border-blue-700 bg-blue-700 text-white'
-                          : 'border-gray-300 bg-white text-gray-400'
+                          : 'border-gray-300 bg-white text-gray-400 group-hover:border-gray-400 group-hover:text-gray-500'
                     }`}
                   >
                     {completed ? <Check className="h-5 w-5" /> : <Icon className="h-5 w-5" />}
                   </div>
-                  <span className={`text-xs font-medium ${active ? 'text-blue-700' : completed ? 'text-emerald-600' : 'text-gray-400'}`}>
+                  <span
+                    className={`max-w-[5.5rem] text-center text-[11px] font-medium leading-tight sm:max-w-none sm:text-xs ${
+                      active ? 'text-blue-700' : completed ? 'text-emerald-600' : 'text-gray-400 group-hover:text-gray-600'
+                    }`}
+                  >
                     {s.label}
                   </span>
-                </div>
+                </button>
                 {i < STEPS.length - 1 && (
-                  <div className={`mx-2 h-0.5 flex-1 rounded ${i < step ? 'bg-emerald-400' : 'bg-gray-200'}`} />
+                  <div
+                    className={`mx-1 h-0.5 min-w-[8px] flex-1 rounded sm:mx-2 ${i < step ? 'bg-emerald-400' : 'bg-gray-200'}`}
+                    aria-hidden
+                  />
                 )}
               </div>
             );
