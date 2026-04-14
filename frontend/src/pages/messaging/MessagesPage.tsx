@@ -225,19 +225,43 @@ export default function MessagesPage() {
             <ul className="max-h-[70vh] divide-y divide-gray-100 overflow-y-auto">
               {list.map((c) => {
                 const sel = activeId === c.id;
+                const unread = (c.unread_count ?? 0) > 0;
+                const unreadN = c.unread_count ?? 0;
                 return (
                   <li key={c.id}>
                     <Link
                       to={`/messaggi/${c.id}`}
                       className={`block px-4 py-3 transition hover:bg-slate-50 ${
-                        sel ? 'bg-blue-50/80 border-l-4 border-l-blue-600' : ''
+                        sel
+                          ? 'bg-blue-50/80 border-l-4 border-l-blue-600'
+                          : unread
+                            ? 'border-l-4 border-l-amber-500 bg-amber-50/70'
+                            : ''
                       }`}
+                      aria-label={
+                        unread
+                          ? `${c.practice_kind} ${c.practice_numero}, ${unreadN} non letti`
+                          : undefined
+                      }
                     >
                       <div className="flex items-center justify-between gap-2">
-                        <span className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                        <span
+                          className={`text-xs uppercase tracking-wide ${
+                            unread && !sel ? 'font-bold text-slate-800' : 'font-semibold text-slate-500'
+                          }`}
+                        >
                           {c.practice_kind} · {c.practice_numero}
+                          {unread && !sel ? (
+                            <span className="ml-2 inline-flex min-w-[1.25rem] items-center justify-center rounded-full bg-amber-600 px-1.5 py-0.5 text-[10px] font-bold leading-none text-white tabular-nums">
+                              {unreadN > 99 ? '99+' : unreadN}
+                            </span>
+                          ) : null}
                         </span>
-                        <time className="text-[11px] tabular-nums text-slate-400">
+                        <time
+                          className={`text-[11px] tabular-nums ${
+                            unread && !sel ? 'font-medium text-amber-900/80' : 'text-slate-400'
+                          }`}
+                        >
                           {c.last_message_at ? formatDateTime(c.last_message_at) : ''}
                         </time>
                       </div>

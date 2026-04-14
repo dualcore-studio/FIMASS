@@ -298,6 +298,8 @@ export interface ConversationListItem {
   practice_numero?: string;
   practice_kind?: string;
   counterpart?: string;
+  /** Messaggi di altri utenti dopo l'ultima lettura (per l'utente corrente). */
+  unread_count?: number;
 }
 
 export interface ConversationMessage {

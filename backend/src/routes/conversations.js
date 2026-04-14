@@ -241,12 +241,27 @@ router.get('/', authenticateToken, (req, res) => {
       } else if (u.role !== 'admin' && u.role !== 'supervisore') {
         return res.status(403).json({ error: 'Accesso non autorizzato' });
       }
+      const allMessages = await list('conversation_messages');
+      let reads = [];
+      try {
+        reads = await list('conversation_reads');
+      } catch (e) {
+        console.warn('conversation_reads:', e?.message || e);
+      }
       const enriched = rows
         .map((c) => enrichConversationRow(c, ctx))
-        .map((c) => ({
-          ...c,
-          counterpart: c.counterpart_label(u.role, u.id),
-        }));
+        .map((c) => {
+          const msgs = messagesForConversation(allMessages, c.id);
+          const readRow = reads.find(
+            (r) => Number(r.conversation_id) === Number(c.id) && Number(r.user_id) === Number(u.id),
+          );
+          const unread_count = unreadCountForUser(msgs, u.id, readRow?.last_read_at);
+          return {
+            ...c,
+            counterpart: c.counterpart_label(u.role, u.id),
+            unread_count,
+          };
+        });
       enriched.sort((a, b) =>
         String(b.last_message_at || b.updated_at || '').localeCompare(
           String(a.last_message_at || a.updated_at || ''),
