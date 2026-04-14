@@ -34,6 +34,7 @@ function enrichQuote(quote, ctx) {
   const type = ctx.typesById.get(Number(quote.tipo_assicurazione_id)) || {};
   const struttura = ctx.usersById.get(Number(quote.struttura_id)) || {};
   const operatore = ctx.usersById.get(Number(quote.operatore_id)) || {};
+  const fornitore = ctx.usersById.get(Number(quote.fornitore_id)) || {};
   return {
     ...quote,
     assistito_nome: assisted.nome,
@@ -51,6 +52,12 @@ function enrichQuote(quote, ctx) {
     struttura_email: struttura.email,
     operatore_nome: operatore.nome,
     operatore_cognome: operatore.cognome,
+    fornitore_nome: fornitore.nome,
+    fornitore_cognome: fornitore.cognome,
+    incaricato_nome:
+      quote.operatore_id != null && quote.operatore_id !== '' ? operatore.nome : fornitore.nome,
+    incaricato_cognome:
+      quote.operatore_id != null && quote.operatore_id !== '' ? operatore.cognome : fornitore.cognome,
     dati_specifici: parseMaybeJson(quote.dati_specifici),
     dati_preventivo: parseMaybeJson(quote.dati_preventivo),
   };
@@ -61,6 +68,7 @@ function enrichPolicy(policy, ctx) {
   const type = ctx.typesById.get(Number(policy.tipo_assicurazione_id)) || {};
   const struttura = ctx.usersById.get(Number(policy.struttura_id)) || {};
   const operatore = ctx.usersById.get(Number(policy.operatore_id)) || {};
+  const fornitore = ctx.usersById.get(Number(policy.fornitore_id)) || {};
   const quote = ctx.quotesById.get(Number(policy.quote_id)) || {};
   const polAtts = (ctx.attachments || []).filter(
     (a) => a.entity_type === 'policy' && Number(a.entity_id) === Number(policy.id),
@@ -84,6 +92,12 @@ function enrichPolicy(policy, ctx) {
     struttura_nome: struttura.denominazione,
     operatore_nome: operatore.nome,
     operatore_cognome: operatore.cognome,
+    fornitore_nome: fornitore.nome,
+    fornitore_cognome: fornitore.cognome,
+    incaricato_nome:
+      policy.operatore_id != null && policy.operatore_id !== '' ? operatore.nome : fornitore.nome,
+    incaricato_cognome:
+      policy.operatore_id != null && policy.operatore_id !== '' ? operatore.cognome : fornitore.cognome,
     preventivo_numero: quote.numero,
     preventivo_id: quote.id,
     dati_specifici: parseMaybeJson(policy.dati_specifici),

@@ -14,6 +14,8 @@ const TABLES = [
   'activity_logs',
   'settings',
   'commissions',
+  'conversations',
+  'conversation_messages',
 ];
 
 function nowIso() {

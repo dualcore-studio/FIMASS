@@ -3,7 +3,7 @@ export type CommissionStructureType = 'SEGNALATORE' | 'PARTNER' | 'SPORTELLO_AMI
 export interface User {
   id: number;
   username: string;
-  role: 'admin' | 'supervisore' | 'operatore' | 'struttura';
+  role: 'admin' | 'supervisore' | 'operatore' | 'fornitore' | 'struttura';
   nome: string | null;
   cognome: string | null;
   denominazione: string | null;
@@ -119,6 +119,7 @@ export interface Quote {
   tipo_assicurazione_id: number;
   struttura_id: number;
   operatore_id: number | null;
+  fornitore_id?: number | null;
   stato: 'PRESENTATA' | 'ASSEGNATA' | 'IN LAVORAZIONE' | 'STANDBY' | 'ELABORATA';
   data_decorrenza: string | null;
   note_struttura: string | null;
@@ -143,6 +144,11 @@ export interface Quote {
   struttura_email?: string;
   operatore_nome?: string;
   operatore_cognome?: string;
+  fornitore_nome?: string;
+  fornitore_cognome?: string;
+  /** Nome/cognome dell’incaricato (operatore o fornitore), arricchito lato API */
+  incaricato_nome?: string | null;
+  incaricato_cognome?: string | null;
   /** Allegato tipo preventivo_elaborato più recente (solo elenco/API arricchito) */
   preventivo_finale_attachment_id?: number | null;
   preventivo_finale_nome?: string | null;
@@ -160,6 +166,7 @@ export interface Policy {
   tipo_assicurazione_id: number;
   struttura_id: number;
   operatore_id: number | null;
+  fornitore_id?: number | null;
   stato: 'RICHIESTA PRESENTATA' | 'IN EMISSIONE' | 'EMESSA';
   dati_specifici: Record<string, unknown> | null;
   note_struttura: string | null;
@@ -180,6 +187,10 @@ export interface Policy {
   struttura_nome?: string;
   operatore_nome?: string;
   operatore_cognome?: string;
+  fornitore_nome?: string;
+  fornitore_cognome?: string;
+  incaricato_nome?: string | null;
+  incaricato_cognome?: string | null;
   preventivo_numero?: string;
   preventivo_id?: number;
   ricevuta_pagamento_attachment_id?: number | null;
@@ -267,8 +278,35 @@ export interface QuoteReminder {
   quote_numero: string;
   created_at: string;
   read_at: string | null;
-  created_by_role: 'admin' | 'supervisore' | 'operatore' | 'struttura';
+  created_by_role: 'admin' | 'supervisore' | 'operatore' | 'fornitore' | 'struttura';
   created_by_nome?: string | null;
   created_by_cognome?: string | null;
   created_by_denominazione?: string | null;
+}
+
+export interface ConversationListItem {
+  id: number;
+  entity_type: 'quote' | 'policy';
+  entity_id: number;
+  struttura_id: number;
+  assignee_id: number;
+  assignee_role: 'operatore' | 'fornitore';
+  last_message_preview: string | null;
+  last_message_at: string | null;
+  created_at: string;
+  updated_at: string;
+  practice_numero?: string;
+  practice_kind?: string;
+  counterpart?: string;
+}
+
+export interface ConversationMessage {
+  id: number;
+  conversation_id: number;
+  author_id: number;
+  author_role: string;
+  content: string;
+  created_at: string;
+  read_at?: string | null;
+  author_display?: string;
 }

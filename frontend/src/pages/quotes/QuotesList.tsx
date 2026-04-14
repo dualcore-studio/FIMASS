@@ -113,7 +113,7 @@ function buildQuery(params: {
   if (params.stato) qs.set('stato', params.stato);
   if (params.tipo) qs.set('tipo_assicurazione_id', params.tipo);
   if (params.struttura) qs.set('struttura_id', params.struttura);
-  if (params.operatore) qs.set('operatore_id', params.operatore);
+  if (params.operatore) qs.set('assegnatario_id', params.operatore);
   if (params.numero.trim()) qs.set('numero', params.numero.trim());
   if (params.assistito.trim()) qs.set('assistito', params.assistito.trim());
   if (params.dataDa) qs.set('data_da', params.dataDa);
@@ -166,7 +166,7 @@ export default function QuotesList() {
 
   const [insuranceTypes, setInsuranceTypes] = useState<InsuranceType[]>([]);
   const [structures, setStructures] = useState<StructureOption[]>([]);
-  const [operators, setOperators] = useState<User[]>([]);
+  const [assignees, setAssignees] = useState<User[]>([]);
 
   const [assignQuoteId, setAssignQuoteId] = useState<number | null>(null);
   const [assignOperatorId, setAssignOperatorId] = useState('');
@@ -189,9 +189,9 @@ export default function QuotesList() {
 
   useEffect(() => {
     api.get<InsuranceType[]>('/settings/insurance-types/active').then(setInsuranceTypes).catch(() => {});
-    if (role === 'admin' || role === 'supervisore') {
+    if (role === 'admin' || role === 'supervisore' || role === 'fornitore') {
       api.get<StructureOption[]>('/users/structures').then(setStructures).catch(() => {});
-      api.get<User[]>('/users/operators').then(setOperators).catch(() => {});
+      api.get<User[]>('/users/assignees').then(setAssignees).catch(() => {});
     }
   }, [role]);
 
@@ -329,13 +329,13 @@ export default function QuotesList() {
 
   const handleAssign = async () => {
     if (assignQuoteId == null || !assignOperatorId) {
-      setAssignError('Seleziona un operatore.');
+      setAssignError('Seleziona un incaricato.');
       return;
     }
     setAssignError(null);
     setAssignSubmitting(true);
     try {
-      await api.put(`/quotes/${assignQuoteId}/assign`, { operatore_id: Number(assignOperatorId) });
+      await api.put(`/quotes/${assignQuoteId}/assign`, { assigned_user_id: Number(assignOperatorId) });
       closeAssignModal();
       await fetchQuotes();
     } catch (e) {
@@ -368,11 +368,16 @@ export default function QuotesList() {
   const canCreate = role === 'struttura';
   const canDeleteQuote = role === 'admin';
   const useQuoteActionsMenu =
-    role === 'admin' || role === 'supervisore' || role === 'struttura' || role === 'operatore';
-  const canFilterStruttura = role === 'admin' || role === 'supervisore';
+    role === 'admin' ||
+    role === 'supervisore' ||
+    role === 'fornitore' ||
+    role === 'struttura' ||
+    role === 'operatore';
+  const canFilterStruttura = role === 'admin' || role === 'supervisore' || role === 'fornitore';
 
   const assignTargetRow = assignQuoteId != null ? rows.find((r) => r.id === assignQuoteId) : undefined;
-  const assignModalTitle = assignTargetRow?.stato === 'ASSEGNATA' ? 'Riassegna operatore' : 'Assegna operatore';
+  const assignModalTitle =
+    assignTargetRow?.stato === 'ASSEGNATA' ? 'Riassegna incaricato' : 'Assegna incaricato';
 
   const tf = 'input-field h-9 w-full min-w-0 py-1.5 text-sm';
 
@@ -458,16 +463,19 @@ export default function QuotesList() {
                   ))}
                 </select>
               </FilterCell>
-              <FilterCell id="filter-operatore" label="Operatore">
+              <FilterCell id="filter-operatore" label="Incaricato">
                 <select
                   id="filter-operatore"
                   value={operatoreFilter}
                   onChange={(e) => setOperatoreFilter(e.target.value)}
                   className={tf}
                 >
-                  <option value="">Tutti gli operatori</option>
-                  {operators.map((o) => (
-                    <option key={o.id} value={String(o.id)}>{getUserDisplayName(o)}</option>
+                  <option value="">Tutti gli incaricati</option>
+                  {assignees.map((o) => (
+                    <option key={o.id} value={String(o.id)}>
+                      {getUserDisplayName(o)}
+                      {o.role === 'fornitore' ? ' (Fornitore)' : ' (Operatore)'}
+                    </option>
                   ))}
                 </select>
               </FilterCell>
@@ -569,7 +577,7 @@ export default function QuotesList() {
                     direction={tableSort.sortDir}
                     onRequestSort={tableSort.requestSort}
                   >
-                    Operatore
+                    Incaricato
                   </SortableTh>
                   <SortableTh
                     sortKey="created_at"
@@ -611,7 +619,9 @@ export default function QuotesList() {
                       <td className="px-4 py-3 text-gray-600">
                         {q.operatore_id
                           ? [q.operatore_nome, q.operatore_cognome].filter(Boolean).join(' ')
-                          : <span className="text-gray-400 italic">Non assegnato</span>}
+                          : q.fornitore_id
+                            ? [q.fornitore_nome, q.fornitore_cognome].filter(Boolean).join(' ')
+                            : <span className="text-gray-400 italic">Non assegnato</span>}
                       </td>
                       <td className="px-4 py-3 whitespace-nowrap text-gray-600">
                         {formatDate(q.created_at)}
@@ -625,7 +635,9 @@ export default function QuotesList() {
                                   ? 'struttura'
                                   : role === 'operatore'
                                     ? 'operatore'
-                                    : 'admin'
+                                    : role === 'fornitore'
+                                      ? 'fornitore'
+                                      : 'admin'
                               }
                               quote={q}
                               onNavigateDetail={(id) => navigate(`/preventivi/${id}`)}
@@ -643,6 +655,28 @@ export default function QuotesList() {
                                       onOpenOperatorElaborata: (row) => setOperatorElaborataQuoteId(row.id),
                                       onOpenOperatorInLavorazione: (row) => setOperatorInLavQuoteId(row.id),
                                     }
+                                : role === 'fornitore'
+                                  ? {
+                                      onOpenAssign: (row) => {
+                                        setAssignQuoteId(row.id);
+                                        setAssignOperatorId('');
+                                        setAssignError(null);
+                                      },
+                                      onOpenReassign: (row) => {
+                                        setAssignQuoteId(row.id);
+                                        setAssignOperatorId(
+                                          row.operatore_id
+                                            ? String(row.operatore_id)
+                                            : row.fornitore_id
+                                              ? String(row.fornitore_id)
+                                              : '',
+                                        );
+                                        setAssignError(null);
+                                      },
+                                      onOpenOperatorStandby: (row) => setOperatorStandbyQuoteId(row.id),
+                                      onOpenOperatorElaborata: (row) => setOperatorElaborataQuoteId(row.id),
+                                      onOpenOperatorInLavorazione: (row) => setOperatorInLavQuoteId(row.id),
+                                    }
                                   : {
                                       onOpenAssign: (row) => {
                                         setAssignQuoteId(row.id);
@@ -651,7 +685,13 @@ export default function QuotesList() {
                                       },
                                       onOpenReassign: (row) => {
                                         setAssignQuoteId(row.id);
-                                        setAssignOperatorId(row.operatore_id ? String(row.operatore_id) : '');
+                                        setAssignOperatorId(
+                                          row.operatore_id
+                                            ? String(row.operatore_id)
+                                            : row.fornitore_id
+                                              ? String(row.fornitore_id)
+                                              : '',
+                                        );
                                         setAssignError(null);
                                       },
                                       ...(canDeleteQuote ? { onOpenDelete: setDeleteQuoteId } : {}),
@@ -750,11 +790,11 @@ export default function QuotesList() {
       <Modal isOpen={assignQuoteId != null} onClose={closeAssignModal} title={assignModalTitle} size="sm">
         <div className="space-y-4">
           <p className="text-sm text-gray-600">
-            Seleziona l&apos;operatore a cui assegnare il preventivo.
+            Seleziona operatore o fornitore a cui assegnare il preventivo.
           </p>
           <div>
             <label htmlFor="assign-operator" className="mb-1 block text-sm font-medium text-gray-700">
-              Operatore
+              Incaricato
             </label>
             <select
               id="assign-operator"
@@ -762,9 +802,11 @@ export default function QuotesList() {
               onChange={(e) => setAssignOperatorId(e.target.value)}
               className="input-field"
             >
-              <option value="">Seleziona operatore…</option>
-              {operators.map((o) => (
-                <option key={o.id} value={String(o.id)}>{getUserDisplayName(o)}</option>
+              <option value="">Seleziona…</option>
+              {assignees.map((o) => (
+                <option key={o.id} value={String(o.id)}>
+                  {getUserDisplayName(o)} ({o.role === 'fornitore' ? 'Fornitore' : 'Operatore'})
+                </option>
               ))}
             </select>
           </div>

@@ -4,7 +4,7 @@ import { TABLE_PAGE_SIZE } from '../constants/tablePagination';
 
 export type UsersListRoleFilter = '' | User['role'];
 
-export const USERS_ROLE_TAB_KEYS = ['admin', 'supervisore', 'struttura', 'operatore'] as const satisfies readonly User['role'][];
+export const USERS_ROLE_TAB_KEYS = ['admin', 'supervisore', 'struttura', 'operatore', 'fornitore'] as const satisfies readonly User['role'][];
 
 export type UsersRoleCountKey = 'tutti' | User['role'];
 
@@ -17,6 +17,7 @@ export function emptyRoleTabCounts(): RoleTabCounts {
     supervisore: null,
     struttura: null,
     operatore: null,
+    fornitore: null,
   };
 }
 

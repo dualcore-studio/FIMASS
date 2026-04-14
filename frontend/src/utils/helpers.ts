@@ -89,6 +89,7 @@ export function getRoleBadgeColor(role: string): string {
     admin: 'bg-violet-100 text-violet-900',
     supervisore: 'bg-[var(--badge-soft-blue-bg)] text-[var(--badge-soft-blue-text)]',
     operatore: 'bg-[var(--badge-soft-orange-bg)] text-[var(--badge-soft-orange-text)]',
+    fornitore: 'bg-sky-100 text-sky-900',
     struttura: 'bg-[var(--badge-soft-green-bg)] text-[var(--badge-soft-green-text)]',
   };
   return colors[role] || 'bg-[var(--badge-soft-slate-bg)] text-[var(--badge-soft-slate-text)]';
@@ -99,6 +100,7 @@ export function getRoleLabel(role: string): string {
     'admin': 'Admin',
     'supervisore': 'Supervisore',
     'operatore': 'Operatore',
+    'fornitore': 'Fornitore',
     'struttura': 'Struttura',
   };
   return labels[role] || role;

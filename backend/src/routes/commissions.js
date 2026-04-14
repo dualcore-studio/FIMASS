@@ -42,7 +42,7 @@ function computeStructureCommission(sportelloAmico, structureCommissionType) {
 }
 
 function assertCommissionReader(req, res, next) {
-  if (req.user.role === 'admin' || req.user.role === 'struttura') return next();
+  if (req.user.role === 'admin' || req.user.role === 'struttura' || req.user.role === 'fornitore') return next();
   return res.status(403).json({ error: 'Accesso non autorizzato' });
 }
 
@@ -134,7 +134,7 @@ router.get('/', authenticateToken, assertCommissionReader, (req, res) => {
     rows = rows.filter((r) =>
       rowMatchesFilters(r, {
         search,
-        structureId: req.user.role === 'admin' ? structureId : null,
+        structureId: req.user.role === 'admin' || req.user.role === 'fornitore' ? structureId : null,
         company,
         portal,
         dataDa,
@@ -187,7 +187,7 @@ router.get('/export-pdf', authenticateToken, assertCommissionReader, (req, res) 
     rows = rows.filter((r) =>
       rowMatchesFilters(r, {
         search,
-        structureId: req.user.role === 'admin' ? structureId : null,
+        structureId: req.user.role === 'admin' || req.user.role === 'fornitore' ? structureId : null,
         company,
         portal,
         dataDa,
@@ -213,7 +213,7 @@ router.get('/export-pdf', authenticateToken, assertCommissionReader, (req, res) 
       {
         rows,
         summary,
-        role: req.user.role === 'admin' ? 'admin' : 'struttura',
+        role: req.user.role === 'struttura' ? 'struttura' : 'admin',
       },
       res,
     );
@@ -237,7 +237,7 @@ router.get('/:id', authenticateToken, assertCommissionReader, (req, res) => {
   });
 });
 
-router.post('/', authenticateToken, authorizeRoles('admin'), (req, res) => {
+router.post('/', authenticateToken, authorizeRoles('admin', 'fornitore'), (req, res) => {
   (async () => {
     const {
       date,
@@ -321,7 +321,7 @@ router.post('/', authenticateToken, authorizeRoles('admin'), (req, res) => {
   });
 });
 
-router.put('/:id', authenticateToken, authorizeRoles('admin'), (req, res) => {
+router.put('/:id', authenticateToken, authorizeRoles('admin', 'fornitore'), (req, res) => {
   (async () => {
     const id = Number(req.params.id);
     if (!Number.isFinite(id)) return res.status(400).json({ error: 'ID non valido' });
@@ -420,7 +420,7 @@ router.put('/:id', authenticateToken, authorizeRoles('admin'), (req, res) => {
   });
 });
 
-router.delete('/:id', authenticateToken, authorizeRoles('admin'), (req, res) => {
+router.delete('/:id', authenticateToken, authorizeRoles('admin', 'fornitore'), (req, res) => {
   (async () => {
     const id = Number(req.params.id);
     if (!Number.isFinite(id)) return res.status(400).json({ error: 'ID non valido' });

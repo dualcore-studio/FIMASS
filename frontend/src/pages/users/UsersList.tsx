@@ -95,6 +95,7 @@ export default function UsersList() {
           supervisore: roleResponses[1].total,
           struttura: roleResponses[2].total,
           operatore: roleResponses[3].total,
+          fornitore: roleResponses[4].total,
         });
       } catch {
         if (cancelled || seq !== roleCountsSeq.current) return;

@@ -73,7 +73,7 @@ export default function QuoteDetail() {
 
   // Assign modal
   const [showAssignModal, setShowAssignModal] = useState(false);
-  const [operators, setOperators] = useState<User[]>([]);
+  const [assignees, setAssignees] = useState<User[]>([]);
   const [assignOperatorId, setAssignOperatorId] = useState('');
   const [assignSubmitting, setAssignSubmitting] = useState(false);
   const [assignError, setAssignError] = useState<string | null>(null);
@@ -118,8 +118,8 @@ export default function QuoteDetail() {
   }, [quote?.stato]);
 
   useEffect(() => {
-    if (role === 'admin' || role === 'supervisore') {
-      api.get<User[]>('/users/operators').then(setOperators).catch(() => {});
+    if (role === 'admin' || role === 'supervisore' || role === 'fornitore') {
+      api.get<User[]>('/users/assignees').then(setAssignees).catch(() => {});
     }
   }, [role]);
 
@@ -139,13 +139,13 @@ export default function QuoteDetail() {
 
   const handleAssign = async () => {
     if (!id || !assignOperatorId) {
-      setAssignError('Seleziona un operatore.');
+      setAssignError('Seleziona un incaricato.');
       return;
     }
     setAssignError(null);
     setAssignSubmitting(true);
     try {
-      await api.put(`/quotes/${id}/assign`, { operatore_id: Number(assignOperatorId) });
+      await api.put(`/quotes/${id}/assign`, { assigned_user_id: Number(assignOperatorId) });
       setShowAssignModal(false);
       setAssignOperatorId('');
       await fetchQuote();
@@ -206,9 +206,14 @@ export default function QuoteDetail() {
     }
   };
 
-  const isAssignedOperator = role === 'operatore' && quote?.operatore_id === currentUser?.id;
+  const isAssignedStaff =
+    !!quote &&
+    ((role === 'operatore' && quote.operatore_id === currentUser?.id) ||
+      (role === 'fornitore' && Number(quote.fornitore_id) === Number(currentUser?.id)));
   const canAssign =
-    !!quote && (role === 'admin' || role === 'supervisore') && !isQuoteClosedForAssignment(quote.stato);
+    !!quote &&
+    (role === 'admin' || role === 'supervisore' || role === 'fornitore') &&
+    !isQuoteClosedForAssignment(quote.stato);
 
   if (loading) {
     return (
@@ -255,7 +260,7 @@ export default function QuoteDetail() {
 
         <div className="flex flex-wrap items-center gap-2">
           {/* Operator status buttons */}
-          {isAssignedOperator && quote.stato === 'ASSEGNATA' && (
+          {isAssignedStaff && quote.stato === 'ASSEGNATA' && (
             <>
               <button
                 onClick={() => handleStatusChange('IN LAVORAZIONE')}
@@ -276,7 +281,7 @@ export default function QuoteDetail() {
               </button>
             </>
           )}
-          {isAssignedOperator && quote.stato === 'IN LAVORAZIONE' && (
+          {isAssignedStaff && quote.stato === 'IN LAVORAZIONE' && (
             <>
               <button
                 type="button"
@@ -298,7 +303,7 @@ export default function QuoteDetail() {
               </button>
             </>
           )}
-          {isAssignedOperator && quote.stato === 'STANDBY' && (
+          {isAssignedStaff && quote.stato === 'STANDBY' && (
             <button
               onClick={() => handleStatusChange('IN LAVORAZIONE')}
               disabled={statusSubmitting}
@@ -322,13 +327,19 @@ export default function QuoteDetail() {
             <button
               onClick={() => {
                 setShowAssignModal(true);
-                setAssignOperatorId(quote.operatore_id ? String(quote.operatore_id) : '');
+                setAssignOperatorId(
+                  quote.operatore_id
+                    ? String(quote.operatore_id)
+                    : quote.fornitore_id
+                      ? String(quote.fornitore_id)
+                      : '',
+                );
                 setAssignError(null);
               }}
               className="btn-secondary"
             >
               <UserCheck className="h-4 w-4" />
-              {quote.operatore_id ? 'Riassegna' : 'Assegna'}
+              {quote.operatore_id || quote.fornitore_id ? 'Riassegna' : 'Assegna'}
             </button>
           )}
 
@@ -405,7 +416,7 @@ export default function QuoteDetail() {
           <TabPreventivo
             quote={quote}
             role={role}
-            isAssignedOperator={isAssignedOperator}
+            isAssignedOperator={isAssignedStaff}
             onRefresh={fetchQuote}
           />
         )}
@@ -427,14 +438,19 @@ export default function QuoteDetail() {
       />
 
       {/* Assign Modal */}
-      <Modal isOpen={showAssignModal} onClose={() => setShowAssignModal(false)} title="Assegna Operatore" size="sm">
+      <Modal
+        isOpen={showAssignModal}
+        onClose={() => setShowAssignModal(false)}
+        title={quote?.operatore_id || quote?.fornitore_id ? 'Riassegna incaricato' : 'Assegna incaricato'}
+        size="sm"
+      >
         <div className="space-y-4">
           <p className="text-sm text-gray-600">
-            Seleziona l&apos;operatore a cui assegnare il preventivo.
+            Seleziona operatore o fornitore a cui assegnare il preventivo.
           </p>
           <div>
             <label htmlFor="detail-assign-operator" className="mb-1 block text-sm font-medium text-gray-700">
-              Operatore
+              Incaricato
             </label>
             <select
               id="detail-assign-operator"
@@ -442,9 +458,11 @@ export default function QuoteDetail() {
               onChange={(e) => setAssignOperatorId(e.target.value)}
               className="input-field"
             >
-              <option value="">Seleziona operatore…</option>
-              {operators.map((o) => (
-                <option key={o.id} value={String(o.id)}>{getUserDisplayName(o)}</option>
+              <option value="">Seleziona…</option>
+              {assignees.map((o) => (
+                <option key={o.id} value={String(o.id)}>
+                  {getUserDisplayName(o)} ({o.role === 'fornitore' ? 'Fornitore' : 'Operatore'})
+                </option>
               ))}
             </select>
           </div>
@@ -521,11 +539,13 @@ function TabDati({ quote }: { quote: Quote }) {
           <InfoRow label="Tipologia" value={quote.tipo_nome} />
           <InfoRow label="Struttura" value={quote.struttura_nome} />
           <InfoRow
-            label="Operatore"
+            label="Incaricato"
             value={
               quote.operatore_id
                 ? [quote.operatore_nome, quote.operatore_cognome].filter(Boolean).join(' ')
-                : undefined
+                : quote.fornitore_id
+                  ? [quote.fornitore_nome, quote.fornitore_cognome].filter(Boolean).join(' ')
+                  : undefined
             }
           />
           <InfoRow label="Stato" value={quote.stato} />

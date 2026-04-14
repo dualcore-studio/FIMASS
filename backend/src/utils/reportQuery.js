@@ -17,6 +17,7 @@ function parseReportFilters(query) {
     data_a,
     struttura_id: parseOptionalId(query.struttura_id),
     operatore_id: parseOptionalId(query.operatore_id),
+    fornitore_id: parseOptionalId(query.fornitore_id),
   };
 }
 
@@ -29,17 +30,19 @@ function filterByCreatedRange(rows, dataDa, dataA) {
   });
 }
 
-function filterQuotesByStructureOperator(quotes, strutturaId, operatoreId) {
+function filterQuotesByStructureOperator(quotes, strutturaId, operatoreId, fornitoreId) {
   let out = quotes;
   if (strutturaId != null) out = out.filter((q) => Number(q.struttura_id) === Number(strutturaId));
   if (operatoreId != null) out = out.filter((q) => Number(q.operatore_id) === Number(operatoreId));
+  if (fornitoreId != null) out = out.filter((q) => Number(q.fornitore_id) === Number(fornitoreId));
   return out;
 }
 
-function filterPoliciesByStructureOperator(policies, strutturaId, operatoreId) {
+function filterPoliciesByStructureOperator(policies, strutturaId, operatoreId, fornitoreId) {
   let out = policies;
   if (strutturaId != null) out = out.filter((p) => Number(p.struttura_id) === Number(strutturaId));
   if (operatoreId != null) out = out.filter((p) => Number(p.operatore_id) === Number(operatoreId));
+  if (fornitoreId != null) out = out.filter((p) => Number(p.fornitore_id) === Number(fornitoreId));
   return out;
 }
 
@@ -80,7 +83,13 @@ function staffDisplayName(u) {
 }
 
 function roleLabelIt(role) {
-  const m = { admin: 'Amministratore', supervisore: 'Supervisore', operatore: 'Operatore', struttura: 'Struttura' };
+  const m = {
+    admin: 'Amministratore',
+    supervisore: 'Supervisore',
+    operatore: 'Operatore',
+    fornitore: 'Fornitore',
+    struttura: 'Struttura',
+  };
   return m[role] || role;
 }
 

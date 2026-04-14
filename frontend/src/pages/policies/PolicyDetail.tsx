@@ -106,6 +106,12 @@ export default function PolicyDetail() {
     );
   }
 
+  const canUploadAttachments =
+    role === 'admin' ||
+    role === 'supervisore' ||
+    role === 'operatore' ||
+    (role === 'fornitore' && Number(policy.fornitore_id) === Number(currentUser?.id));
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -178,7 +184,7 @@ export default function PolicyDetail() {
         {activeTab === 'dati' && <TabDati policy={policy} />}
         {activeTab === 'allegati' && (
           <TabAllegati
-            role={role}
+            canUpload={canUploadAttachments}
             policyStato={policy.stato}
             attachments={policy.attachments || []}
             uploadFile={uploadFile}
@@ -222,11 +228,13 @@ function TabDati({ policy }: { policy: Policy }) {
           <InfoRow label="Tipologia" value={policy.tipo_nome} />
           <InfoRow label="Struttura" value={policy.struttura_nome} />
           <InfoRow
-            label="Operatore"
+            label="Incaricato"
             value={
               policy.operatore_id
-                ? [policy.operatore_nome, policy.operatore_cognome].filter(Boolean).join(' ')
-                : undefined
+                ? [policy.operatore_nome, policy.operatore_cognome].filter(Boolean).join(' ') + ' (Operatore)'
+                : policy.fornitore_id
+                  ? [policy.fornitore_nome, policy.fornitore_cognome].filter(Boolean).join(' ') + ' (Fornitore)'
+                  : undefined
             }
           />
           <InfoRow label="Stato" value={policy.stato} />
@@ -293,7 +301,7 @@ function InfoRow({ label, value, mono }: { label: string; value?: string | null;
 /* ───────────── Tab: Allegati ───────────── */
 
 interface TabAllegatiProps {
-  role?: string;
+  canUpload: boolean;
   policyStato: string;
   attachments: Attachment[];
   uploadFile: File | null;
@@ -306,7 +314,7 @@ interface TabAllegatiProps {
 }
 
 function TabAllegati({
-  role,
+  canUpload,
   policyStato,
   attachments,
   uploadFile,
@@ -317,7 +325,6 @@ function TabAllegati({
   uploadError,
   onUpload,
 }: TabAllegatiProps) {
-  const canUpload = role === 'admin' || role === 'supervisore' || role === 'operatore';
   const showPolizzaTipo = policyStato === 'IN EMISSIONE' || policyStato === 'EMESSA';
 
   return (
@@ -361,7 +368,7 @@ function TabAllegati({
         </div>
       ) : (
         <div className="card p-6 text-sm text-gray-600">
-          Gli allegati vengono gestiti dalla struttura in fase di richiesta o dall&apos;operatore in gestione pratica. Puoi scaricare i documenti disponibili dalla tabella sotto.
+          Gli allegati vengono gestiti dalla struttura in fase di richiesta o dall&apos;incaricato (operatore o fornitore) in gestione pratica. Puoi scaricare i documenti disponibili dalla tabella sotto.
         </div>
       )}
 

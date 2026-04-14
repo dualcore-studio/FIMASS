@@ -9,6 +9,7 @@ const {
   validatePolicyTransition,
 } = require('../utils/policyStato');
 const { authenticateToken, authorizeRoles } = require('../middleware/auth');
+const { quoteAssigneeUserId, userIsAssignedToPolicy } = require('../utils/practiceAssignee');
 const { logActivity } = require('./logs');
 const { sendPolicyEmissionRequestedToOperatorMail } = require('../lib/resend');
 
@@ -57,6 +58,7 @@ router.get('/', authenticateToken, (req, res) => {
       data_da,
       data_a,
       alert,
+      assegnatario_id,
       sort_by: sortByParam,
       sort_dir: sortDir,
     } = req.query;
@@ -69,6 +71,10 @@ router.get('/', authenticateToken, (req, res) => {
       if (tipo_assicurazione_id) policies = policies.filter((p) => Number(p.tipo_assicurazione_id) === Number(tipo_assicurazione_id));
       if (struttura_id) policies = policies.filter((p) => Number(p.struttura_id) === Number(struttura_id));
       if (operatore_id) policies = policies.filter((p) => Number(p.operatore_id) === Number(operatore_id));
+      const assegnatarioIdNum = assegnatario_id != null && assegnatario_id !== '' ? Number(assegnatario_id) : null;
+      if (Number.isFinite(assegnatarioIdNum)) {
+        policies = policies.filter((p) => quoteAssigneeUserId(p) === assegnatarioIdNum);
+      }
       if (data_da) policies = policies.filter((p) => String(p.created_at || '') >= String(data_da));
       if (data_a) policies = policies.filter((p) => String(p.created_at || '') <= `${data_a} 23:59:59`);
       if (numero) policies = policies.filter((p) => like(p.numero, numero));
@@ -95,7 +101,7 @@ router.get('/', authenticateToken, (req, res) => {
         assistito: 'assistito_cognome',
         tipo: 'tipo_nome',
         struttura: 'struttura_nome',
-        operatore: 'operatore_cognome',
+        operatore: 'incaricato_cognome',
         stato: 'stato',
         created_at: 'created_at',
       };
@@ -115,6 +121,7 @@ router.get('/stats', authenticateToken, (req, res) => {
       let policies = ctx.policies.map((p) => enrichPolicy(p, ctx));
       if (req.user.role === 'struttura') policies = policies.filter((p) => Number(p.struttura_id) === Number(req.user.id));
       else if (req.user.role === 'operatore') policies = policies.filter((p) => Number(p.operatore_id) === Number(req.user.id));
+      else if (req.user.role === 'fornitore') policies = policies.filter((p) => Number(p.fornitore_id) === Number(req.user.id));
       const stats = {};
       const stati = ['RICHIESTA PRESENTATA', 'IN EMISSIONE', 'EMESSA'];
       stati.forEach((s) => {
@@ -142,6 +149,7 @@ router.get('/:id', authenticateToken, (req, res) => {
       if (req.user.role === 'operatore' && Number(policy.operatore_id) !== Number(req.user.id)) {
         return res.status(403).json({ error: 'Accesso non autorizzato' });
       }
+      /* fornitore: lettura su tutte le polizze (coordinamento), come elenco */
 
       const history = ctx.policy_status_history
         .filter((h) => Number(h.policy_id) === Number(req.params.id))
@@ -199,7 +207,8 @@ router.post('/', authenticateToken, authorizeRoles('struttura'), (req, res) => {
       assistito_id: quote.assistito_id,
       tipo_assicurazione_id: quote.tipo_assicurazione_id,
       struttura_id: quote.struttura_id,
-      operatore_id: quote.operatore_id,
+      operatore_id: quote.operatore_id ?? null,
+      fornitore_id: quote.fornitore_id ?? null,
       stato: 'RICHIESTA PRESENTATA',
       dati_specifici: quote.dati_specifici,
       note_struttura: note_struttura || null,
@@ -225,13 +234,14 @@ router.post('/', authenticateToken, authorizeRoles('struttura'), (req, res) => {
     const strutturaNome = req.user.denominazione || getUserDisplayName(req.user);
     const dataRichiesta = new Date().toLocaleString('it-IT', { dateStyle: 'short', timeStyle: 'short' });
 
-    if (quote.operatore_id) {
-      const operatoreUser = await getById('users', quote.operatore_id);
-      if (operatoreUser && operatoreUser.email) {
-        const operatorName = [operatoreUser.nome, operatoreUser.cognome].filter(Boolean).join(' ') || 'Operatore';
+    const assigneeUid = quoteAssigneeUserId(quote);
+    if (assigneeUid) {
+      const assigneeUser = await getById('users', assigneeUid);
+      if (assigneeUser && assigneeUser.email) {
+        const assigneeName = [assigneeUser.nome, assigneeUser.cognome].filter(Boolean).join(' ') || 'Incaricato';
         await sendPolicyEmissionRequestedToOperatorMail({
-          to: operatoreUser.email,
-          operatorName,
+          to: assigneeUser.email,
+          operatorName: assigneeName,
           policyId,
           policyNumero: numero,
           quoteId: Number(quote_id),
@@ -252,7 +262,7 @@ router.post('/', authenticateToken, authorizeRoles('struttura'), (req, res) => {
   });
 });
 
-router.put('/:id/status', authenticateToken, authorizeRoles('admin', 'supervisore', 'operatore'), (req, res) => {
+router.put('/:id/status', authenticateToken, authorizeRoles('admin', 'supervisore', 'operatore', 'fornitore'), (req, res) => {
   (async () => {
     const { stato, motivo } = req.body;
     if (!stato) return res.status(400).json({ error: 'Stato richiesto' });
@@ -261,8 +271,10 @@ router.put('/:id/status', authenticateToken, authorizeRoles('admin', 'supervisor
     const policy = await getById('policies', req.params.id);
     if (!policy) return res.status(404).json({ error: 'Polizza non trovata' });
 
-    if (req.user.role === 'operatore' && Number(policy.operatore_id) !== Number(req.user.id)) {
-      return res.status(403).json({ error: 'Accesso non autorizzato' });
+    if (req.user.role === 'operatore' || req.user.role === 'fornitore') {
+      if (!userIsAssignedToPolicy(req.user, policy)) {
+        return res.status(403).json({ error: 'Accesso non autorizzato' });
+      }
     }
 
     const transition = validatePolicyTransition(policy.stato, stato);

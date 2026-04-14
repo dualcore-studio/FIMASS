@@ -248,7 +248,9 @@ export default function UserEdit() {
         ? 'Supervisore'
         : role === 'operatore'
           ? 'Operatore'
-          : 'Struttura';
+          : role === 'fornitore'
+            ? 'Fornitore'
+            : 'Struttura';
 
   return (
     <div className="mx-auto max-w-3xl space-y-8">

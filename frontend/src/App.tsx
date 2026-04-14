@@ -19,6 +19,7 @@ import ActivityLogs from './pages/logs/ActivityLogs';
 import Settings from './pages/settings/Settings';
 import CommissionsPage from './pages/commissions/CommissionsPage';
 import CommissionForm from './pages/commissions/CommissionForm';
+import MessagesPage from './pages/messaging/MessagesPage';
 import type { ReactNode } from 'react';
 import { PortalBackgroundLayers } from './components/layout/PortalBackground';
 
@@ -72,11 +73,32 @@ function AppRoutes() {
         <Route path="assistiti" element={<AssistedList />} />
         <Route path="assistiti/:id" element={<AssistedDetail />} />
 
-        <Route path="provvigioni" element={<ProtectedRoute roles={['admin', 'struttura']}><CommissionsPage /></ProtectedRoute>} />
-        <Route path="provvigioni/nuovo" element={<ProtectedRoute roles={['admin']}><CommissionForm /></ProtectedRoute>} />
-        <Route path="provvigioni/:id/modifica" element={<ProtectedRoute roles={['admin']}><CommissionForm /></ProtectedRoute>} />
+        <Route
+          path="messaggi"
+          element={
+            <ProtectedRoute
+              roles={['admin', 'supervisore', 'operatore', 'fornitore', 'struttura']}
+            >
+              <MessagesPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="messaggi/:id"
+          element={
+            <ProtectedRoute
+              roles={['admin', 'supervisore', 'operatore', 'fornitore', 'struttura']}
+            >
+              <MessagesPage />
+            </ProtectedRoute>
+          }
+        />
 
-        <Route path="report" element={<ProtectedRoute roles={['admin', 'supervisore']}><Reports /></ProtectedRoute>} />
+        <Route path="provvigioni" element={<ProtectedRoute roles={['admin', 'fornitore', 'struttura']}><CommissionsPage /></ProtectedRoute>} />
+        <Route path="provvigioni/nuovo" element={<ProtectedRoute roles={['admin', 'fornitore']}><CommissionForm /></ProtectedRoute>} />
+        <Route path="provvigioni/:id/modifica" element={<ProtectedRoute roles={['admin', 'fornitore']}><CommissionForm /></ProtectedRoute>} />
+
+        <Route path="report" element={<ProtectedRoute roles={['admin', 'supervisore', 'fornitore']}><Reports /></ProtectedRoute>} />
         <Route path="log-attivita" element={<ProtectedRoute roles={['admin', 'supervisore']}><ActivityLogs /></ProtectedRoute>} />
         <Route path="impostazioni" element={<ProtectedRoute roles={['admin']}><Settings /></ProtectedRoute>} />
       </Route>

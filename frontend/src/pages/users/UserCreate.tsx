@@ -43,6 +43,13 @@ const ROLE_CARDS: {
     accent: 'from-amber-500/10 to-orange-600/5 ring-amber-200',
   },
   {
+    role: 'fornitore',
+    title: 'Fornitore',
+    description: 'Coordina pratiche, assegnazioni, report e provvigioni con permessi operativi dedicati.',
+    icon: UserCog,
+    accent: 'from-sky-500/10 to-cyan-600/5 ring-sky-200',
+  },
+  {
     role: 'struttura',
     title: 'Struttura',
     description: 'Account per sedi convenzionate con tipologie abilitate dedicate.',

@@ -12,16 +12,18 @@ import {
   ChevronLeft,
   ChevronRight,
   Banknote,
+  MessageSquare,
 } from 'lucide-react';
 
 const menuItems = [
-  { path: '/', label: 'Dashboard', icon: LayoutDashboard, roles: ['admin', 'supervisore', 'operatore', 'struttura'] },
+  { path: '/', label: 'Dashboard', icon: LayoutDashboard, roles: ['admin', 'supervisore', 'operatore', 'fornitore', 'struttura'] },
   { path: '/utenti', label: 'Utenti', icon: Users, roles: ['admin', 'supervisore'] },
-  { path: '/preventivi', label: 'Preventivi', icon: FileText, roles: ['admin', 'supervisore', 'operatore', 'struttura'] },
-  { path: '/polizze', label: 'Polizze', icon: Shield, roles: ['admin', 'supervisore', 'operatore', 'struttura'] },
-  { path: '/assistiti', label: 'Assistiti', icon: UserCheck, roles: ['admin', 'supervisore', 'operatore', 'struttura'] },
-  { path: '/provvigioni', label: 'Provvigioni', icon: Banknote, roles: ['admin', 'struttura'] },
-  { path: '/report', label: 'Report', icon: BarChart3, roles: ['admin', 'supervisore'] },
+  { path: '/preventivi', label: 'Preventivi', icon: FileText, roles: ['admin', 'supervisore', 'operatore', 'fornitore', 'struttura'] },
+  { path: '/polizze', label: 'Polizze', icon: Shield, roles: ['admin', 'supervisore', 'operatore', 'fornitore', 'struttura'] },
+  { path: '/assistiti', label: 'Assistiti', icon: UserCheck, roles: ['admin', 'supervisore', 'operatore', 'fornitore', 'struttura'] },
+  { path: '/messaggi', label: 'Messaggi', icon: MessageSquare, roles: ['admin', 'supervisore', 'operatore', 'fornitore', 'struttura'] },
+  { path: '/provvigioni', label: 'Provvigioni', icon: Banknote, roles: ['admin', 'fornitore', 'struttura'] },
+  { path: '/report', label: 'Report', icon: BarChart3, roles: ['admin', 'supervisore', 'fornitore'] },
   { path: '/log-attivita', label: 'Log Attività', icon: ClipboardList, roles: ['admin', 'supervisore'] },
 ];
 

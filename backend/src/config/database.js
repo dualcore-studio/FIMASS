@@ -24,7 +24,7 @@ function initializeDatabase() {
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       username TEXT UNIQUE NOT NULL,
       password TEXT NOT NULL,
-      role TEXT NOT NULL CHECK(role IN ('admin','supervisore','operatore','struttura')),
+      role TEXT NOT NULL CHECK(role IN ('admin','supervisore','operatore','fornitore','struttura')),
       nome TEXT,
       cognome TEXT,
       denominazione TEXT,
@@ -74,6 +74,7 @@ function initializeDatabase() {
       tipo_assicurazione_id INTEGER REFERENCES insurance_types(id),
       struttura_id INTEGER REFERENCES users(id),
       operatore_id INTEGER REFERENCES users(id),
+      fornitore_id INTEGER REFERENCES users(id),
       stato TEXT NOT NULL DEFAULT 'PRESENTATA' CHECK(stato IN ('PRESENTATA','ASSEGNATA','IN LAVORAZIONE','STANDBY','ELABORATA')),
       data_decorrenza TEXT,
       note_struttura TEXT,
@@ -121,6 +122,7 @@ function initializeDatabase() {
       tipo_assicurazione_id INTEGER REFERENCES insurance_types(id),
       struttura_id INTEGER REFERENCES users(id),
       operatore_id INTEGER REFERENCES users(id),
+      fornitore_id INTEGER REFERENCES users(id),
       stato TEXT NOT NULL DEFAULT 'RICHIESTA PRESENTATA' CHECK(stato IN ('RICHIESTA PRESENTATA','IN EMISSIONE','EMESSA')),
       dati_specifici TEXT,
       note_struttura TEXT,
@@ -207,6 +209,34 @@ function initializeDatabase() {
     CREATE INDEX IF NOT EXISTS idx_assisted_cf ON assisted_people(codice_fiscale);
     CREATE INDEX IF NOT EXISTS idx_commissions_structure ON commissions(structure_id);
     CREATE INDEX IF NOT EXISTS idx_commissions_date ON commissions(date);
+
+    CREATE TABLE IF NOT EXISTS conversations (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      entity_type TEXT NOT NULL CHECK(entity_type IN ('quote','policy')),
+      entity_id INTEGER NOT NULL,
+      struttura_id INTEGER NOT NULL REFERENCES users(id),
+      assignee_id INTEGER NOT NULL REFERENCES users(id),
+      assignee_role TEXT NOT NULL CHECK(assignee_role IN ('operatore','fornitore')),
+      last_message_preview TEXT,
+      last_message_at TEXT,
+      created_at TEXT DEFAULT (datetime('now')),
+      updated_at TEXT DEFAULT (datetime('now')),
+      UNIQUE(entity_type, entity_id)
+    );
+
+    CREATE TABLE IF NOT EXISTS conversation_messages (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      conversation_id INTEGER NOT NULL REFERENCES conversations(id),
+      author_id INTEGER NOT NULL REFERENCES users(id),
+      author_role TEXT NOT NULL,
+      content TEXT NOT NULL,
+      created_at TEXT DEFAULT (datetime('now')),
+      read_at TEXT
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_conversations_struttura ON conversations(struttura_id);
+    CREATE INDEX IF NOT EXISTS idx_conversations_assignee ON conversations(assignee_id);
+    CREATE INDEX IF NOT EXISTS idx_conv_messages_conversation ON conversation_messages(conversation_id);
   `);
 
   // Migrazione difensiva: DB esistenti creati prima dell'introduzione dei solleciti
@@ -291,6 +321,7 @@ function initializeDatabase() {
   }
 
   migrateCommissionTypeEnumsIfNeeded();
+  migrateFornitoreAndMessagingSqliteIfNeeded();
 }
 
 /** SQLite: estende i CHECK su enum provvigioni per DB creati prima di SPORTELLO_AMICO. */
@@ -349,7 +380,7 @@ function migrateCommissionTypeEnumsIfNeeded() {
           id INTEGER PRIMARY KEY AUTOINCREMENT,
           username TEXT UNIQUE NOT NULL,
           password TEXT NOT NULL,
-          role TEXT NOT NULL CHECK(role IN ('admin','supervisore','operatore','struttura')),
+          role TEXT NOT NULL CHECK(role IN ('admin','supervisore','operatore','fornitore','struttura')),
           nome TEXT,
           cognome TEXT,
           denominazione TEXT,
@@ -375,6 +406,96 @@ function migrateCommissionTypeEnumsIfNeeded() {
       /* ignore */
     }
     console.error('migrate users commission_type enum:', e);
+  }
+}
+
+/** Ruolo fornitore, assegnazione polizze e tabelle messaggistica (SQLite locale / seed). */
+function migrateFornitoreAndMessagingSqliteIfNeeded() {
+  try {
+    const qcols = db.prepare('PRAGMA table_info(quotes)').all();
+    if (Array.isArray(qcols) && !qcols.some((c) => c.name === 'fornitore_id')) {
+      db.exec('ALTER TABLE quotes ADD COLUMN fornitore_id INTEGER REFERENCES users(id)');
+    }
+  } catch (e) {
+    console.error('ensure quotes.fornitore_id migration:', e);
+  }
+
+  try {
+    const pcols = db.prepare('PRAGMA table_info(policies)').all();
+    if (Array.isArray(pcols) && !pcols.some((c) => c.name === 'fornitore_id')) {
+      db.exec('ALTER TABLE policies ADD COLUMN fornitore_id INTEGER REFERENCES users(id)');
+    }
+  } catch (e) {
+    console.error('ensure policies.fornitore_id migration:', e);
+  }
+
+  try {
+    const usersRow = db.prepare(`SELECT sql FROM sqlite_master WHERE type='table' AND name='users'`).get();
+    if (usersRow?.sql && !usersRow.sql.includes("'fornitore'")) {
+      db.pragma('foreign_keys = OFF');
+      db.exec(`
+        CREATE TABLE users__fornitore_new (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          username TEXT UNIQUE NOT NULL,
+          password TEXT NOT NULL,
+          role TEXT NOT NULL CHECK(role IN ('admin','supervisore','operatore','fornitore','struttura')),
+          nome TEXT,
+          cognome TEXT,
+          denominazione TEXT,
+          email TEXT NOT NULL,
+          telefono TEXT,
+          stato TEXT NOT NULL DEFAULT 'attivo' CHECK(stato IN ('attivo','disattivo')),
+          enabled_types TEXT,
+          last_login TEXT,
+          commission_type TEXT CHECK(commission_type IS NULL OR commission_type IN ('SEGNALATORE','PARTNER','SPORTELLO_AMICO')),
+          created_at TEXT DEFAULT (datetime('now')),
+          updated_at TEXT DEFAULT (datetime('now'))
+        );
+      `);
+      db.exec('INSERT INTO users__fornitore_new SELECT * FROM users');
+      db.exec('DROP TABLE users');
+      db.exec('ALTER TABLE users__fornitore_new RENAME TO users');
+      db.pragma('foreign_keys = ON');
+    }
+  } catch (e) {
+    try {
+      db.pragma('foreign_keys = ON');
+    } catch (_) {
+      /* ignore */
+    }
+    console.error('migrate users fornitore role:', e);
+  }
+
+  try {
+    db.exec(`
+      CREATE TABLE IF NOT EXISTS conversations (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        entity_type TEXT NOT NULL CHECK(entity_type IN ('quote','policy')),
+        entity_id INTEGER NOT NULL,
+        struttura_id INTEGER NOT NULL REFERENCES users(id),
+        assignee_id INTEGER NOT NULL REFERENCES users(id),
+        assignee_role TEXT NOT NULL CHECK(assignee_role IN ('operatore','fornitore')),
+        last_message_preview TEXT,
+        last_message_at TEXT,
+        created_at TEXT DEFAULT (datetime('now')),
+        updated_at TEXT DEFAULT (datetime('now')),
+        UNIQUE(entity_type, entity_id)
+      );
+      CREATE TABLE IF NOT EXISTS conversation_messages (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        conversation_id INTEGER NOT NULL REFERENCES conversations(id),
+        author_id INTEGER NOT NULL REFERENCES users(id),
+        author_role TEXT NOT NULL,
+        content TEXT NOT NULL,
+        created_at TEXT DEFAULT (datetime('now')),
+        read_at TEXT
+      );
+      CREATE INDEX IF NOT EXISTS idx_conversations_struttura ON conversations(struttura_id);
+      CREATE INDEX IF NOT EXISTS idx_conversations_assignee ON conversations(assignee_id);
+      CREATE INDEX IF NOT EXISTS idx_conv_messages_conversation ON conversation_messages(conversation_id);
+    `);
+  } catch (e) {
+    console.error('ensure conversations tables migration:', e);
   }
 }
 

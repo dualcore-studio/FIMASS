@@ -10,6 +10,7 @@ const TABS: { role: UsersListRoleFilter; label: string; countKey: UsersRoleCount
   { role: 'supervisore', label: 'Supervisore', countKey: 'supervisore' },
   { role: 'struttura', label: 'Struttura', countKey: 'struttura' },
   { role: 'operatore', label: 'Operatore', countKey: 'operatore' },
+  { role: 'fornitore', label: 'Fornitore', countKey: 'fornitore' },
 ];
 
 interface UsersRoleFilterTabsProps {

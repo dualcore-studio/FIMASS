@@ -15,18 +15,29 @@ const {
   roleLabelIt,
   dominantStrutturaId,
 } = require('../utils/reportQuery');
+const { quoteAssigneeUserId, practiceHasAssignee } = require('../utils/practiceAssignee');
 
 const router = express.Router();
 
 function baseFilteredSets(ctx, filters) {
   let quotes = filterByCreatedRange(ctx.quotes, filters.data_da, filters.data_a);
   let policies = filterByCreatedRange(ctx.policies, filters.data_da, filters.data_a);
-  quotes = filterQuotesByStructureOperator(quotes, filters.struttura_id, filters.operatore_id);
-  policies = filterPoliciesByStructureOperator(policies, filters.struttura_id, filters.operatore_id);
+  quotes = filterQuotesByStructureOperator(
+    quotes,
+    filters.struttura_id,
+    filters.operatore_id,
+    filters.fornitore_id,
+  );
+  policies = filterPoliciesByStructureOperator(
+    policies,
+    filters.struttura_id,
+    filters.operatore_id,
+    filters.fornitore_id,
+  );
   return { quotes, policies };
 }
 
-router.get('/overview', authenticateToken, authorizeRoles('admin', 'supervisore'), (req, res) => {
+router.get('/overview', authenticateToken, authorizeRoles('admin', 'supervisore', 'fornitore'), (req, res) => {
   (async () => {
     try {
       const filters = parseReportFilters(req.query);
@@ -52,7 +63,7 @@ router.get('/overview', authenticateToken, authorizeRoles('admin', 'supervisore'
   })();
 });
 
-router.get('/by-type', authenticateToken, authorizeRoles('admin', 'supervisore'), (req, res) => {
+router.get('/by-type', authenticateToken, authorizeRoles('admin', 'supervisore', 'fornitore'), (req, res) => {
   (async () => {
     try {
       const filters = parseReportFilters(req.query);
@@ -78,7 +89,7 @@ router.get('/by-type', authenticateToken, authorizeRoles('admin', 'supervisore')
   })();
 });
 
-router.get('/preventivi-by-structure', authenticateToken, authorizeRoles('admin', 'supervisore'), (req, res) => {
+router.get('/preventivi-by-structure', authenticateToken, authorizeRoles('admin', 'supervisore', 'fornitore'), (req, res) => {
   (async () => {
     try {
       const filters = parseReportFilters(req.query);
@@ -110,7 +121,7 @@ router.get('/preventivi-by-structure', authenticateToken, authorizeRoles('admin'
   })();
 });
 
-router.get('/polizze-by-structure', authenticateToken, authorizeRoles('admin', 'supervisore'), (req, res) => {
+router.get('/polizze-by-structure', authenticateToken, authorizeRoles('admin', 'supervisore', 'fornitore'), (req, res) => {
   (async () => {
     try {
       const filters = parseReportFilters(req.query);
@@ -140,7 +151,7 @@ router.get('/polizze-by-structure', authenticateToken, authorizeRoles('admin', '
   })();
 });
 
-router.get('/user-activity', authenticateToken, authorizeRoles('admin', 'supervisore'), (req, res) => {
+router.get('/user-activity', authenticateToken, authorizeRoles('admin', 'supervisore', 'fornitore'), (req, res) => {
   (async () => {
     try {
       const filters = parseReportFilters(req.query);
@@ -148,20 +159,23 @@ router.get('/user-activity', authenticateToken, authorizeRoles('admin', 'supervi
       const { quotes, policies } = baseFilteredSets(ctx, filters);
       const policiesEnr = policies.map((p) => enrichPolicy(p, ctx));
 
-      let staff = ctx.users.filter((u) => ['admin', 'supervisore', 'operatore'].includes(u.role));
+      let staff = ctx.users.filter((u) => ['admin', 'supervisore', 'operatore', 'fornitore'].includes(u.role));
       if (filters.operatore_id != null) {
         staff = staff.filter((u) => Number(u.id) === Number(filters.operatore_id));
+      }
+      if (filters.fornitore_id != null) {
+        staff = staff.filter((u) => Number(u.id) === Number(filters.fornitore_id));
       }
 
       const rows = staff
         .map((u) => {
-          const qUser = quotes.filter((x) => Number(x.operatore_id) === Number(u.id));
+          const qUser = quotes.filter((x) => quoteAssigneeUserId(x) === Number(u.id));
           const presiInCarico = qUser.filter((x) => {
             const s = quoteStatoNorm(x);
             return s && s !== 'PRESENTATA';
           }).length;
           const elaborati = qUser.filter((x) => quoteStatoNorm(x) === 'ELABORATA').length;
-          const polUser = policiesEnr.filter((x) => Number(x.operatore_id) === Number(u.id));
+          const polUser = policiesEnr.filter((x) => quoteAssigneeUserId(x) === Number(u.id));
           const polizzeGestite = polUser.length;
           const strutturaId = dominantStrutturaId([...qUser, ...polUser]);
           const strutturaNome = strutturaId != null ? structureLabel(ctx.usersById.get(Number(strutturaId)) || {}) : null;
@@ -189,7 +203,7 @@ router.get('/user-activity', authenticateToken, authorizeRoles('admin', 'supervi
   })();
 });
 
-router.get('/timeline', authenticateToken, authorizeRoles('admin', 'supervisore'), (req, res) => {
+router.get('/timeline', authenticateToken, authorizeRoles('admin', 'supervisore', 'fornitore'), (req, res) => {
   (async () => {
     try {
       const filters = parseReportFilters(req.query);
@@ -234,7 +248,7 @@ router.get('/timeline', authenticateToken, authorizeRoles('admin', 'supervisore'
   })();
 });
 
-router.get('/export', authenticateToken, authorizeRoles('admin', 'supervisore'), (req, res) => {
+router.get('/export', authenticateToken, authorizeRoles('admin', 'supervisore', 'fornitore'), (req, res) => {
   (async () => {
     try {
       const filters = parseReportFilters(req.query);
@@ -351,7 +365,7 @@ router.get('/export', authenticateToken, authorizeRoles('admin', 'supervisore'),
 });
 
 /** @deprecated Risposta ridotta per client legacy; preferire /preventivi-by-structure */
-router.get('/by-structure', authenticateToken, authorizeRoles('admin', 'supervisore'), (req, res) => {
+router.get('/by-structure', authenticateToken, authorizeRoles('admin', 'supervisore', 'fornitore'), (req, res) => {
   (async () => {
     try {
       const filters = parseReportFilters(req.query);
@@ -378,16 +392,16 @@ router.get('/by-structure', authenticateToken, authorizeRoles('admin', 'supervis
 });
 
 /** @deprecated Usare /user-activity */
-router.get('/by-operator', authenticateToken, authorizeRoles('admin', 'supervisore'), (req, res) => {
+router.get('/by-operator', authenticateToken, authorizeRoles('admin', 'supervisore', 'fornitore'), (req, res) => {
   (async () => {
     try {
       const filters = parseReportFilters(req.query);
       const ctx = await loadContext();
       const { quotes } = baseFilteredSets(ctx, filters);
       const rows = ctx.users
-        .filter((u) => u.role === 'operatore')
+        .filter((u) => u.role === 'operatore' || u.role === 'fornitore')
         .map((u) => {
-          const q = quotes.filter((x) => Number(x.operatore_id) === Number(u.id));
+          const q = quotes.filter((x) => quoteAssigneeUserId(x) === Number(u.id));
           return {
             operatore: `${u.nome || ''} ${u.cognome || ''}`.trim(),
             totali: q.length,
@@ -405,12 +419,12 @@ router.get('/by-operator', authenticateToken, authorizeRoles('admin', 'superviso
   })();
 });
 
-router.get('/alerts', authenticateToken, authorizeRoles('admin', 'supervisore'), (req, res) => {
+router.get('/alerts', authenticateToken, authorizeRoles('admin', 'supervisore', 'fornitore'), (req, res) => {
   (async () => {
     try {
       const quotes = await list('quotes');
       const daysAgo = (d) => new Date(Date.now() - d * 86400000).toISOString().slice(0, 19).replace('T', ' ');
-      const unassigned = quotes.filter((q) => quoteStatoNorm(q) === 'PRESENTATA' && q.operatore_id == null).length;
+      const unassigned = quotes.filter((q) => quoteStatoNorm(q) === 'PRESENTATA' && !practiceHasAssignee(q)).length;
       const standbyLong = quotes.filter((q) => quoteStatoNorm(q) === 'STANDBY' && String(q.updated_at || '') <= daysAgo(7)).length;
       const ctx = await loadContext();
       const enriched = ctx.policies.map((p) => enrichPolicy(p, ctx));

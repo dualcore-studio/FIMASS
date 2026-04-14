@@ -40,7 +40,7 @@ function buildQuery(params: {
   if (params.stato) qs.set('stato', params.stato);
   if (params.tipo) qs.set('tipo_assicurazione_id', params.tipo);
   if (params.struttura) qs.set('struttura_id', params.struttura);
-  if (params.operatore) qs.set('operatore_id', params.operatore);
+  if (params.operatore) qs.set('assegnatario_id', params.operatore);
   if (params.numero.trim()) qs.set('numero', params.numero.trim());
   if (params.assistito.trim()) qs.set('assistito', params.assistito.trim());
   if (params.dataDa) qs.set('data_da', params.dataDa);
@@ -89,16 +89,16 @@ export default function PoliciesList() {
 
   const [insuranceTypes, setInsuranceTypes] = useState<InsuranceType[]>([]);
   const [structures, setStructures] = useState<StructureOption[]>([]);
-  const [operators, setOperators] = useState<User[]>([]);
+  const [assignees, setAssignees] = useState<User[]>([]);
   const [actionError, setActionError] = useState<string | null>(null);
 
   const tableSort = useListTableSort();
 
   useEffect(() => {
     api.get<InsuranceType[]>('/settings/insurance-types/active').then(setInsuranceTypes).catch(() => {});
-    if (role === 'admin' || role === 'supervisore') {
+       if (role === 'admin' || role === 'supervisore' || role === 'fornitore') {
       api.get<StructureOption[]>('/users/structures').then(setStructures).catch(() => {});
-      api.get<User[]>('/users/operators').then(setOperators).catch(() => {});
+      api.get<User[]>('/users/assignees').then(setAssignees).catch(() => {});
     }
   }, [role]);
 
@@ -177,7 +177,7 @@ export default function PoliciesList() {
   useSyncPageToTotalPages(page, result?.totalPages, setPage);
 
   const rows = result?.data ?? [];
-  const canFilterStruttura = role === 'admin' || role === 'supervisore';
+  const canFilterStruttura = role === 'admin' || role === 'supervisore' || role === 'fornitore';
 
   const tf = 'input-field h-9 w-full min-w-0 py-1.5 text-sm';
 
@@ -250,16 +250,19 @@ export default function PoliciesList() {
                   ))}
                 </select>
               </FilterCell>
-              <FilterCell id="filter-operatore-pol" label="Operatore">
+              <FilterCell id="filter-operatore-pol" label="Incaricato">
                 <select
                   id="filter-operatore-pol"
                   value={operatoreFilter}
                   onChange={(e) => setOperatoreFilter(e.target.value)}
                   className={tf}
                 >
-                  <option value="">Tutti gli operatori</option>
-                  {operators.map((o) => (
-                    <option key={o.id} value={String(o.id)}>{getUserDisplayName(o)}</option>
+                  <option value="">Tutti gli incaricati</option>
+                  {assignees.map((o) => (
+                    <option key={o.id} value={String(o.id)}>
+                      {getUserDisplayName(o)}
+                      {o.role === 'fornitore' ? ' (Fornitore)' : ' (Operatore)'}
+                    </option>
                   ))}
                 </select>
               </FilterCell>
@@ -369,7 +372,7 @@ export default function PoliciesList() {
                     direction={tableSort.sortDir}
                     onRequestSort={tableSort.requestSort}
                   >
-                    Operatore
+                    Incaricato
                   </SortableTh>
                   <SortableTh
                     sortKey="created_at"
@@ -424,7 +427,9 @@ export default function PoliciesList() {
                       <td className="px-4 py-3 text-gray-600">
                         {p.operatore_id
                           ? [p.operatore_nome, p.operatore_cognome].filter(Boolean).join(' ')
-                          : <span className="text-gray-400 italic">—</span>}
+                          : p.fornitore_id
+                            ? [p.fornitore_nome, p.fornitore_cognome].filter(Boolean).join(' ')
+                            : <span className="text-gray-400 italic">Non assegnato</span>}
                       </td>
                       <td className="px-4 py-3 whitespace-nowrap text-gray-600">
                         {formatDate(p.created_at)}

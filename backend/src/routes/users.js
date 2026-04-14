@@ -68,12 +68,28 @@ router.get('/operators', authenticateToken, authorizeRoles('admin', 'supervisore
   (async () => {
     const operators = (await list('users', (u) => u.role === 'operatore' && u.stato === 'attivo'))
       .sort((a, b) => `${a.cognome || ''} ${a.nome || ''}`.localeCompare(`${b.cognome || ''} ${b.nome || ''}`, 'it'))
-      .map((u) => ({ id: u.id, nome: u.nome, cognome: u.cognome, email: u.email }));
+      .map((u) => ({ id: u.id, nome: u.nome, cognome: u.cognome, email: u.email, role: 'operatore' }));
     res.json(operators);
   })();
 });
 
-router.get('/structures', authenticateToken, authorizeRoles('admin', 'supervisore', 'operatore'), (req, res) => {
+/** Operatori e fornitori attivi — per assegnazione preventivi. */
+router.get('/assignees', authenticateToken, authorizeRoles('admin', 'supervisore', 'fornitore'), (req, res) => {
+  (async () => {
+    const assignees = (await list('users', (u) => (u.role === 'operatore' || u.role === 'fornitore') && u.stato === 'attivo'))
+      .sort((a, b) => `${a.cognome || ''} ${a.nome || ''}`.localeCompare(`${b.cognome || ''} ${b.nome || ''}`, 'it'))
+      .map((u) => ({
+        id: u.id,
+        nome: u.nome,
+        cognome: u.cognome,
+        email: u.email,
+        role: u.role,
+      }));
+    res.json(assignees);
+  })();
+});
+
+router.get('/structures', authenticateToken, authorizeRoles('admin', 'supervisore', 'operatore', 'fornitore'), (req, res) => {
   (async () => {
     const structures = (await list('users', (u) => u.role === 'struttura' && u.stato === 'attivo'))
       .sort((a, b) => String(a.denominazione || '').localeCompare(String(b.denominazione || ''), 'it'))

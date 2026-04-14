@@ -97,6 +97,7 @@ export default function CommissionsPage() {
   const { user } = useAuth();
   const isAdmin = user?.role === 'admin';
   const isStruttura = user?.role === 'struttura';
+  const isFullAccess = isAdmin || user?.role === 'fornitore';
 
   const [page, setPage] = useState(1);
   const [searchInput, setSearchInput] = useState('');
@@ -126,12 +127,12 @@ export default function CommissionsPage() {
   }, [searchInput]);
 
   useEffect(() => {
-    if (!isAdmin) return;
+    if (!isFullAccess) return;
     api
       .get<StructureOption[]>('/users/structures')
       .then(setStructures)
       .catch(() => {});
-  }, [isAdmin]);
+  }, [isFullAccess]);
 
   useEffect(() => {
     setPage(1);
@@ -144,7 +145,7 @@ export default function CommissionsPage() {
       const qs = buildQuery({
         page,
         search: debouncedSearch,
-        structureId: isAdmin ? structureFilter : '',
+        structureId: isFullAccess ? structureFilter : '',
         company: companyFilter,
         portal: portalFilter,
         dataDa,
@@ -170,7 +171,7 @@ export default function CommissionsPage() {
     dataAl,
     tableSort.sortBy,
     tableSort.sortDir,
-    isAdmin,
+    isFullAccess,
   ]);
 
   useEffect(() => {
@@ -189,7 +190,7 @@ export default function CommissionsPage() {
     try {
       const endpoint = buildExportPdfQuery({
         search: debouncedSearch,
-        structureId: isAdmin ? structureFilter : '',
+        structureId: isFullAccess ? structureFilter : '',
         company: companyFilter,
         portal: portalFilter,
         dataDa,
@@ -223,22 +224,22 @@ export default function CommissionsPage() {
 
   const tf = 'input-field h-9 w-full min-w-0 py-1.5 text-sm';
 
-  if (!isAdmin && !isStruttura) return null;
+  if (!isFullAccess && !isStruttura) return null;
 
   return (
     <div className="space-y-6">
       <header className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
         <div>
           <h1 className="text-2xl font-bold tracking-tight text-gray-900">
-            {isAdmin ? 'Provvigioni' : 'Le tue provvigioni'}
+            {isFullAccess ? 'Provvigioni' : 'Le tue provvigioni'}
           </h1>
           <p className="mt-1 max-w-2xl text-sm text-gray-600">
-            {isAdmin
+            {isFullAccess
               ? 'Registrazione manuale delle polizze emesse con dati economici e calcolo automatico delle quote struttura.'
               : 'Elenco delle provvigioni registrate per la tua struttura.'}
           </p>
         </div>
-        {isAdmin ? (
+        {isFullAccess ? (
           <Link to="/provvigioni/nuovo" className="btn-primary inline-flex items-center gap-2 self-start">
             <Plus className="h-4 w-4" />
             Nuova provvigione
@@ -251,7 +252,7 @@ export default function CommissionsPage() {
       ) : null}
 
       {summary ? (
-        isAdmin ? (
+        isFullAccess ? (
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
             <SummaryCard title="Totale polizze" value={String(summary.totale_polizze)} accent="slate" />
             <SummaryCard title="Totale premi" value={formatEuro(summary.totale_premi)} accent="blue" />
@@ -289,7 +290,7 @@ export default function CommissionsPage() {
               className={tf}
             />
           </div>
-          {isAdmin ? (
+          {isFullAccess ? (
             <div className="flex min-w-[9rem] w-full flex-1 flex-col gap-px lg:min-w-0">
               <label htmlFor="comm-struttura" className="whitespace-nowrap text-[11px] font-normal text-gray-600">
                 Struttura
@@ -389,7 +390,7 @@ export default function CommissionsPage() {
                   >
                     N. Polizza
                   </SortableTh>
-                  {isAdmin ? (
+                  {isFullAccess ? (
                     <SortableTh
                       sortKey="structure_name"
                       activeKey={tableSort.sortBy}
@@ -413,7 +414,7 @@ export default function CommissionsPage() {
                   >
                     Premio
                   </SortableTh>
-                  {isAdmin ? (
+                  {isFullAccess ? (
                     <SortableTh
                       sortKey="client_invoice"
                       activeKey={tableSort.sortBy}
@@ -423,7 +424,7 @@ export default function CommissionsPage() {
                       Fattura cliente
                     </SortableTh>
                   ) : null}
-                  {isAdmin ? (
+                  {isFullAccess ? (
                     <SortableTh
                       sortKey="sportello_amico_commission"
                       activeKey={tableSort.sortBy}
@@ -434,22 +435,22 @@ export default function CommissionsPage() {
                     </SortableTh>
                   ) : null}
                   <th className="px-4 py-3 font-semibold text-gray-700">Tipo</th>
-                  {isAdmin ? <th className="px-4 py-3 font-semibold text-gray-700">%</th> : null}
+                  {isFullAccess ? <th className="px-4 py-3 font-semibold text-gray-700">%</th> : null}
                   <SortableTh
                     sortKey="structure_commission_amount"
                     activeKey={tableSort.sortBy}
                     direction={tableSort.sortDir}
                     onRequestSort={tableSort.requestSort}
                   >
-                    {isAdmin ? 'Prov. struttura' : 'La tua provvigione'}
+                    {isFullAccess ? 'Prov. struttura' : 'La tua provvigione'}
                   </SortableTh>
-                  {isAdmin ? <th className="px-4 py-3 text-right font-semibold text-gray-700">Azioni</th> : null}
+                  {isFullAccess ? <th className="px-4 py-3 text-right font-semibold text-gray-700">Azioni</th> : null}
                 </tr>
               </thead>
               <tbody>
                 {rows.length === 0 ? (
                   <tr>
-                    <td colSpan={isAdmin ? 13 : 8} className="px-4 py-12 text-center text-gray-500">
+                    <td colSpan={isFullAccess ? 13 : 8} className="px-4 py-12 text-center text-gray-500">
                       Nessuna provvigione con i filtri selezionati.
                     </td>
                   </tr>
@@ -459,16 +460,16 @@ export default function CommissionsPage() {
                       <td className="whitespace-nowrap px-4 py-3 text-gray-700">{formatDate(r.date)}</td>
                       <td className="px-4 py-3 font-medium text-gray-900">{r.customer_name}</td>
                       <td className="px-4 py-3 font-mono text-xs text-gray-800">{r.policy_number}</td>
-                      {isAdmin ? (
+                      {isFullAccess ? (
                         <td className="px-4 py-3 text-gray-700">{r.structure_name ?? '—'}</td>
                       ) : null}
                       <td className="px-4 py-3 text-gray-700">{r.portal ?? '—'}</td>
                       <td className="px-4 py-3 text-gray-700">{r.company ?? '—'}</td>
                       <td className="whitespace-nowrap px-4 py-3 text-gray-800">{formatEuro(r.policy_premium)}</td>
-                      {isAdmin ? (
+                      {isFullAccess ? (
                         <td className="whitespace-nowrap px-4 py-3 text-gray-800">{formatEuro(r.client_invoice)}</td>
                       ) : null}
-                      {isAdmin ? (
+                      {isFullAccess ? (
                         <td className="whitespace-nowrap px-4 py-3 text-gray-800">{formatEuro(r.sportello_amico_commission)}</td>
                       ) : null}
                       <td className="px-4 py-3">
@@ -476,13 +477,13 @@ export default function CommissionsPage() {
                           {getCommissionTypeLabel(r.structure_commission_type)}
                         </span>
                       </td>
-                      {isAdmin ? (
+                      {isFullAccess ? (
                         <td className="whitespace-nowrap px-4 py-3 text-gray-800">{r.structure_commission_percentage}%</td>
                       ) : null}
                       <td className="whitespace-nowrap px-4 py-3 font-semibold text-gray-900">
                         {formatEuro(r.structure_commission_amount)}
                       </td>
-                      {isAdmin ? (
+                      {isFullAccess ? (
                         <td className="px-4 py-3">
                           <div className="flex flex-wrap items-center justify-end gap-1">
                             <Link

@@ -28,6 +28,12 @@ function buildPolicyUrl(policyId) {
   return `${appUrl}/polizze/${policyId}`;
 }
 
+function buildMessagesConversationUrl(conversationId) {
+  const { appUrl } = getMailEnv();
+  if (!appUrl || conversationId == null) return null;
+  return `${appUrl}/messaggi/${conversationId}`;
+}
+
 function emailShell(title, innerHtml) {
   return `<!DOCTYPE html>
 <html lang="it">
@@ -278,6 +284,57 @@ async function sendQuoteStatusChangeToStructureMail({
 /**
  * Notifica admin: nuova pratica preventivo presentata da una struttura.
  */
+/**
+ * Notifica nuovo messaggio in-app (sezione Messaggi).
+ */
+async function sendPortalMessageNotificationMail({
+  to,
+  recipientName,
+  senderName,
+  practiceKindIt,
+  practiceNumero,
+  practiceId,
+  entityType,
+  conversationId,
+  preview,
+}) {
+  try {
+    const convUrl = buildMessagesConversationUrl(conversationId);
+    const practiceUrl =
+      entityType === 'policy' ? buildPolicyUrl(practiceId) : buildPracticeUrl(practiceId);
+    const linkBlock = convUrl
+      ? `<p style="margin:20px 0 0;"><a href="${escapeHtml(convUrl)}" style="display:inline-block;background:#0f172a;color:#f8fafc;text-decoration:none;padding:10px 18px;border-radius:6px;font-weight:600;">Apri la conversazione nel portale</a></p>`
+      : '';
+    const practiceLink = practiceUrl
+      ? `<p style="margin:8px 0 0;"><a href="${escapeHtml(practiceUrl)}" style="color:#0f172a;font-weight:600;">Apri la pratica</a></p>`
+      : '';
+    const previewBlock =
+      preview && String(preview).trim()
+        ? `<p style="margin:16px 0 0;padding:12px;background:#f8fafc;border-radius:6px;border:1px solid #e2e8f0;"><strong>Anteprima</strong><br/><span style="white-space:pre-wrap;">${escapeHtml(String(preview).trim())}</span></p>`
+        : '';
+    const inner = `
+      <p style="margin:0 0 16px;">Gentile <strong>${escapeHtml(recipientName)}</strong>,</p>
+      <p style="margin:0 0 16px;">hai ricevuto un <strong>nuovo messaggio</strong> su FIMASS da <strong>${escapeHtml(senderName)}</strong>.</p>
+      <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="border-collapse:collapse;">
+        ${row('Tipo pratica', practiceKindIt)}
+        ${row('Numero pratica', practiceNumero)}
+        ${row('Riferimento ID', String(practiceId))}
+      </table>
+      ${previewBlock}
+      ${linkBlock}
+      ${practiceLink}
+    `;
+    const html = emailShell('Nuovo messaggio nel portale', inner);
+    await sendHtmlEmail({
+      to,
+      subject: `Nuovo messaggio — ${practiceKindIt} ${practiceNumero} — FIMASS`,
+      html,
+    });
+  } catch (err) {
+    console.error('[FIMASS email] sendPortalMessageNotificationMail:', err);
+  }
+}
+
 async function sendQuotePresentedByStructureToAdminMail({
   to,
   adminName,
@@ -321,8 +378,10 @@ module.exports = {
   getMailEnv,
   buildPracticeUrl,
   buildPolicyUrl,
+  buildMessagesConversationUrl,
   sendQuoteAssignedToOperatorMail,
   sendQuoteStatusChangeToStructureMail,
   sendPolicyEmissionRequestedToOperatorMail,
   sendQuotePresentedByStructureToAdminMail,
+  sendPortalMessageNotificationMail,
 };

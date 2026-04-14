@@ -15,6 +15,8 @@ export default function Dashboard() {
       return <SupervisorDashboard />;
     case 'operatore':
       return <OperatorDashboard />;
+    case 'fornitore':
+      return <OperatorDashboard />;
     case 'struttura':
       return <StructureDashboard />;
     default:

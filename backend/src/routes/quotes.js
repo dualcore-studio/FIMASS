@@ -16,6 +16,8 @@ const {
 const { pipeQuoteSummaryPdf } = require('../lib/quoteSummaryPdf');
 const { sendAttachmentDownload } = require('../lib/attachmentDownload');
 const { isInsuranceTypeActive, strutturaCanUseInsuranceType } = require('../lib/insuranceTypes');
+const { quoteAssigneeUserId, userIsAssignedToQuote, practiceHasAssignee } = require('../utils/practiceAssignee');
+const { syncConversationsForQuoteAssignment, syncConversationsForPolicyAssignment } = require('../services/messagingSync');
 
 const ALLOWED_QUOTE_STATI = new Set(['PRESENTATA', 'ASSEGNATA', 'IN LAVORAZIONE', 'STANDBY', 'ELABORATA']);
 
@@ -103,6 +105,7 @@ router.get('/', authenticateToken, (req, res) => {
       data_a,
       assegnata,
       alert,
+      assegnatario_id,
       sort_by: sortByParam,
       sort_dir: sortDir,
     } = req.query;
@@ -115,12 +118,18 @@ router.get('/', authenticateToken, (req, res) => {
       if (tipo_assicurazione_id) quotes = quotes.filter((q) => Number(q.tipo_assicurazione_id) === Number(tipo_assicurazione_id));
       if (struttura_id) quotes = quotes.filter((q) => Number(q.struttura_id) === Number(struttura_id));
       if (operatore_id) quotes = quotes.filter((q) => Number(q.operatore_id) === Number(operatore_id));
+      const assegnatarioIdNum = assegnatario_id != null && assegnatario_id !== '' ? Number(assegnatario_id) : null;
+      if (Number.isFinite(assegnatarioIdNum)) {
+        quotes = quotes.filter((q) => quoteAssigneeUserId(q) === assegnatarioIdNum);
+      }
       if (data_da) quotes = quotes.filter((q) => String(q.created_at || '') >= String(data_da));
       if (data_a) quotes = quotes.filter((q) => String(q.created_at || '') <= `${data_a} 23:59:59`);
-      if (assegnata === 'si') quotes = quotes.filter((q) => q.operatore_id != null);
-      if (assegnata === 'no') quotes = quotes.filter((q) => q.operatore_id == null);
+      if (assegnata === 'si') quotes = quotes.filter((q) => practiceHasAssignee(q));
+      if (assegnata === 'no') quotes = quotes.filter((q) => !practiceHasAssignee(q));
       const daysAgo = (d) => new Date(Date.now() - d * 86400000).toISOString().slice(0, 19).replace('T', ' ');
-      if (alert === 'unassigned') quotes = quotes.filter((q) => q.stato === 'PRESENTATA' && q.operatore_id == null);
+      if (alert === 'unassigned') {
+        quotes = quotes.filter((q) => q.stato === 'PRESENTATA' && !practiceHasAssignee(q));
+      }
       if (alert === 'standby_long') quotes = quotes.filter((q) => q.stato === 'STANDBY' && String(q.updated_at || '') <= daysAgo(7));
       if (alert === 'stale_quotes') quotes = quotes.filter((q) => ['ASSEGNATA', 'IN LAVORAZIONE'].includes(q.stato) && String(q.updated_at || '') <= daysAgo(7));
       if (numero) quotes = quotes.filter((q) => like(q.numero, numero));
@@ -133,7 +142,16 @@ router.get('/', authenticateToken, (req, res) => {
         );
       }
       if (search) quotes = quotes.filter((q) => like(q.numero, search) || like(q.assistito_nome, search) || like(q.assistito_cognome, search) || like(q.assistito_cf, search));
-      const sortMap = { numero: 'numero', assistito: 'assistito_cognome', tipo: 'tipo_nome', struttura: 'struttura_nome', operatore: 'operatore_cognome', stato: 'stato', created_at: 'created_at', data_decorrenza: 'data_decorrenza' };
+      const sortMap = {
+        numero: 'numero',
+        assistito: 'assistito_cognome',
+        tipo: 'tipo_nome',
+        struttura: 'struttura_nome',
+        operatore: 'incaricato_cognome',
+        stato: 'stato',
+        created_at: 'created_at',
+        data_decorrenza: 'data_decorrenza',
+      };
       quotes = sortQuotesForList(quotes, sortByParam, sortDir || 'desc', sortMap);
       quotes = quotes.map((q) => {
         const prevAtts = ctx.attachments.filter(
@@ -160,6 +178,7 @@ router.get('/stats', authenticateToken, (req, res) => {
       let quotes = await list('quotes');
       if (req.user.role === 'struttura') quotes = quotes.filter((q) => Number(q.struttura_id) === Number(req.user.id));
       else if (req.user.role === 'operatore') quotes = quotes.filter((q) => Number(q.operatore_id) === Number(req.user.id));
+      else if (req.user.role === 'fornitore') quotes = quotes.filter((q) => Number(q.fornitore_id) === Number(req.user.id));
       const stats = {};
       const stati = ['PRESENTATA', 'ASSEGNATA', 'IN LAVORAZIONE', 'STANDBY', 'ELABORATA'];
       stati.forEach((s) => { stats[s] = quotes.filter((q) => q.stato === s).length; });
@@ -208,9 +227,10 @@ async function insertQuoteReminder(quoteId, req, res) {
   const quote = await getById('quotes', quoteId);
   if (!quote) return res.status(404).json({ error: 'Preventivo non trovato' });
   if (quote.stato !== 'IN LAVORAZIONE') return res.status(400).json({ error: 'Il sollecito è disponibile solo per pratiche in lavorazione' });
-  if (!quote.operatore_id) return res.status(400).json({ error: 'La pratica non ha un operatore assegnato' });
+  const targetId = quoteAssigneeUserId(quote);
+  if (!targetId) return res.status(400).json({ error: 'La pratica non ha un incaricato assegnato' });
   try {
-    await insert('quote_reminders', { quote_id: quote.id, operatore_id: quote.operatore_id, created_by: req.user.id, read_at: null });
+    await insert('quote_reminders', { quote_id: quote.id, operatore_id: targetId, created_by: req.user.id, read_at: null });
     await logActivity({
       utente_id: req.user.id,
       utente_nome: getUserDisplayName(req.user),
@@ -250,7 +270,7 @@ router.post('/:id/reminders', authenticateToken, authorizeRoles('admin', 'superv
   })();
 });
 
-router.get('/reminders/mine', authenticateToken, authorizeRoles('operatore'), (req, res) => {
+router.get('/reminders/mine', authenticateToken, authorizeRoles('operatore', 'fornitore'), (req, res) => {
   (async () => {
     try {
       const ctx = await loadContext();
@@ -274,7 +294,7 @@ router.get('/reminders/mine', authenticateToken, authorizeRoles('operatore'), (r
   })();
 });
 
-router.put('/reminders/:id/read', authenticateToken, authorizeRoles('operatore'), (req, res) => {
+router.put('/reminders/:id/read', authenticateToken, authorizeRoles('operatore', 'fornitore'), (req, res) => {
   (async () => {
     try {
       const reminder = await getById('quote_reminders', req.params.id);
@@ -324,6 +344,8 @@ router.get('/:id/summary-pdf', authenticateToken, (req, res) => {
         if (Number(quote.operatore_id) !== Number(req.user.id)) {
           return res.status(403).json({ error: 'Accesso non autorizzato' });
         }
+      } else if (req.user.role === 'fornitore') {
+        /* stesso accesso analitico del supervisore al PDF riepilogo */
       } else if (req.user.role !== 'admin' && req.user.role !== 'supervisore') {
         return res.status(403).json({ error: 'Accesso non autorizzato' });
       }
@@ -351,6 +373,9 @@ router.get('/:id/preventivo-finale', authenticateToken, (req, res) => {
         return res.status(403).json({ error: 'Accesso non autorizzato' });
       }
       if (req.user.role === 'operatore' && Number(quote.operatore_id) !== Number(req.user.id)) {
+        return res.status(403).json({ error: 'Accesso non autorizzato' });
+      }
+      if (req.user.role === 'fornitore' && Number(quote.fornitore_id) !== Number(req.user.id)) {
         return res.status(403).json({ error: 'Accesso non autorizzato' });
       }
       if (req.user.role === 'struttura' && quote.stato !== 'ELABORATA') {
@@ -385,6 +410,7 @@ router.get('/:id', authenticateToken, (req, res) => {
       const quote = enrichQuote(row, ctx);
       if (req.user.role === 'struttura' && Number(quote.struttura_id) !== Number(req.user.id)) return res.status(403).json({ error: 'Accesso non autorizzato' });
       if (req.user.role === 'operatore' && Number(quote.operatore_id) !== Number(req.user.id)) return res.status(403).json({ error: 'Accesso non autorizzato' });
+      /* fornitore: visibilità elenco completa, dettaglio su tutte le pratiche */
       const history = ctx.quote_status_history
         .filter((h) => Number(h.quote_id) === Number(row.id))
         .map((h) => {
@@ -548,11 +574,19 @@ router.post('/', authenticateToken, authorizeRoles('struttura'), (req, res) => {
   });
 });
 
-router.put('/:id/assign', authenticateToken, authorizeRoles('supervisore', 'admin'), (req, res) => {
+router.put('/:id/assign', authenticateToken, authorizeRoles('supervisore', 'admin', 'fornitore'), (req, res) => {
   (async () => {
-    const operatoreIdNum = Number(req.body.operatore_id);
-    const { operatore_id } = req.body;
-    if (!operatore_id || Number.isNaN(operatoreIdNum)) return res.status(400).json({ error: 'Operatore richiesto' });
+    let assigneeIdNum =
+      req.body.assigned_user_id != null && req.body.assigned_user_id !== ''
+        ? Number(req.body.assigned_user_id)
+        : NaN;
+    if (!Number.isFinite(assigneeIdNum)) {
+      assigneeIdNum =
+        req.body.operatore_id != null && req.body.operatore_id !== ''
+          ? Number(req.body.operatore_id)
+          : NaN;
+    }
+    if (!Number.isFinite(assigneeIdNum)) return res.status(400).json({ error: 'Utente assegnatario richiesto' });
 
     const quote = await getById('quotes', req.params.id);
     if (!quote) return res.status(404).json({ error: 'Preventivo non trovato' });
@@ -565,17 +599,44 @@ router.put('/:id/assign', authenticateToken, authorizeRoles('supervisore', 'admi
       });
     }
 
+    const assignUser = await getById('users', assigneeIdNum);
+    if (!assignUser || assignUser.stato !== 'attivo') return res.status(400).json({ error: 'Utente non valido' });
+    if (assignUser.role !== 'operatore' && assignUser.role !== 'fornitore') {
+      return res.status(400).json({ error: 'L\'assegnatario deve essere un operatore o un fornitore' });
+    }
+    if (req.user.role === 'fornitore') {
+      if (assignUser.role === 'fornitore' && Number(assignUser.id) !== Number(req.user.id)) {
+        return res.status(403).json({ error: 'Puoi assegnare solo a te stesso o a un operatore' });
+      }
+    }
+
     const prevStato = quote.stato;
     const newStato = prevStato === 'PRESENTATA' ? 'ASSEGNATA' : prevStato;
 
-    await upsertById('quotes', req.params.id, { operatore_id: operatoreIdNum, stato: newStato });
+    const assignPatch = { operatore_id: null, fornitore_id: null };
+    if (assignUser.role === 'operatore') assignPatch.operatore_id = assignUser.id;
+    else assignPatch.fornitore_id = assignUser.id;
+
+    await upsertById('quotes', req.params.id, { ...assignPatch, stato: newStato });
 
     if (prevStato !== newStato) {
       await insert('quote_status_history', { quote_id: Number(req.params.id), stato_precedente: prevStato, stato_nuovo: newStato, utente_id: req.user.id });
     }
 
-    const op = await getById('users', operatoreIdNum);
-    if (!op) return res.status(400).json({ error: 'Operatore non trovato' });
+    const linkedPolicies = await list('policies', (p) => Number(p.quote_id) === Number(req.params.id));
+    for (const pol of linkedPolicies) {
+      await upsertById('policies', pol.id, {
+        operatore_id: assignPatch.operatore_id,
+        fornitore_id: assignPatch.fornitore_id,
+      });
+      const polFresh = await getById('policies', pol.id);
+      await syncConversationsForPolicyAssignment(polFresh);
+    }
+
+    const quoteFresh = await getById('quotes', req.params.id);
+    await syncConversationsForQuoteAssignment(quoteFresh);
+
+    const assigneeLabel = `${assignUser.nome || ''} ${assignUser.cognome || ''}`.trim() || assignUser.username || 'Utente';
     await logActivity({
       utente_id: req.user.id,
       utente_nome: getUserDisplayName(req.user),
@@ -584,24 +645,24 @@ router.put('/:id/assign', authenticateToken, authorizeRoles('supervisore', 'admi
       modulo: 'preventivi',
       riferimento_id: parseInt(req.params.id),
       riferimento_tipo: 'quote',
-      dettaglio: `Preventivo ${quote.numero} ${prevStato === newStato ? 'riassegnato' : 'assegnato'} a ${op.nome} ${op.cognome}`
+      dettaglio: `Preventivo ${quote.numero} ${prevStato === newStato ? 'riassegnato' : 'assegnato'} a ${assigneeLabel}`,
     });
 
     const ctxAssign = await loadContext();
     const enrichedAssign = enrichQuote(await getById('quotes', req.params.id), ctxAssign);
     const assistitoLabelAssign = [enrichedAssign.assistito_nome, enrichedAssign.assistito_cognome].filter(Boolean).join(' ').trim() || '—';
     const dataAssegnazione = enrichedAssign.updated_at || new Date().toISOString().slice(0, 19).replace('T', ' ');
-    const opMail = op.email && String(op.email).trim();
+    const opMail = assignUser.email && String(assignUser.email).trim();
     if (!opMail) {
-      console.warn(`[FIMASS email] Operatore id=${operatoreIdNum} senza email in DB: notifica assegnazione saltata.`);
+      console.warn(`[FIMASS email] Assegnatario id=${assigneeIdNum} senza email in DB: notifica assegnazione saltata.`);
     } else {
       console.log(
-        `[FIMASS email] Assegnazione preventivo ${enrichedAssign.numero} (id ${enrichedAssign.id}) → operatore id ${operatoreIdNum}, invio a ${opMail}`,
+        `[FIMASS email] Assegnazione preventivo ${enrichedAssign.numero} (id ${enrichedAssign.id}) → utente id ${assigneeIdNum}, invio a ${opMail}`,
       );
       // Su Vercel le serverless function si congelano subito dopo res.json: await obbligatorio affinché Resend completi.
       await sendQuoteAssignedToOperatorMail({
         to: opMail,
-        operatorName: `${op.nome || ''} ${op.cognome || ''}`.trim() || op.username || 'Operatore',
+        operatorName: assigneeLabel,
         quoteId: enrichedAssign.id,
         quoteNumero: enrichedAssign.numero,
         assistitoLabel: assistitoLabelAssign,
@@ -661,8 +722,10 @@ router.put('/:id/status', authenticateToken, (req, res) => {
       STANDBY: ['IN LAVORAZIONE', 'ELABORATA'],
     };
 
-    if (req.user.role === 'operatore') {
-      if (quote.operatore_id !== req.user.id) return res.status(403).json({ error: 'Non sei l\'operatore assegnato' });
+    if (req.user.role === 'operatore' || req.user.role === 'fornitore') {
+      if (!userIsAssignedToQuote(req.user, quote)) {
+        return res.status(403).json({ error: 'Non sei l\'incaricato assegnato a questa pratica' });
+      }
       const allowed = operatorValidTransitions[quote.stato];
       if (!allowed || !allowed.includes(statoNormalized)) {
         return res.status(400).json({ error: `Transizione da ${quote.stato} a ${statoNormalized} non consentita` });
@@ -741,6 +804,14 @@ router.put('/:id', authenticateToken, (req, res) => {
     const { dati_specifici, dati_preventivo, note_struttura, note_allegati } = req.body;
     const quote = await getById('quotes', req.params.id);
     if (!quote) return res.status(404).json({ error: 'Preventivo non trovato' });
+    if (req.user.role === 'struttura' && Number(quote.struttura_id) !== Number(req.user.id)) {
+      return res.status(403).json({ error: 'Accesso non autorizzato' });
+    }
+    if (req.user.role === 'operatore' || req.user.role === 'fornitore') {
+      if (!userIsAssignedToQuote(req.user, quote)) return res.status(403).json({ error: 'Accesso non autorizzato' });
+    } else if (req.user.role !== 'admin' && req.user.role !== 'supervisore') {
+      return res.status(403).json({ error: 'Accesso non autorizzato' });
+    }
 
     const patch = {};
     if (dati_specifici !== undefined) patch.dati_specifici = dati_specifici;
@@ -777,6 +848,14 @@ router.post('/:id/notes', authenticateToken, (req, res) => {
 
     const quote = await getById('quotes', req.params.id);
     if (!quote) return res.status(404).json({ error: 'Preventivo non trovato' });
+    if (req.user.role === 'struttura' && Number(quote.struttura_id) !== Number(req.user.id)) {
+      return res.status(403).json({ error: 'Accesso non autorizzato' });
+    }
+    if (req.user.role === 'operatore' || req.user.role === 'fornitore') {
+      if (!userIsAssignedToQuote(req.user, quote)) return res.status(403).json({ error: 'Accesso non autorizzato' });
+    } else if (req.user.role !== 'admin' && req.user.role !== 'supervisore') {
+      return res.status(403).json({ error: 'Accesso non autorizzato' });
+    }
 
     const result = await insert('quote_notes', { quote_id: Number(req.params.id), utente_id: req.user.id, tipo: tipo || 'interna', testo });
     res.status(201).json({ id: result.id, message: 'Nota aggiunta con successo' });

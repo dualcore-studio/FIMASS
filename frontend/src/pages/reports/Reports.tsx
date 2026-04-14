@@ -129,7 +129,13 @@ function getDateRange(preset: PeriodPreset): { da: string; a: string } {
   }
 }
 
-function buildReportQuery(da: string, a: string, strutturaId: string, operatoreId: string): string {
+function buildReportQuery(
+  da: string,
+  a: string,
+  strutturaId: string,
+  operatoreId: string,
+  fornitoreId: string,
+): string {
   const p = new URLSearchParams();
   if (da && a) {
     p.set('data_da', da);
@@ -137,6 +143,7 @@ function buildReportQuery(da: string, a: string, strutturaId: string, operatoreI
   }
   if (strutturaId) p.set('struttura_id', strutturaId);
   if (operatoreId) p.set('operatore_id', operatoreId);
+  if (fornitoreId) p.set('fornitore_id', fornitoreId);
   return p.toString();
 }
 
@@ -146,9 +153,11 @@ export default function Reports() {
   const [customA, setCustomA] = useState('');
   const [strutturaId, setStrutturaId] = useState('');
   const [operatoreId, setOperatoreId] = useState('');
+  const [fornitoreId, setFornitoreId] = useState('');
 
   const [structures, setStructures] = useState<{ id: number; denominazione: string }[]>([]);
   const [operators, setOperators] = useState<{ id: number; nome: string; cognome: string }[]>([]);
+  const [fornitori, setFornitori] = useState<{ id: number; nome: string; cognome: string }[]>([]);
 
   const [overview, setOverview] = useState<OverviewResponse | null>(null);
   const [byType, setByType] = useState<ByTypeRow[]>([]);
@@ -173,12 +182,13 @@ export default function Reports() {
   useEffect(() => {
     (async () => {
       try {
-        const [strRes, opRes] = await Promise.all([
+        const [strRes, asRes] = await Promise.all([
           api.get<{ id: number; denominazione: string }[]>('/users/structures'),
-          api.get<{ id: number; nome: string; cognome: string }[]>('/users/operators'),
+          api.get<{ id: number; nome: string; cognome: string; role: string }[]>('/users/assignees'),
         ]);
         setStructures(strRes);
-        setOperators(opRes);
+        setOperators(asRes.filter((u) => u.role === 'operatore'));
+        setFornitori(asRes.filter((u) => u.role === 'fornitore'));
       } catch {
         /* filtri opzionali */
       }
@@ -198,7 +208,7 @@ export default function Reports() {
 
     setLoading(true);
     setError(null);
-    const qs = buildReportQuery(da, a, strutturaId, operatoreId);
+    const qs = buildReportQuery(da, a, strutturaId, operatoreId, fornitoreId);
 
     try {
       const [ov, bt, prevS, polS, ua, tl] = await Promise.all([
@@ -220,7 +230,7 @@ export default function Reports() {
     } finally {
       setLoading(false);
     }
-  }, [getEffectiveDates, preset, strutturaId, operatoreId]);
+  }, [getEffectiveDates, preset, strutturaId, operatoreId, fornitoreId]);
 
   useEffect(() => {
     fetchReports();
@@ -231,7 +241,7 @@ export default function Reports() {
     setPagePrevStr(1);
     setPagePolStr(1);
     setPageUsers(1);
-  }, [byType, preventiviByStructure, polizzeByStructure, userActivity, strutturaId, operatoreId, preset, customDa, customA]);
+  }, [byType, preventiviByStructure, polizzeByStructure, userActivity, strutturaId, operatoreId, fornitoreId, preset, customDa, customA]);
 
   const handleSortType = (key: string) => {
     sortByType.requestSort(key);
@@ -414,8 +424,8 @@ export default function Reports() {
 
   const exportQueryString = useCallback(() => {
     const { da, a } = getEffectiveDates();
-    return buildReportQuery(da, a, strutturaId, operatoreId);
-  }, [getEffectiveDates, strutturaId, operatoreId]);
+    return buildReportQuery(da, a, strutturaId, operatoreId, fornitoreId);
+  }, [getEffectiveDates, strutturaId, operatoreId, fornitoreId]);
 
   const handleExportCsvServer = () => {
     const qs = exportQueryString();
@@ -591,7 +601,7 @@ export default function Reports() {
           )}
         </div>
 
-        <div className="grid gap-4 sm:grid-cols-2">
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           <div>
             <label htmlFor="filtro-struttura" className="mb-1 block text-xs font-medium text-gray-500">
               Struttura
@@ -624,6 +634,24 @@ export default function Reports() {
               {operators.map((o) => (
                 <option key={o.id} value={String(o.id)}>
                   {`${o.cognome || ''} ${o.nome || ''}`.trim() || `Operatore #${o.id}`}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label htmlFor="filtro-fornitore" className="mb-1 block text-xs font-medium text-gray-500">
+              Fornitore
+            </label>
+            <select
+              id="filtro-fornitore"
+              value={fornitoreId}
+              onChange={(e) => setFornitoreId(e.target.value)}
+              className="input-field w-full"
+            >
+              <option value="">Tutti i fornitori</option>
+              {fornitori.map((o) => (
+                <option key={o.id} value={String(o.id)}>
+                  {`${o.cognome || ''} ${o.nome || ''}`.trim() || `Fornitore #${o.id}`}
                 </option>
               ))}
             </select>
