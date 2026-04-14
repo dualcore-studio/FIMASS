@@ -104,7 +104,12 @@ function ensureVerticalSpace(doc, minHeight) {
   if (doc.y + minHeight > limit) {
     doc.addPage();
     doc.y = doc.page.margins.top;
+    doc.x = doc.page.margins.left;
   }
+}
+
+function cursorLeft(doc) {
+  doc.x = doc.page.margins.left;
 }
 
 function drawRule(doc, afterGap = 0.32) {
@@ -119,11 +124,13 @@ function drawRule(doc, afterGap = 0.32) {
 
 function writeSectionTitle(doc, title, compact = true) {
   ensureVerticalSpace(doc, 38);
+  cursorLeft(doc);
   doc.moveDown(compact ? 0.28 : 0.45);
   doc.fontSize(12).font('Helvetica-Bold').fillColor(COL.section).text(title, { align: 'left' });
   doc.moveDown(0.1);
   drawRule(doc, 0.28);
   doc.font('Helvetica').fillColor(COL.body);
+  cursorLeft(doc);
 }
 
 function isProminentField(key, label) {
@@ -183,6 +190,8 @@ function writeDynamicFieldsGrid(doc, obj, labelFn, options = {}) {
   const sortProminent = !!options.sortProminentFirst;
   const emptySubtle = !!options.emptySubtle;
 
+  cursorLeft(doc);
+
   let entries = objectToEntries(obj, skipInternalKeys);
   if (sortProminent) entries = sortEntriesProminentFirst(entries, labelFn);
 
@@ -195,6 +204,7 @@ function writeDynamicFieldsGrid(doc, obj, labelFn, options = {}) {
       doc.fontSize(10).font('Helvetica').fillColor(COL.muted).text('Nessun dato caricato.', { lineGap: 2 });
     }
     doc.moveDown(0.22);
+    cursorLeft(doc);
     return;
   }
 
@@ -226,6 +236,8 @@ function writeDynamicFieldsGrid(doc, obj, labelFn, options = {}) {
     doc.y = maxY;
     doc.moveDown(rowGap);
   }
+
+  cursorLeft(doc);
 }
 
 function writeFooterOnce(doc, line) {
