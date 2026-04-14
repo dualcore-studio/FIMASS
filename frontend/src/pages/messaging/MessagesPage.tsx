@@ -24,6 +24,19 @@ type AssigneeOption = {
 
 type NewConversationKind = 'quote' | 'policy' | 'info';
 
+function canOpenNewConversation(role: string) {
+  return (
+    role === 'struttura' ||
+    role === 'operatore' ||
+    role === 'admin' ||
+    role === 'supervisore'
+  );
+}
+
+function canStartInfoRequest(role: string) {
+  return role === 'struttura' || role === 'admin' || role === 'supervisore';
+}
+
 export default function MessagesPage() {
   const { id: routeId } = useParams<{ id: string }>();
   const navigate = useNavigate();
@@ -98,7 +111,7 @@ export default function MessagesPage() {
 
   const loadPracticesForNew = useCallback(async () => {
     if (!user) return;
-    if (user.role !== 'struttura' && user.role !== 'operatore') return;
+    if (!canOpenNewConversation(user.role)) return;
     if (newKind === 'info') return;
     setNewError(null);
     try {
@@ -118,7 +131,7 @@ export default function MessagesPage() {
   }, [user, newKind]);
 
   const loadInfoAssignees = useCallback(async () => {
-    if (!user || user.role !== 'struttura') return;
+    if (!user || !canStartInfoRequest(user.role)) return;
     setNewError(null);
     try {
       const rows = await api.get<AssigneeOption[]>('/users/assignees');
@@ -133,8 +146,8 @@ export default function MessagesPage() {
   }, [user]);
 
   useEffect(() => {
-    if (!showNew || !user || (user.role !== 'struttura' && user.role !== 'operatore')) return;
-    if (user.role === 'struttura' && newKind === 'info') {
+    if (!showNew || !user || !canOpenNewConversation(user.role)) return;
+    if (canStartInfoRequest(user.role) && newKind === 'info') {
       void loadInfoAssignees();
     } else {
       void loadPracticesForNew();
@@ -249,10 +262,10 @@ export default function MessagesPage() {
         <div>
           <h1 className="text-2xl font-bold tracking-tight text-gray-900">Messaggi</h1>
           <p className="mt-1 text-sm text-gray-600">
-            Comunicazioni sulle pratiche e, per le strutture, richieste di informazioni agli incaricati.
+            Comunicazioni sulle pratiche; richieste di informazioni per strutture, amministratori e supervisori.
           </p>
         </div>
-        {(user.role === 'struttura' || user.role === 'operatore') && (
+        {canOpenNewConversation(user.role) && (
           <button type="button" onClick={() => setShowNew(true)} className="btn-primary self-start">
             <MessageSquarePlus className="h-4 w-4" />
             Nuova conversazione
@@ -461,7 +474,7 @@ export default function MessagesPage() {
       >
         <div className="space-y-4">
           <p className="text-sm text-gray-600">
-            {newKind === 'info' && user.role === 'struttura' ? (
+            {newKind === 'info' && canStartInfoRequest(user.role) ? (
               <>
                 Scegli l&apos;incaricato (operatore o fornitore) e scrivi la richiesta: verrà aperta una conversazione
                 dedicata, senza legame a una pratica specifica.
@@ -470,9 +483,14 @@ export default function MessagesPage() {
               <>
                 Scegli la pratica: il messaggio sarà inviato automaticamente all&apos;incaricato assegnato.
               </>
-            ) : (
+            ) : user.role === 'operatore' ? (
               <>
                 Scegli una pratica a te assegnata: il messaggio sarà inviato alla struttura titolare.
+              </>
+            ) : (
+              <>
+                Scegli una pratica qualsiasi: il messaggio sarà notificato all&apos;incaricato assegnato e alla struttura
+                titolare.
               </>
             )}
           </p>
@@ -492,10 +510,10 @@ export default function MessagesPage() {
             >
               <option value="quote">Preventivo</option>
               <option value="policy">Polizza</option>
-              {user.role === 'struttura' ? <option value="info">Richiesta informazioni</option> : null}
+              {canStartInfoRequest(user.role) ? <option value="info">Richiesta informazioni</option> : null}
             </select>
           </div>
-          {newKind === 'info' && user.role === 'struttura' ? (
+          {newKind === 'info' && canStartInfoRequest(user.role) ? (
             <div>
               <label htmlFor="info-assignee" className="mb-1 block text-sm font-medium text-gray-700">
                 Incaricato

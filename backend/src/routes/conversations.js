@@ -337,7 +337,11 @@ router.post('/', authenticateToken, (req, res) => {
     try {
       const u = req.user;
       const canCreate =
-        u.role === 'struttura' || u.role === 'operatore' || u.role === 'fornitore';
+        u.role === 'struttura' ||
+        u.role === 'operatore' ||
+        u.role === 'fornitore' ||
+        u.role === 'admin' ||
+        u.role === 'supervisore';
       if (!canCreate) {
         return res.status(403).json({ error: 'Non autorizzato ad avviare una nuova conversazione da qui' });
       }
@@ -347,9 +351,10 @@ router.post('/', authenticateToken, (req, res) => {
       if (!text) return res.status(400).json({ error: 'Messaggio obbligatorio' });
 
       if (entityType === 'info') {
-        if (u.role !== 'struttura') {
+        if (u.role !== 'struttura' && u.role !== 'admin' && u.role !== 'supervisore') {
           return res.status(403).json({
-            error: 'Solo le strutture possono avviare una richiesta informazioni da qui',
+            error:
+              'Solo strutture, amministratori e supervisori possono avviare una richiesta informazioni da qui',
           });
         }
         const assigneeId = Number(assigneeIdRaw);
@@ -362,12 +367,13 @@ router.post('/', authenticateToken, (req, res) => {
           return res.status(400).json({ error: 'Il destinatario deve essere un operatore o un fornitore' });
         }
         const nowInfo = new Date().toISOString().slice(0, 19).replace('T', ' ');
-        let convInfo = await findInfoConversation(u.id, assigneeId);
+        const infoOwnerId = Number(u.id);
+        let convInfo = await findInfoConversation(infoOwnerId, assigneeId);
         if (!convInfo) {
           const insInfo = await insert('conversations', {
             entity_type: 'info',
             entity_id: 0,
-            struttura_id: Number(u.id),
+            struttura_id: infoOwnerId,
             assignee_id: assigneeId,
             assignee_role: assigneeUser.role,
             last_message_preview: previewText(text),
@@ -378,7 +384,7 @@ router.post('/', authenticateToken, (req, res) => {
           await upsertById('conversations', convInfo.id, {
             assignee_id: assigneeId,
             assignee_role: assigneeUser.role,
-            struttura_id: Number(u.id),
+            struttura_id: infoOwnerId,
             last_message_preview: previewText(text),
             last_message_at: nowInfo,
           });
@@ -423,8 +429,10 @@ router.post('/', authenticateToken, (req, res) => {
           if (Number(quote.struttura_id) !== Number(u.id)) {
             return res.status(403).json({ error: 'Accesso non autorizzato' });
           }
-        } else if (!userIsAssignedToQuote(u, quote)) {
-          return res.status(403).json({ error: 'Accesso non autorizzato' });
+        } else if (u.role !== 'admin' && u.role !== 'supervisore') {
+          if (!userIsAssignedToQuote(u, quote)) {
+            return res.status(403).json({ error: 'Accesso non autorizzato' });
+          }
         }
         if (!practiceHasAssignee(quote)) {
           return res.status(400).json({
@@ -438,8 +446,10 @@ router.post('/', authenticateToken, (req, res) => {
           if (Number(policy.struttura_id) !== Number(u.id)) {
             return res.status(403).json({ error: 'Accesso non autorizzato' });
           }
-        } else if (!userIsAssignedToPolicy(u, policy)) {
-          return res.status(403).json({ error: 'Accesso non autorizzato' });
+        } else if (u.role !== 'admin' && u.role !== 'supervisore') {
+          if (!userIsAssignedToPolicy(u, policy)) {
+            return res.status(403).json({ error: 'Accesso non autorizzato' });
+          }
         }
         if (!practiceHasAssignee(policy)) {
           return res.status(400).json({
@@ -509,6 +519,36 @@ router.post('/', authenticateToken, (req, res) => {
           });
         }
       } else if (req.user.role === 'operatore' || req.user.role === 'fornitore') {
+        const struttura = await getById('users', Number(row.struttura_id));
+        const smail = struttura?.email && String(struttura.email).trim();
+        if (smail) {
+          await sendPortalMessageNotificationMail({
+            to: smail,
+            recipientName: getUserDisplayName(struttura),
+            senderName: getUserDisplayName(req.user),
+            practiceKindIt,
+            practiceNumero,
+            practiceId: entityId,
+            entityType,
+            conversationId: conv.id,
+            preview: previewText(text, 400),
+          });
+        }
+      } else if (req.user.role === 'admin' || req.user.role === 'supervisore') {
+        const assigneeMail = resolved.user.email && String(resolved.user.email).trim();
+        if (assigneeMail) {
+          await sendPortalMessageNotificationMail({
+            to: assigneeMail,
+            recipientName: getUserDisplayName(resolved.user),
+            senderName: getUserDisplayName(req.user),
+            practiceKindIt,
+            practiceNumero,
+            practiceId: entityId,
+            entityType,
+            conversationId: conv.id,
+            preview: previewText(text, 400),
+          });
+        }
         const struttura = await getById('users', Number(row.struttura_id));
         const smail = struttura?.email && String(struttura.email).trim();
         if (smail) {
@@ -656,6 +696,54 @@ router.post('/:id/messages', authenticateToken, (req, res) => {
             conversationId: conv.id,
             preview: previewText(text, 400),
           });
+        }
+      } else if (req.user.role === 'admin' || req.user.role === 'supervisore') {
+        if (conv.entity_type === 'info') {
+          const assigneeUser = await getById('users', conv.assignee_id);
+          const assigneeMail = assigneeUser?.email && String(assigneeUser.email).trim();
+          if (assigneeMail && assigneeUser) {
+            await sendPortalMessageNotificationMail({
+              to: assigneeMail,
+              recipientName: getUserDisplayName(assigneeUser),
+              senderName: getUserDisplayName(req.user),
+              practiceKindIt,
+              practiceNumero,
+              practiceId: practiceIdForMail,
+              entityType: entityTypeForMail,
+              conversationId: conv.id,
+              preview: previewText(text, 400),
+            });
+          }
+        } else if (resolved) {
+          const assigneeMail = resolved.user.email && String(resolved.user.email).trim();
+          if (assigneeMail) {
+            await sendPortalMessageNotificationMail({
+              to: assigneeMail,
+              recipientName: getUserDisplayName(resolved.user),
+              senderName: getUserDisplayName(req.user),
+              practiceKindIt,
+              practiceNumero,
+              practiceId: practiceIdForMail,
+              entityType: entityTypeForMail,
+              conversationId: conv.id,
+              preview: previewText(text, 400),
+            });
+          }
+          const struttura = await getById('users', conv.struttura_id);
+          const smail = struttura?.email && String(struttura.email).trim();
+          if (smail) {
+            await sendPortalMessageNotificationMail({
+              to: smail,
+              recipientName: getUserDisplayName(struttura),
+              senderName: getUserDisplayName(req.user),
+              practiceKindIt,
+              practiceNumero,
+              practiceId: practiceIdForMail,
+              entityType: entityTypeForMail,
+              conversationId: conv.id,
+              preview: previewText(text, 400),
+            });
+          }
         }
       }
 
