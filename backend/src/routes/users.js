@@ -74,7 +74,11 @@ router.get('/operators', authenticateToken, authorizeRoles('admin', 'supervisore
 });
 
 /** Operatori e fornitori attivi — per assegnazione preventivi. */
-router.get('/assignees', authenticateToken, authorizeRoles('admin', 'supervisore', 'fornitore'), (req, res) => {
+router.get(
+  '/assignees',
+  authenticateToken,
+  authorizeRoles('admin', 'supervisore', 'fornitore', 'struttura'),
+  (req, res) => {
   (async () => {
     const assignees = (await list('users', (u) => (u.role === 'operatore' || u.role === 'fornitore') && u.stato === 'attivo'))
       .sort((a, b) => `${a.cognome || ''} ${a.nome || ''}`.localeCompare(`${b.cognome || ''} ${b.nome || ''}`, 'it'))

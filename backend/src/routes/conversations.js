@@ -10,7 +10,7 @@ const {
   userIsAssignedToPolicy,
 } = require('../utils/practiceAssignee');
 const { sendPortalMessageNotificationMail } = require('../lib/resend');
-const { findConversationByEntity } = require('../services/messagingSync');
+const { findConversationByEntity, findInfoConversation } = require('../services/messagingSync');
 
 const router = express.Router();
 
@@ -161,7 +161,11 @@ function enrichConversationRow(conv, ctx) {
   let practiceNumero = '—';
   let practiceLabel = '';
   let strutturaNome = '';
-  if (conv.entity_type === 'quote') {
+  if (conv.entity_type === 'info') {
+    practiceLabel = 'Richiesta informazioni';
+    const sUser = ctx.usersById.get(Number(conv.struttura_id));
+    strutturaNome = sUser ? getUserDisplayName(sUser) : '';
+  } else if (conv.entity_type === 'quote') {
     const q = ctx.quotesById.get(Number(conv.entity_id));
     if (q) {
       const eq = enrichQuote(q, ctx);
@@ -169,7 +173,7 @@ function enrichConversationRow(conv, ctx) {
       practiceLabel = 'Preventivo';
       strutturaNome = eq.struttura_nome || '';
     }
-  } else {
+  } else if (conv.entity_type === 'policy') {
     const p = ctx.policiesById.get(Number(conv.entity_id));
     if (p) {
       const ep = enrichPolicy(p, ctx);
@@ -307,7 +311,7 @@ router.get('/:id', authenticateToken, (req, res) => {
       if (conv.entity_type === 'quote') {
         const q = await getById('quotes', conv.entity_id);
         practice = q ? enrichQuote(q, ctx) : null;
-      } else {
+      } else if (conv.entity_type === 'policy') {
         const p = await getById('policies', conv.entity_id);
         practice = p ? enrichPolicy(p, ctx) : null;
       }
@@ -337,11 +341,75 @@ router.post('/', authenticateToken, (req, res) => {
       if (!canCreate) {
         return res.status(403).json({ error: 'Non autorizzato ad avviare una nuova conversazione da qui' });
       }
-      const { entity_type: entityType, entity_id: entityIdRaw, content } = req.body || {};
+      const { entity_type: entityType, entity_id: entityIdRaw, assignee_id: assigneeIdRaw, content } =
+        req.body || {};
       const text = content != null ? String(content).trim() : '';
       if (!text) return res.status(400).json({ error: 'Messaggio obbligatorio' });
+
+      if (entityType === 'info') {
+        if (u.role !== 'struttura') {
+          return res.status(403).json({
+            error: 'Solo le strutture possono avviare una richiesta informazioni da qui',
+          });
+        }
+        const assigneeId = Number(assigneeIdRaw);
+        if (!Number.isFinite(assigneeId)) return res.status(400).json({ error: 'Incaricato non valido' });
+        const assigneeUser = await getById('users', assigneeId);
+        if (!assigneeUser || assigneeUser.stato !== 'attivo') {
+          return res.status(400).json({ error: 'Incaricato non trovato o non attivo' });
+        }
+        if (assigneeUser.role !== 'operatore' && assigneeUser.role !== 'fornitore') {
+          return res.status(400).json({ error: 'Il destinatario deve essere un operatore o un fornitore' });
+        }
+        const nowInfo = new Date().toISOString().slice(0, 19).replace('T', ' ');
+        let convInfo = await findInfoConversation(u.id, assigneeId);
+        if (!convInfo) {
+          const insInfo = await insert('conversations', {
+            entity_type: 'info',
+            entity_id: 0,
+            struttura_id: Number(u.id),
+            assignee_id: assigneeId,
+            assignee_role: assigneeUser.role,
+            last_message_preview: previewText(text),
+            last_message_at: nowInfo,
+          });
+          convInfo = await getById('conversations', insInfo.id);
+        } else {
+          await upsertById('conversations', convInfo.id, {
+            assignee_id: assigneeId,
+            assignee_role: assigneeUser.role,
+            struttura_id: Number(u.id),
+            last_message_preview: previewText(text),
+            last_message_at: nowInfo,
+          });
+          convInfo = await getById('conversations', convInfo.id);
+        }
+        await insert('conversation_messages', {
+          conversation_id: convInfo.id,
+          author_id: req.user.id,
+          author_role: req.user.role,
+          content: text,
+        });
+        const assigneeMail = assigneeUser.email && String(assigneeUser.email).trim();
+        if (assigneeMail) {
+          await sendPortalMessageNotificationMail({
+            to: assigneeMail,
+            recipientName: getUserDisplayName(assigneeUser),
+            senderName: getUserDisplayName(req.user),
+            practiceKindIt: 'Richiesta informazioni',
+            practiceNumero: '—',
+            practiceId: null,
+            entityType: 'info',
+            conversationId: convInfo.id,
+            preview: previewText(text, 400),
+          });
+        }
+        await markConversationReadForUser(convInfo.id, req.user.id);
+        return res.status(201).json({ id: convInfo.id, message: 'Messaggio inviato' });
+      }
+
       if (entityType !== 'quote' && entityType !== 'policy') {
-        return res.status(400).json({ error: 'Tipo pratica non valido (quote o policy)' });
+        return res.status(400).json({ error: 'Tipo non valido (preventivo, polizza o richiesta informazioni)' });
       }
       const entityId = Number(entityIdRaw);
       if (!Number.isFinite(entityId)) return res.status(400).json({ error: 'Pratica non valida' });
@@ -363,7 +431,7 @@ router.post('/', authenticateToken, (req, res) => {
             error: 'Non è possibile inviare un messaggio perché la pratica non è ancora assegnata.',
           });
         }
-      } else {
+      } else if (entityType === 'policy') {
         policy = await getById('policies', entityId);
         if (!policy) return res.status(404).json({ error: 'Polizza non trovata' });
         if (u.role === 'struttura') {
@@ -481,20 +549,27 @@ router.post('/:id/messages', authenticateToken, (req, res) => {
       const text = req.body?.content != null ? String(req.body.content).trim() : '';
       if (!text) return res.status(400).json({ error: 'Messaggio obbligatorio' });
 
-      const ctx = await loadContext();
+      await loadContext();
       let quote = null;
       let policy = null;
+      let row = null;
+      let resolved = null;
+
       if (conv.entity_type === 'quote') {
         quote = await getById('quotes', conv.entity_id);
         if (!quote) return res.status(404).json({ error: 'Pratica non trovata' });
-      } else {
+        row = quote;
+        resolved = await resolveQuoteAssignee(quote);
+      } else if (conv.entity_type === 'policy') {
         policy = await getById('policies', conv.entity_id);
         if (!policy) return res.status(404).json({ error: 'Pratica non trovata' });
+        row = policy;
+        resolved = await resolvePolicyAssignee(policy);
+      } else if (conv.entity_type !== 'info') {
+        return res.status(400).json({ error: 'Tipo conversazione non supportato' });
       }
-      const row = conv.entity_type === 'quote' ? quote : policy;
-      const resolved = await (conv.entity_type === 'quote' ? resolveQuoteAssignee(row) : resolvePolicyAssignee(row));
 
-      if (req.user.role === 'struttura') {
+      if (row && req.user.role === 'struttura') {
         if (!practiceHasAssignee(row)) {
           return res.status(400).json({
             error: 'Non è possibile inviare un messaggio perché la pratica non è ancora assegnata.',
@@ -502,7 +577,7 @@ router.post('/:id/messages', authenticateToken, (req, res) => {
         }
       }
 
-      if (resolved) {
+      if (resolved && row) {
         await upsertById('conversations', conv.id, {
           assignee_id: resolved.assigneeId,
           assignee_role: resolved.assigneeRole,
@@ -523,11 +598,34 @@ router.post('/:id/messages', authenticateToken, (req, res) => {
       });
       await markConversationReadForUser(conv.id, req.user.id);
 
-      const practiceKindIt = conv.entity_type === 'quote' ? 'Preventivo' : 'Polizza';
-      const practiceNumero = row.numero;
+      const practiceKindIt =
+        conv.entity_type === 'info'
+          ? 'Richiesta informazioni'
+          : conv.entity_type === 'quote'
+            ? 'Preventivo'
+            : 'Polizza';
+      const practiceNumero = row ? row.numero : '—';
+      const practiceIdForMail = conv.entity_type === 'info' ? null : Number(conv.entity_id);
+      const entityTypeForMail = conv.entity_type;
 
       if (req.user.role === 'struttura') {
-        if (resolved) {
+        if (conv.entity_type === 'info') {
+          const assigneeUser = await getById('users', conv.assignee_id);
+          const assigneeMail = assigneeUser?.email && String(assigneeUser.email).trim();
+          if (assigneeMail && assigneeUser) {
+            await sendPortalMessageNotificationMail({
+              to: assigneeMail,
+              recipientName: getUserDisplayName(assigneeUser),
+              senderName: getUserDisplayName(req.user),
+              practiceKindIt,
+              practiceNumero,
+              practiceId: practiceIdForMail,
+              entityType: entityTypeForMail,
+              conversationId: conv.id,
+              preview: previewText(text, 400),
+            });
+          }
+        } else if (resolved) {
           const assigneeMail = resolved.user.email && String(resolved.user.email).trim();
           if (assigneeMail) {
             await sendPortalMessageNotificationMail({
@@ -536,8 +634,8 @@ router.post('/:id/messages', authenticateToken, (req, res) => {
               senderName: getUserDisplayName(req.user),
               practiceKindIt,
               practiceNumero,
-              practiceId: Number(conv.entity_id),
-              entityType: conv.entity_type,
+              practiceId: practiceIdForMail,
+              entityType: entityTypeForMail,
               conversationId: conv.id,
               preview: previewText(text, 400),
             });
@@ -553,8 +651,8 @@ router.post('/:id/messages', authenticateToken, (req, res) => {
             senderName: getUserDisplayName(req.user),
             practiceKindIt,
             practiceNumero,
-            practiceId: Number(conv.entity_id),
-            entityType: conv.entity_type,
+            practiceId: practiceIdForMail,
+            entityType: entityTypeForMail,
             conversationId: conv.id,
             preview: previewText(text, 400),
           });

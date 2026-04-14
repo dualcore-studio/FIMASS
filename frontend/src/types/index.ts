@@ -286,7 +286,7 @@ export interface QuoteReminder {
 
 export interface ConversationListItem {
   id: number;
-  entity_type: 'quote' | 'policy';
+  entity_type: 'quote' | 'policy' | 'info';
   entity_id: number;
   struttura_id: number;
   assignee_id: number;

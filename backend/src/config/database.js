@@ -212,7 +212,7 @@ function initializeDatabase() {
 
     CREATE TABLE IF NOT EXISTS conversations (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
-      entity_type TEXT NOT NULL CHECK(entity_type IN ('quote','policy')),
+      entity_type TEXT NOT NULL CHECK(entity_type IN ('quote','policy','info')),
       entity_id INTEGER NOT NULL,
       struttura_id INTEGER NOT NULL REFERENCES users(id),
       assignee_id INTEGER NOT NULL REFERENCES users(id),
@@ -220,8 +220,7 @@ function initializeDatabase() {
       last_message_preview TEXT,
       last_message_at TEXT,
       created_at TEXT DEFAULT (datetime('now')),
-      updated_at TEXT DEFAULT (datetime('now')),
-      UNIQUE(entity_type, entity_id)
+      updated_at TEXT DEFAULT (datetime('now'))
     );
 
     CREATE TABLE IF NOT EXISTS conversation_messages (
@@ -237,6 +236,8 @@ function initializeDatabase() {
     CREATE INDEX IF NOT EXISTS idx_conversations_struttura ON conversations(struttura_id);
     CREATE INDEX IF NOT EXISTS idx_conversations_assignee ON conversations(assignee_id);
     CREATE INDEX IF NOT EXISTS idx_conv_messages_conversation ON conversation_messages(conversation_id);
+    CREATE UNIQUE INDEX IF NOT EXISTS ux_conv_quote_policy ON conversations(entity_type, entity_id) WHERE entity_type IN ('quote','policy');
+    CREATE UNIQUE INDEX IF NOT EXISTS ux_conv_info_pair ON conversations(struttura_id, assignee_id) WHERE entity_type = 'info';
 
     CREATE TABLE IF NOT EXISTS conversation_reads (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -482,7 +483,7 @@ function migrateFornitoreAndMessagingSqliteIfNeeded() {
     db.exec(`
       CREATE TABLE IF NOT EXISTS conversations (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
-        entity_type TEXT NOT NULL CHECK(entity_type IN ('quote','policy')),
+        entity_type TEXT NOT NULL CHECK(entity_type IN ('quote','policy','info')),
         entity_id INTEGER NOT NULL,
         struttura_id INTEGER NOT NULL REFERENCES users(id),
         assignee_id INTEGER NOT NULL REFERENCES users(id),
@@ -490,8 +491,7 @@ function migrateFornitoreAndMessagingSqliteIfNeeded() {
         last_message_preview TEXT,
         last_message_at TEXT,
         created_at TEXT DEFAULT (datetime('now')),
-        updated_at TEXT DEFAULT (datetime('now')),
-        UNIQUE(entity_type, entity_id)
+        updated_at TEXT DEFAULT (datetime('now'))
       );
       CREATE TABLE IF NOT EXISTS conversation_messages (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -505,9 +505,50 @@ function migrateFornitoreAndMessagingSqliteIfNeeded() {
       CREATE INDEX IF NOT EXISTS idx_conversations_struttura ON conversations(struttura_id);
       CREATE INDEX IF NOT EXISTS idx_conversations_assignee ON conversations(assignee_id);
       CREATE INDEX IF NOT EXISTS idx_conv_messages_conversation ON conversation_messages(conversation_id);
+      CREATE UNIQUE INDEX IF NOT EXISTS ux_conv_quote_policy ON conversations(entity_type, entity_id) WHERE entity_type IN ('quote','policy');
+      CREATE UNIQUE INDEX IF NOT EXISTS ux_conv_info_pair ON conversations(struttura_id, assignee_id) WHERE entity_type = 'info';
     `);
   } catch (e) {
     console.error('ensure conversations tables migration:', e);
+  }
+
+  try {
+    const t = db.prepare("SELECT sql FROM sqlite_master WHERE type='table' AND name='conversations'").get();
+    const sql = t && typeof t.sql === 'string' ? t.sql : '';
+    const isLegacyConv =
+      sql &&
+      sql.includes('quote') &&
+      sql.includes('policy') &&
+      !sql.includes("'info'");
+    if (isLegacyConv) {
+      db.pragma('foreign_keys = OFF');
+      db.exec(`
+        CREATE TABLE conversations__mig (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          entity_type TEXT NOT NULL CHECK(entity_type IN ('quote','policy','info')),
+          entity_id INTEGER NOT NULL,
+          struttura_id INTEGER NOT NULL REFERENCES users(id),
+          assignee_id INTEGER NOT NULL REFERENCES users(id),
+          assignee_role TEXT NOT NULL CHECK(assignee_role IN ('operatore','fornitore')),
+          last_message_preview TEXT,
+          last_message_at TEXT,
+          created_at TEXT,
+          updated_at TEXT
+        );
+        INSERT INTO conversations__mig SELECT * FROM conversations;
+        DROP TABLE conversations;
+        ALTER TABLE conversations__mig RENAME TO conversations;
+        CREATE INDEX IF NOT EXISTS idx_conversations_struttura ON conversations(struttura_id);
+        CREATE INDEX IF NOT EXISTS idx_conversations_assignee ON conversations(assignee_id);
+      `);
+      db.pragma('foreign_keys = ON');
+    }
+    db.exec(`
+      CREATE UNIQUE INDEX IF NOT EXISTS ux_conv_quote_policy ON conversations(entity_type, entity_id) WHERE entity_type IN ('quote','policy');
+      CREATE UNIQUE INDEX IF NOT EXISTS ux_conv_info_pair ON conversations(struttura_id, assignee_id) WHERE entity_type = 'info';
+    `);
+  } catch (e) {
+    console.error('migrate conversations for info threads:', e);
   }
 
   try {

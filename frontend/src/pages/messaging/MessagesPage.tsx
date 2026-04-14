@@ -14,6 +14,16 @@ type ThreadPayload = {
   messages: ConversationMessage[];
 };
 
+type AssigneeOption = {
+  id: number;
+  nome?: string | null;
+  cognome?: string | null;
+  email?: string | null;
+  role: string;
+};
+
+type NewConversationKind = 'quote' | 'policy' | 'info';
+
 export default function MessagesPage() {
   const { id: routeId } = useParams<{ id: string }>();
   const navigate = useNavigate();
@@ -31,11 +41,13 @@ export default function MessagesPage() {
   const [replyError, setReplyError] = useState<string | null>(null);
 
   const [showNew, setShowNew] = useState(false);
-  const [newKind, setNewKind] = useState<'quote' | 'policy'>('quote');
+  const [newKind, setNewKind] = useState<NewConversationKind>('quote');
   const [practices, setPractices] = useState<(Quote | Policy)[]>([]);
   const [practiceId, setPracticeId] = useState('');
   const [practiceSearch, setPracticeSearch] = useState('');
   const [practicePickerOpen, setPracticePickerOpen] = useState(false);
+  const [infoAssignees, setInfoAssignees] = useState<AssigneeOption[]>([]);
+  const [infoAssigneeId, setInfoAssigneeId] = useState('');
   const [newBody, setNewBody] = useState('');
   const [newSubmitting, setNewSubmitting] = useState(false);
   const [newError, setNewError] = useState<string | null>(null);
@@ -87,6 +99,7 @@ export default function MessagesPage() {
   const loadPracticesForNew = useCallback(async () => {
     if (!user) return;
     if (user.role !== 'struttura' && user.role !== 'operatore') return;
+    if (newKind === 'info') return;
     setNewError(null);
     try {
       if (newKind === 'quote') {
@@ -104,11 +117,29 @@ export default function MessagesPage() {
     }
   }, [user, newKind]);
 
-  useEffect(() => {
-    if (showNew && user && (user.role === 'struttura' || user.role === 'operatore')) {
-      loadPracticesForNew();
+  const loadInfoAssignees = useCallback(async () => {
+    if (!user || user.role !== 'struttura') return;
+    setNewError(null);
+    try {
+      const rows = await api.get<AssigneeOption[]>('/users/assignees');
+      setInfoAssignees(rows);
+      setInfoAssigneeId('');
+    } catch (e) {
+      setInfoAssignees([]);
+      setNewError(
+        e instanceof ApiError ? e.message : 'Impossibile caricare gli operatori disponibili.',
+      );
     }
-  }, [showNew, user, loadPracticesForNew]);
+  }, [user]);
+
+  useEffect(() => {
+    if (!showNew || !user || (user.role !== 'struttura' && user.role !== 'operatore')) return;
+    if (user.role === 'struttura' && newKind === 'info') {
+      void loadInfoAssignees();
+    } else {
+      void loadPracticesForNew();
+    }
+  }, [showNew, user, newKind, loadPracticesForNew, loadInfoAssignees]);
 
   const handleSendReply = async () => {
     if (activeId == null || !replyText.trim()) return;
@@ -127,22 +158,37 @@ export default function MessagesPage() {
   };
 
   const handleCreateConversation = async () => {
-    if (!practiceId || !newBody.trim()) {
+    if (newKind === 'info') {
+      if (!infoAssigneeId || !newBody.trim()) {
+        setNewError('Seleziona un incaricato e scrivi un messaggio.');
+        return;
+      }
+    } else if (!practiceId || !newBody.trim()) {
       setNewError('Seleziona una pratica e scrivi un messaggio.');
       return;
     }
     setNewError(null);
     setNewSubmitting(true);
     try {
-      const res = await api.post<{ id: number }>('/conversations', {
-        entity_type: newKind,
-        entity_id: Number(practiceId),
-        content: newBody.trim(),
-      });
+      const res = await api.post<{ id: number }>(
+        '/conversations',
+        newKind === 'info'
+          ? {
+              entity_type: 'info',
+              assignee_id: Number(infoAssigneeId),
+              content: newBody.trim(),
+            }
+          : {
+              entity_type: newKind,
+              entity_id: Number(practiceId),
+              content: newBody.trim(),
+            },
+      );
       setShowNew(false);
       setNewBody('');
       setPracticeId('');
       setPracticeSearch('');
+      setInfoAssigneeId('');
       await loadList();
       if (res.id) navigate(`/messaggi/${res.id}`);
     } catch (e) {
@@ -150,6 +196,12 @@ export default function MessagesPage() {
     } finally {
       setNewSubmitting(false);
     }
+  };
+
+  const assigneeLabel = (a: AssigneeOption) => {
+    const name = [a.nome?.trim(), a.cognome?.trim()].filter(Boolean).join(' ');
+    const roleIt = a.role === 'fornitore' ? 'Fornitore' : 'Operatore';
+    return name ? `${name} (${roleIt})` : `${roleIt} #${a.id}`;
   };
 
   const practiceLabel = (row: Quote | Policy) =>
@@ -197,7 +249,7 @@ export default function MessagesPage() {
         <div>
           <h1 className="text-2xl font-bold tracking-tight text-gray-900">Messaggi</h1>
           <p className="mt-1 text-sm text-gray-600">
-            Comunicazioni collegate alle pratiche (preventivi e polizze).
+            Comunicazioni sulle pratiche e, per le strutture, richieste di informazioni agli incaricati.
           </p>
         </div>
         {(user.role === 'struttura' || user.role === 'operatore') && (
@@ -402,13 +454,19 @@ export default function MessagesPage() {
           setShowNew(false);
           setPracticeSearch('');
           setPracticePickerOpen(false);
+          setInfoAssigneeId('');
         }}
         title="Nuova conversazione"
         size="md"
       >
         <div className="space-y-4">
           <p className="text-sm text-gray-600">
-            {user.role === 'struttura' ? (
+            {newKind === 'info' && user.role === 'struttura' ? (
+              <>
+                Scegli l&apos;incaricato (operatore o fornitore) e scrivi la richiesta: verrà aperta una conversazione
+                dedicata, senza legame a una pratica specifica.
+              </>
+            ) : user.role === 'struttura' ? (
               <>
                 Scegli la pratica: il messaggio sarà inviato automaticamente all&apos;incaricato assegnato.
               </>
@@ -419,74 +477,98 @@ export default function MessagesPage() {
             )}
           </p>
           <div>
-            <label className="mb-1 block text-sm font-medium text-gray-700">Tipo pratica</label>
+            <label className="mb-1 block text-sm font-medium text-gray-700">Tipo</label>
             <select
               value={newKind}
               onChange={(e) => {
-                setNewKind(e.target.value as 'quote' | 'policy');
+                const v = e.target.value as NewConversationKind;
+                setNewKind(v);
                 setPracticeId('');
                 setPracticeSearch('');
                 setPracticePickerOpen(false);
+                setInfoAssigneeId('');
               }}
               className="input-field"
             >
               <option value="quote">Preventivo</option>
               <option value="policy">Polizza</option>
+              {user.role === 'struttura' ? <option value="info">Richiesta informazioni</option> : null}
             </select>
           </div>
-          <div className="relative">
-            <label htmlFor="practice-combobox" className="mb-1 block text-sm font-medium text-gray-700">
-              Pratica
-            </label>
-            <input
-              id="practice-combobox"
-              type="search"
-              autoComplete="off"
-              placeholder="Cerca per numero pratica, assistito o ID…"
-              value={practiceSearch}
-              onChange={(e) => {
-                const v = e.target.value;
-                setPracticeSearch(v);
-                setPracticeId('');
-                setPracticePickerOpen(true);
-              }}
-              onFocus={() => setPracticePickerOpen(true)}
-              onBlur={() => {
-                window.setTimeout(() => setPracticePickerOpen(false), 180);
-              }}
-              className="input-field"
-              aria-expanded={practicePickerOpen}
-              aria-controls="practice-combobox-list"
-              aria-autocomplete="list"
-            />
-            {practicePickerOpen && (
-              <ul
-                id="practice-combobox-list"
-                role="listbox"
-                className="absolute z-50 mt-1 max-h-60 w-full overflow-auto rounded-lg border border-gray-200 bg-white py-1 shadow-lg"
+          {newKind === 'info' && user.role === 'struttura' ? (
+            <div>
+              <label htmlFor="info-assignee" className="mb-1 block text-sm font-medium text-gray-700">
+                Incaricato
+              </label>
+              <select
+                id="info-assignee"
+                value={infoAssigneeId}
+                onChange={(e) => setInfoAssigneeId(e.target.value)}
+                className="input-field"
               >
-                {filteredPractices.length === 0 ? (
-                  <li className="px-3 py-2 text-sm text-gray-500">Nessuna pratica corrisponde alla ricerca.</li>
-                ) : (
-                  filteredPractices.map((p) => (
-                    <li key={p.id} role="option">
-                      <button
-                        type="button"
-                        className="w-full px-3 py-2 text-left text-sm text-gray-900 hover:bg-blue-50"
-                        onMouseDown={(e) => e.preventDefault()}
-                        onClick={() => selectPractice(p)}
-                      >
-                        {practiceOptionLine(p)}
-                      </button>
-                    </li>
-                  ))
-                )}
-              </ul>
-            )}
-            <p className="mt-1 text-xs text-gray-500">
-              Digita per filtrare l&apos;elenco, poi scegli una riga. Oppure apri il campo e scorri tutte le pratiche.
-            </p>
-          </div>
+                <option value="">— Seleziona operatore o fornitore —</option>
+                {infoAssignees.map((a) => (
+                  <option key={a.id} value={String(a.id)}>
+                    {assigneeLabel(a)}
+                  </option>
+                ))}
+              </select>
+            </div>
+          ) : (
+            <div className="relative">
+              <label htmlFor="practice-combobox" className="mb-1 block text-sm font-medium text-gray-700">
+                Pratica
+              </label>
+              <input
+                id="practice-combobox"
+                type="search"
+                autoComplete="off"
+                placeholder="Cerca per numero pratica, assistito o ID…"
+                value={practiceSearch}
+                onChange={(e) => {
+                  const v = e.target.value;
+                  setPracticeSearch(v);
+                  setPracticeId('');
+                  setPracticePickerOpen(true);
+                }}
+                onFocus={() => setPracticePickerOpen(true)}
+                onBlur={() => {
+                  window.setTimeout(() => setPracticePickerOpen(false), 180);
+                }}
+                className="input-field"
+                aria-expanded={practicePickerOpen}
+                aria-controls="practice-combobox-list"
+                aria-autocomplete="list"
+              />
+              {practicePickerOpen && (
+                <ul
+                  id="practice-combobox-list"
+                  role="listbox"
+                  className="absolute z-50 mt-1 max-h-60 w-full overflow-auto rounded-lg border border-gray-200 bg-white py-1 shadow-lg"
+                >
+                  {filteredPractices.length === 0 ? (
+                    <li className="px-3 py-2 text-sm text-gray-500">Nessuna pratica corrisponde alla ricerca.</li>
+                  ) : (
+                    filteredPractices.map((p) => (
+                      <li key={p.id} role="option">
+                        <button
+                          type="button"
+                          className="w-full px-3 py-2 text-left text-sm text-gray-900 hover:bg-blue-50"
+                          onMouseDown={(e) => e.preventDefault()}
+                          onClick={() => selectPractice(p)}
+                        >
+                          {practiceOptionLine(p)}
+                        </button>
+                      </li>
+                    ))
+                  )}
+                </ul>
+              )}
+              <p className="mt-1 text-xs text-gray-500">
+                Digita per filtrare l&apos;elenco, poi scegli una riga. Oppure apri il campo e scorri tutte le pratiche.
+              </p>
+            </div>
+          )}
           <div>
             <label className="mb-1 block text-sm font-medium text-gray-700">Messaggio</label>
             <textarea
@@ -494,7 +576,11 @@ export default function MessagesPage() {
               onChange={(e) => setNewBody(e.target.value)}
               rows={4}
               className="input-field"
-              placeholder="Testo del primo messaggio…"
+              placeholder={
+                newKind === 'info'
+                  ? 'Descrivi la richiesta di informazioni…'
+                  : 'Testo del primo messaggio…'
+              }
             />
           </div>
           {newError && <p className="text-sm text-red-600">{newError}</p>}
@@ -506,6 +592,7 @@ export default function MessagesPage() {
                 setShowNew(false);
                 setPracticeSearch('');
                 setPracticePickerOpen(false);
+                setInfoAssigneeId('');
               }}
               disabled={newSubmitting}
             >

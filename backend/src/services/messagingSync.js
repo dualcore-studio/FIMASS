@@ -8,6 +8,19 @@ async function findConversationByEntity(entityType, entityId) {
   return rows.find((c) => c.entity_type === entityType && Number(c.entity_id) === Number(entityId)) || null;
 }
 
+/** Thread generico struttura ↔ incaricato (senza pratica collegata). */
+async function findInfoConversation(strutturaId, assigneeId) {
+  const rows = await list('conversations');
+  return (
+    rows.find(
+      (c) =>
+        c.entity_type === 'info' &&
+        Number(c.struttura_id) === Number(strutturaId) &&
+        Number(c.assignee_id) === Number(assigneeId),
+    ) || null
+  );
+}
+
 /** Dopo assegnazione preventivo: allinea destinatario conversazione esistente. */
 async function syncConversationsForQuoteAssignment(quote) {
   if (!quote?.id) return;
@@ -40,6 +53,7 @@ async function syncConversationsForPolicyAssignment(policy) {
 
 module.exports = {
   findConversationByEntity,
+  findInfoConversation,
   syncConversationsForQuoteAssignment,
   syncConversationsForPolicyAssignment,
 };
