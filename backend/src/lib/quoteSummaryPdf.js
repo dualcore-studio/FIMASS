@@ -6,9 +6,12 @@ const COL = {
   ink: '#0f172a',
   body: '#334155',
   muted: '#64748b',
-  label: '#475569',
+  faint: '#9ca3af',
+  whisper: '#a8b0ba',
+  label: '#64748b',
   section: '#1e3a5f',
-  rule: '#cbd5e1',
+  hero: '#0c2744',
+  rule: '#d1d5db',
   footer: '#94a3b8',
 };
 
@@ -91,8 +94,9 @@ function pageContentWidth(doc) {
   return doc.page.width - doc.page.margins.left - doc.page.margins.right;
 }
 
+/** Spazio riservato in basso al contenuto prima del footer fisso */
 function footerReserve(doc) {
-  return 44;
+  return 30;
 }
 
 function ensureVerticalSpace(doc, minHeight) {
@@ -103,42 +107,51 @@ function ensureVerticalSpace(doc, minHeight) {
   }
 }
 
-function drawRule(doc) {
+function drawRule(doc, afterGap = 0.32) {
   const x0 = doc.page.margins.left;
   const x1 = doc.page.width - doc.page.margins.right;
   const y = doc.y;
   doc.save();
   doc.strokeColor(COL.rule).lineWidth(0.35).moveTo(x0, y).lineTo(x1, y).stroke();
   doc.restore();
-  doc.moveDown(0.55);
+  doc.moveDown(afterGap);
 }
 
-function writeSectionTitle(doc, title) {
-  ensureVerticalSpace(doc, 56);
-  doc.moveDown(0.65);
-  doc.fontSize(11).font('Helvetica-Bold').fillColor(COL.section).text(title, {
-    align: 'left',
-  });
-  doc.moveDown(0.22);
-  drawRule(doc);
+function writeSectionTitle(doc, title, compact = true) {
+  ensureVerticalSpace(doc, 38);
+  doc.moveDown(compact ? 0.28 : 0.45);
+  doc.fontSize(12).font('Helvetica-Bold').fillColor(COL.section).text(title, { align: 'left' });
+  doc.moveDown(0.1);
+  drawRule(doc, 0.28);
   doc.font('Helvetica').fillColor(COL.body);
 }
 
-/** @param {{ label: string; value: string; prominent?: boolean }[]} items */
-function stackLabeledFields(doc, items, x, colW, startY) {
+function isProminentField(key, label) {
+  const s = `${String(key)} ${String(label)}`.toLowerCase();
+  return /massimale|rct\b|capitale|franchigia|mq\b|metr|quadri|superficie|uso\b|tipologia|abitazione|immobile|rendita|propriet|affitto/i.test(
+    s,
+  );
+}
+
+/**
+ * @param {{ label: string; value: string; prominent?: boolean }[]} items
+ * @param {{ compact?: boolean }} opts
+ */
+function stackLabeledFields(doc, items, x, colW, startY, opts = {}) {
+  const compact = !!opts.compact;
+  const gapAfterBlock = compact ? 6 : 8;
   let y = startY;
-  const gapAfterBlock = 11;
   for (const it of items) {
-    doc.font('Helvetica-Bold').fontSize(9).fillColor(COL.label);
+    doc.font('Helvetica').fontSize(8).fillColor(COL.label);
     const labelH = doc.heightOfString(it.label, { width: colW });
     doc.text(it.label, x, y, { width: colW });
-    y += labelH + 3;
+    y += labelH + (compact ? 1 : 2);
     const valStr = it.value || '—';
-    const valOpts = { width: colW, lineGap: 1 };
+    const valOpts = { width: colW, lineGap: compact ? 0 : 1 };
     if (it.prominent) {
-      doc.font('Helvetica-Bold').fontSize(10.5).fillColor(COL.ink);
+      doc.font('Helvetica-Bold').fontSize(compact ? 11 : 11.5).fillColor(COL.hero);
     } else {
-      doc.font('Helvetica').fontSize(10).fillColor(COL.body);
+      doc.font('Helvetica').fontSize(compact ? 10 : 10.5).fillColor(COL.ink);
     }
     const valH = doc.heightOfString(valStr, valOpts);
     doc.text(valStr, x, y, valOpts);
@@ -147,36 +160,55 @@ function stackLabeledFields(doc, items, x, colW, startY) {
   return y;
 }
 
-function isProminentField(key, label) {
-  const s = `${String(key)} ${String(label)}`.toLowerCase();
-  return /massimale|capitale|franchigia|mq\b|metr|quadri|superficie|uso\b|tipologia|abitazione|immobile|rendita/i.test(
-    s,
-  );
-}
-
 function objectToEntries(obj, skipInternalKeys) {
   if (!obj || typeof obj !== 'object') return [];
   return Object.entries(obj).filter(([k]) => !(skipInternalKeys && String(k).startsWith('_')));
 }
 
+function sortEntriesProminentFirst(entries, labelFn) {
+  const decorated = entries.map(([k, v]) => {
+    const label = labelFn(k);
+    return { k, v, label, prominent: isProminentField(k, label) };
+  });
+  decorated.sort((a, b) => {
+    if (a.prominent !== b.prominent) return a.prominent ? -1 : 1;
+    return a.label.localeCompare(b.label, 'it', { sensitivity: 'base' });
+  });
+  return decorated.map(({ k, v }) => [k, v]);
+}
+
 function writeDynamicFieldsGrid(doc, obj, labelFn, options = {}) {
   const skipInternalKeys = !!options.skipInternalKeys;
-  const entries = objectToEntries(obj, skipInternalKeys);
+  const compact = !!options.compact;
+  const sortProminent = !!options.sortProminentFirst;
+  const emptySubtle = !!options.emptySubtle;
+
+  let entries = objectToEntries(obj, skipInternalKeys);
+  if (sortProminent) entries = sortEntriesProminentFirst(entries, labelFn);
+
   if (entries.length === 0) {
-    doc.fontSize(10).font('Helvetica').fillColor(COL.muted).text('Nessun dato caricato.', { lineGap: 2 });
-    doc.moveDown(0.4);
+    if (emptySubtle) {
+      doc.fontSize(8).font('Helvetica-Oblique').fillColor(COL.whisper).text('Nessun dato caricato.', {
+        lineGap: 1,
+      });
+    } else {
+      doc.fontSize(10).font('Helvetica').fillColor(COL.muted).text('Nessun dato caricato.', { lineGap: 2 });
+    }
+    doc.moveDown(0.22);
     return;
   }
 
   const margin = doc.page.margins.left;
   const contentW = pageContentWidth(doc);
-  const gutter = 28;
+  const gutter = compact ? 22 : 28;
   const colW = (contentW - gutter) / 2;
   const leftX = margin;
   const rightX = margin + colW + gutter;
+  const rowGap = compact ? 0.06 : 0.12;
+  const minRowH = compact ? 52 : 72;
 
   for (let i = 0; i < entries.length; i += 2) {
-    ensureVerticalSpace(doc, 96);
+    ensureVerticalSpace(doc, minRowH);
     const pair = [entries[i], entries[i + 1]].filter(Boolean);
     const rowStart = doc.y;
     let maxY = rowStart;
@@ -187,26 +219,30 @@ function writeDynamicFieldsGrid(doc, obj, labelFn, options = {}) {
       const prominent = isProminentField(k, label);
       const val = formatValue(v);
       const x = j === 0 ? leftX : rightX;
-      const endY = stackLabeledFields(doc, [{ label, value: val, prominent }], x, colW, rowStart);
+      const endY = stackLabeledFields(doc, [{ label, value: val, prominent }], x, colW, rowStart, { compact });
       maxY = Math.max(maxY, endY);
     }
 
     doc.y = maxY;
-    doc.moveDown(0.15);
+    doc.moveDown(rowGap);
   }
 }
 
-function writeFooterOnAllPages(doc, line) {
-  const range = doc.bufferedPageRange();
-  for (let i = 0; i < range.count; i += 1) {
-    doc.switchToPage(range.start + i);
-    const x = doc.page.margins.left;
-    const w = pageContentWidth(doc);
-    const y = doc.page.height - doc.page.margins.bottom - 12;
-    doc.save();
-    doc.fontSize(7).font('Helvetica').fillColor(COL.footer).text(line, x, y, { width: w, align: 'center' });
-    doc.restore();
+function writeFooterOnce(doc, line) {
+  const x = doc.page.margins.left;
+  const w = pageContentWidth(doc);
+  const y = doc.page.height - doc.page.margins.bottom - 9;
+  doc.save();
+  doc.fontSize(6.5).font('Helvetica').fillColor(COL.footer).text(line, x, y, { width: w, align: 'center' });
+  doc.restore();
+}
+
+function placeFooterIfRoom(doc, line) {
+  const y = doc.page.height - doc.page.margins.bottom - 9;
+  if (doc.y + 16 > y) {
+    doc.addPage();
   }
+  writeFooterOnce(doc, line);
 }
 
 /**
@@ -226,9 +262,8 @@ function pipeQuoteSummaryPdf(quote, ctx, res) {
   const logoOk = fs.existsSync(logoPath);
 
   const doc = new PDFDocument({
-    margin: 48,
+    margin: 44,
     size: 'A4',
-    bufferPages: true,
     info: {
       Title: `Pratica ${quote.numero}`,
       Author: 'FIMASS',
@@ -243,33 +278,36 @@ function pipeQuoteSummaryPdf(quote, ctx, res) {
   const pageMidX = doc.page.width / 2;
 
   if (logoOk) {
-    const logoW = 168;
+    const logoW = 118;
     const logoH = pngDisplayHeight(logoPath, logoW);
     const logoX = pageMidX - logoW / 2;
     const topY = doc.y;
     doc.image(logoPath, logoX, topY, { width: logoW });
-    doc.y = topY + logoH + 18;
+    doc.y = topY + logoH + 10;
   } else {
-    doc.moveDown(0.3);
+    doc.moveDown(0.15);
   }
 
-  doc.fontSize(20).font('Helvetica-Bold').fillColor(COL.ink).text('Riepilogo richiesta preventivo', {
+  doc.fontSize(17).font('Helvetica-Bold').fillColor(COL.ink).text('Riepilogo richiesta preventivo', {
     align: 'center',
   });
-  doc.moveDown(0.55);
+  doc.moveDown(0.38);
 
-  const metaLine = [
-    `Numero pratica: ${dash(quote.numero)}`,
-    `Stato: ${dash(quote.stato)}`,
-    `Generato: ${generatedAt}`,
-  ].join(' ·     ');
-  doc.fontSize(9.5).font('Helvetica').fillColor(COL.muted).text(metaLine, {
-    align: 'center',
-    lineGap: 2,
-    width: contentW,
-  });
-  doc.moveDown(0.85);
-  drawRule(doc);
+  doc.fontSize(15).font('Helvetica-Bold').fillColor(COL.hero).text(dash(quote.numero), { align: 'center' });
+  doc.moveDown(0.28);
+
+  doc.fontSize(8)
+    .font('Helvetica')
+    .fillColor(COL.muted)
+    .text(`Stato: ${dash(quote.stato)}`, { align: 'center', width: contentW });
+  doc.moveDown(0.12);
+  doc.fontSize(7.5).fillColor(COL.faint).text(`Documento generato: ${generatedAt}`, { align: 'center', width: contentW });
+  doc.moveDown(0.42);
+  drawRule(doc, 0.26);
+
+  const gutter = 22;
+  const colW = (contentW - gutter) / 2;
+  const margin = doc.page.margins.left;
 
   /* --- Assistito --- */
   writeSectionTitle(doc, 'Assistito');
@@ -291,15 +329,12 @@ function pipeQuoteSummaryPdf(quote, ctx, res) {
     { label: 'Email', value: dash(quote.assistito_email) },
   ];
 
-  ensureVerticalSpace(doc, 120);
+  ensureVerticalSpace(doc, 88);
   const rowTop = doc.y;
-  const gutter = 28;
-  const colW = (contentW - gutter) / 2;
-  const margin = doc.page.margins.left;
-  const leftEnd = stackLabeledFields(doc, leftAssist, margin, colW, rowTop);
-  const rightEnd = stackLabeledFields(doc, rightAssist, margin + colW + gutter, colW, rowTop);
+  const leftEnd = stackLabeledFields(doc, leftAssist, margin, colW, rowTop, { compact: true });
+  const rightEnd = stackLabeledFields(doc, rightAssist, margin + colW + gutter, colW, rowTop, { compact: true });
   doc.y = Math.max(leftEnd, rightEnd);
-  doc.moveDown(0.35);
+  doc.moveDown(0.18);
 
   /* --- Dettagli pratica --- */
   writeSectionTitle(doc, 'Dettagli pratica');
@@ -323,58 +358,78 @@ function pipeQuoteSummaryPdf(quote, ctx, res) {
     { label: 'Data decorrenza richiesta', value: formatDateIt(quote.data_decorrenza) },
   ];
 
-  ensureVerticalSpace(doc, 130);
+  ensureVerticalSpace(doc, 96);
   const praticaTop = doc.y;
-  const pLeftEnd = stackLabeledFields(doc, leftPratica, margin, colW, praticaTop);
-  const pRightEnd = stackLabeledFields(doc, rightPratica, margin + colW + gutter, colW, praticaTop);
+  const pLeftEnd = stackLabeledFields(doc, leftPratica, margin, colW, praticaTop, { compact: true });
+  const pRightEnd = stackLabeledFields(doc, rightPratica, margin + colW + gutter, colW, praticaTop, { compact: true });
   doc.y = Math.max(pLeftEnd, pRightEnd);
-  doc.moveDown(0.35);
+  doc.moveDown(0.18);
 
   /* --- Dati specifici --- */
   writeSectionTitle(doc, 'Dati specifici per il preventivo');
-  writeDynamicFieldsGrid(doc, quote.dati_specifici, (k) => labelForCampo(typeRow, k), { skipInternalKeys: true });
+  writeDynamicFieldsGrid(doc, quote.dati_specifici, (k) => labelForCampo(typeRow, k), {
+    skipInternalKeys: true,
+    compact: true,
+    sortProminentFirst: true,
+  });
 
   /* --- Dati preventivo (sistema) --- */
   writeSectionTitle(doc, 'Dati preventivo');
-  writeDynamicFieldsGrid(doc, quote.dati_preventivo, humanizeKey, { skipInternalKeys: false });
+  writeDynamicFieldsGrid(doc, quote.dati_preventivo, humanizeKey, {
+    skipInternalKeys: false,
+    compact: true,
+    emptySubtle: true,
+  });
 
   /* --- Note --- */
-  writeSectionTitle(doc, 'Note');
-  ensureVerticalSpace(doc, 72);
-  doc.font('Helvetica-Bold').fontSize(9).fillColor(COL.label).text('Note della struttura');
-  doc.moveDown(0.25);
   const ns = quote.note_struttura && String(quote.note_struttura).trim();
-  doc.font('Helvetica').fontSize(10).fillColor(ns ? COL.body : COL.muted);
-  doc.text(ns || 'Nessuna nota inserita.', { lineGap: 4, align: 'left' });
-  doc.moveDown(0.65);
-
-  doc.font('Helvetica-Bold').fontSize(9).fillColor(COL.label).text('Note sugli allegati');
-  doc.moveDown(0.25);
   const na = quote.note_allegati && String(quote.note_allegati).trim();
-  doc.font('Helvetica').fontSize(10).fillColor(na ? COL.body : COL.muted);
-  doc.text(na || 'Nessuna nota inserita.', { lineGap: 4, align: 'left' });
-  doc.moveDown(0.45);
+  const bothNotesEmpty = !ns && !na;
+
+  writeSectionTitle(doc, 'Note');
+  if (bothNotesEmpty) {
+    doc.font('Helvetica-Oblique').fontSize(7.5).fillColor(COL.whisper).text('Nessuna nota inserita.', { lineGap: 1 });
+    doc.moveDown(0.12);
+  } else {
+    doc.font('Helvetica').fontSize(8).fillColor(COL.label).text('Note della struttura');
+    doc.moveDown(0.08);
+    doc.font('Helvetica').fontSize(10).fillColor(ns ? COL.body : COL.whisper);
+    if (!ns) doc.font('Helvetica-Oblique');
+    doc.text(ns || 'Nessuna nota inserita.', { lineGap: 2 });
+    doc.font('Helvetica');
+    doc.moveDown(0.28);
+
+    doc.fontSize(8).fillColor(COL.label).text('Note sugli allegati');
+    doc.moveDown(0.08);
+    doc.font('Helvetica').fontSize(10).fillColor(na ? COL.body : COL.whisper);
+    if (!na) doc.font('Helvetica-Oblique');
+    doc.text(na || 'Nessuna nota inserita.', { lineGap: 2 });
+    doc.font('Helvetica');
+    doc.moveDown(0.18);
+  }
 
   /* --- Allegati --- */
   writeSectionTitle(doc, 'Allegati');
   if (attachments.length === 0) {
-    doc.fontSize(10).font('Helvetica').fillColor(COL.muted).text('Nessun allegato registrato.', { lineGap: 2 });
+    doc.font('Helvetica-Oblique').fontSize(7.5).fillColor(COL.whisper).text('Nessun allegato registrato.', { lineGap: 1 });
+    doc.moveDown(0.12);
   } else {
     attachments.forEach((a, i) => {
-      ensureVerticalSpace(doc, 36);
+      ensureVerticalSpace(doc, 32);
       const tipo = a.tipo || 'documento';
       const nome = a.nome_originale || a.nome_file || 'file';
       const dim = a.dimensione != null ? `${Math.round(a.dimensione / 1024)} KB` : 'n/d';
       const data = formatDateTimeIt(a.created_at);
-      doc.fontSize(10).font('Helvetica-Bold').fillColor(COL.body).text(`${i + 1}. ${nome}`, { lineGap: 2 });
-      doc.fontSize(9).font('Helvetica').fillColor(COL.muted).text(`Tipo: ${tipo}   ·   Dimensione: ${dim}   ·   Caricato: ${data}`, {
-        lineGap: 2,
+      doc.fontSize(10).font('Helvetica-Bold').fillColor(COL.body).text(`${i + 1}. ${nome}`, { lineGap: 1 });
+      doc.fontSize(8.5).font('Helvetica').fillColor(COL.muted).text(`Tipo: ${tipo} ·   Dimensione: ${dim}   ·   Caricato: ${data}`, {
+        lineGap: 1,
       });
-      doc.moveDown(0.45);
+      doc.moveDown(0.28);
     });
   }
 
-  writeFooterOnAllPages(doc, `Documento operativo interno generato da FIMASS — ${generatedAt}`);
+  const footerLine = `Documento operativo interno generato da FIMASS — ${generatedAt}`;
+  placeFooterIfRoom(doc, footerLine);
 
   doc.end();
 }
