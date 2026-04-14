@@ -22,6 +22,7 @@ import {
 } from '../../utils/helpers';
 import { useAuth } from '../../context/AuthContext';
 import TablePagination from '../../components/common/TablePagination';
+import { PasswordInput } from '../../components/common/PasswordInput';
 import Modal from '../../components/ui/Modal';
 import { useSyncPageToTotalPages } from '../../hooks/useSyncPageToTotalPages';
 import {
@@ -446,13 +447,12 @@ export default function UsersList() {
             <label htmlFor="reset-password" className="mb-1 block text-sm font-medium text-gray-700">
               Nuova password
             </label>
-            <input
+            <PasswordInput
+              key={resetUserId ?? 'closed'}
               id="reset-password"
-              type="password"
               autoComplete="new-password"
               value={resetPassword}
               onChange={(e) => setResetPassword(e.target.value)}
-              className="input-field"
             />
           </div>
           {resetError ? <p className="text-sm text-red-600">{resetError}</p> : null}

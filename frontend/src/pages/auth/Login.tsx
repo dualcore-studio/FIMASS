@@ -1,7 +1,7 @@
 import { useState, type FormEvent } from 'react';
 import { useAuth } from '../../context/AuthContext';
-import { Eye, EyeOff } from 'lucide-react';
 import { PortalBackgroundLayers } from '../../components/layout/PortalBackground';
+import { PasswordInput } from '../../components/common/PasswordInput';
 
 const inputClass =
   'w-full rounded-xl border border-gray-200/95 bg-white px-3.5 py-2.5 text-sm text-gray-900 shadow-[0_1px_2px_rgba(15,17,21,0.04)] placeholder:text-gray-400/75 transition-[border-color,box-shadow] duration-200 focus:outline-none focus:border-[var(--ui-primary)] focus:ring-[3px] focus:ring-[var(--ui-focus-ring)]';
@@ -10,7 +10,6 @@ export default function Login() {
   const { login } = useAuth();
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
-  const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
@@ -85,26 +84,15 @@ export default function Login() {
               <label htmlFor="login-password" className="mb-1.5 block text-xs font-medium uppercase tracking-wide text-gray-500">
                 Password
               </label>
-              <div className="relative">
-                <input
-                  id="login-password"
-                  type={showPassword ? 'text' : 'password'}
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  className={`${inputClass} pr-11`}
-                  placeholder="Inserisci password"
-                  required
-                  autoComplete="current-password"
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-2.5 top-1/2 -translate-y-1/2 rounded-lg p-1.5 text-gray-400 transition-colors duration-200 hover:bg-[#0B4EA2]/8 hover:text-[#0B4EA2] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#0B4EA2]/30"
-                  aria-label={showPassword ? 'Nascondi password' : 'Mostra password'}
-                >
-                  {showPassword ? <EyeOff className="h-[18px] w-[18px]" strokeWidth={1.75} /> : <Eye className="h-[18px] w-[18px]" strokeWidth={1.75} />}
-                </button>
-              </div>
+              <PasswordInput
+                id="login-password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                className={inputClass}
+                placeholder="Inserisci password"
+                required
+                autoComplete="current-password"
+              />
             </div>
 
             <button

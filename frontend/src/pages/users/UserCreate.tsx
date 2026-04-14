@@ -10,6 +10,7 @@ import {
 } from 'lucide-react';
 import { api, ApiError } from '../../utils/api';
 import type { CommissionStructureType, InsuranceType, User } from '../../types';
+import { PasswordInput } from '../../components/common/PasswordInput';
 
 type UserRole = User['role'];
 
@@ -495,14 +496,13 @@ export default function UserCreate() {
 
           <div className="grid gap-4 border-t border-gray-100 pt-6 sm:grid-cols-2">
             <div>
-              <label className="mb-1 block text-sm font-medium text-gray-700">
+              <label htmlFor="create-user-password" className="mb-1 block text-sm font-medium text-gray-700">
                 Password <span className="text-red-500">*</span>
               </label>
-              <input
-                type="password"
+              <PasswordInput
+                id="create-user-password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                className="input-field"
                 autoComplete="new-password"
               />
               {fieldErrors.password ? (
@@ -510,14 +510,13 @@ export default function UserCreate() {
               ) : null}
             </div>
             <div>
-              <label className="mb-1 block text-sm font-medium text-gray-700">
+              <label htmlFor="create-user-password-confirm" className="mb-1 block text-sm font-medium text-gray-700">
                 Conferma password <span className="text-red-500">*</span>
               </label>
-              <input
-                type="password"
+              <PasswordInput
+                id="create-user-password-confirm"
                 value={confermaPassword}
                 onChange={(e) => setConfermaPassword(e.target.value)}
-                className="input-field"
                 autoComplete="new-password"
               />
               {fieldErrors.confermaPassword ? (
