@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { MessageSquarePlus, Send, ArrowLeft } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
@@ -32,6 +32,8 @@ export default function MessagesPage() {
   const [newKind, setNewKind] = useState<'quote' | 'policy'>('quote');
   const [practices, setPractices] = useState<(Quote | Policy)[]>([]);
   const [practiceId, setPracticeId] = useState('');
+  const [practiceSearch, setPracticeSearch] = useState('');
+  const [practicePickerOpen, setPracticePickerOpen] = useState(false);
   const [newBody, setNewBody] = useState('');
   const [newSubmitting, setNewSubmitting] = useState(false);
   const [newError, setNewError] = useState<string | null>(null);
@@ -90,6 +92,7 @@ export default function MessagesPage() {
         setPractices(res.data ?? []);
       }
       setPracticeId('');
+      setPracticeSearch('');
     } catch (e) {
       setPractices([]);
       setNewError(e instanceof ApiError ? e.message : 'Impossibile caricare le pratiche.');
@@ -134,6 +137,7 @@ export default function MessagesPage() {
       setShowNew(false);
       setNewBody('');
       setPracticeId('');
+      setPracticeSearch('');
       await loadList();
       if (res.id) navigate(`/messaggi/${res.id}`);
     } catch (e) {
@@ -145,6 +149,40 @@ export default function MessagesPage() {
 
   const practiceLabel = (row: Quote | Policy) =>
     'numero' in row && row.numero ? row.numero : String(row.id);
+
+  const practiceOptionLine = (row: Quote | Policy) => {
+    const num = practiceLabel(row);
+    const nome = row.assistito_nome?.trim() || '';
+    const cogn = row.assistito_cognome?.trim() || '';
+    const assist = [nome, cogn].filter(Boolean).join(' ');
+    return assist ? `${num} — ${assist}` : num;
+  };
+
+  const filteredPractices = useMemo(() => {
+    const q = practiceSearch.trim().toLowerCase();
+    if (!q) return practices;
+    return practices.filter((p) => {
+      const num = String(p.numero ?? '').toLowerCase();
+      const id = String(p.id);
+      const nome = (p.assistito_nome ?? '').toLowerCase();
+      const cogn = (p.assistito_cognome ?? '').toLowerCase();
+      const cf = (p.assistito_cf ?? '').toLowerCase();
+      return (
+        num.includes(q) ||
+        id.includes(q) ||
+        nome.includes(q) ||
+        cogn.includes(q) ||
+        `${nome} ${cogn}`.trim().includes(q) ||
+        cf.includes(q)
+      );
+    });
+  }, [practices, practiceSearch]);
+
+  const selectPractice = (p: Quote | Policy) => {
+    setPracticeId(String(p.id));
+    setPracticeSearch(practiceOptionLine(p));
+    setPracticePickerOpen(false);
+  };
 
   if (!user) return null;
 
@@ -325,7 +363,12 @@ export default function MessagesPage() {
 
       <Modal
         isOpen={showNew}
-        onClose={() => !newSubmitting && setShowNew(false)}
+        onClose={() => {
+          if (newSubmitting) return;
+          setShowNew(false);
+          setPracticeSearch('');
+          setPracticePickerOpen(false);
+        }}
         title="Nuova conversazione"
         size="md"
       >
@@ -337,30 +380,70 @@ export default function MessagesPage() {
             <label className="mb-1 block text-sm font-medium text-gray-700">Tipo pratica</label>
             <select
               value={newKind}
-              onChange={(e) => setNewKind(e.target.value as 'quote' | 'policy')}
+              onChange={(e) => {
+                setNewKind(e.target.value as 'quote' | 'policy');
+                setPracticeId('');
+                setPracticeSearch('');
+                setPracticePickerOpen(false);
+              }}
               className="input-field"
             >
               <option value="quote">Preventivo</option>
               <option value="policy">Polizza</option>
             </select>
           </div>
-          <div>
-            <label className="mb-1 block text-sm font-medium text-gray-700">Pratica</label>
-            <select
-              value={practiceId}
-              onChange={(e) => setPracticeId(e.target.value)}
+          <div className="relative">
+            <label htmlFor="practice-combobox" className="mb-1 block text-sm font-medium text-gray-700">
+              Pratica
+            </label>
+            <input
+              id="practice-combobox"
+              type="search"
+              autoComplete="off"
+              placeholder="Cerca per numero pratica, assistito o ID…"
+              value={practiceSearch}
+              onChange={(e) => {
+                const v = e.target.value;
+                setPracticeSearch(v);
+                setPracticeId('');
+                setPracticePickerOpen(true);
+              }}
+              onFocus={() => setPracticePickerOpen(true)}
+              onBlur={() => {
+                window.setTimeout(() => setPracticePickerOpen(false), 180);
+              }}
               className="input-field"
-            >
-              <option value="">Seleziona…</option>
-              {practices.map((p) => (
-                <option key={p.id} value={String(p.id)}>
-                  {practiceLabel(p)}
-                  {'assistito_nome' in p && p.assistito_cognome
-                    ? ` — ${p.assistito_nome} ${p.assistito_cognome}`
-                    : ''}
-                </option>
-              ))}
-            </select>
+              aria-expanded={practicePickerOpen}
+              aria-controls="practice-combobox-list"
+              aria-autocomplete="list"
+            />
+            {practicePickerOpen && (
+              <ul
+                id="practice-combobox-list"
+                role="listbox"
+                className="absolute z-50 mt-1 max-h-60 w-full overflow-auto rounded-lg border border-gray-200 bg-white py-1 shadow-lg"
+              >
+                {filteredPractices.length === 0 ? (
+                  <li className="px-3 py-2 text-sm text-gray-500">Nessuna pratica corrisponde alla ricerca.</li>
+                ) : (
+                  filteredPractices.map((p) => (
+                    <li key={p.id} role="option">
+                      <button
+                        type="button"
+                        className="w-full px-3 py-2 text-left text-sm text-gray-900 hover:bg-blue-50"
+                        onMouseDown={(e) => e.preventDefault()}
+                        onClick={() => selectPractice(p)}
+                      >
+                        {practiceOptionLine(p)}
+                      </button>
+                    </li>
+                  ))
+                )}
+              </ul>
+            )}
+            <p className="mt-1 text-xs text-gray-500">
+              Digita per filtrare l&apos;elenco, poi scegli una riga. Oppure apri il campo e scorri tutte le pratiche.
+            </p>
           </div>
           <div>
             <label className="mb-1 block text-sm font-medium text-gray-700">Messaggio</label>
@@ -369,12 +452,21 @@ export default function MessagesPage() {
               onChange={(e) => setNewBody(e.target.value)}
               rows={4}
               className="input-field"
- placeholder="Testo del primo messaggio…"
+              placeholder="Testo del primo messaggio…"
             />
           </div>
           {newError && <p className="text-sm text-red-600">{newError}</p>}
           <div className="flex justify-end gap-2 pt-2">
-            <button type="button" className="btn-secondary" onClick={() => setShowNew(false)} disabled={newSubmitting}>
+            <button
+              type="button"
+              className="btn-secondary"
+              onClick={() => {
+                setShowNew(false);
+                setPracticeSearch('');
+                setPracticePickerOpen(false);
+              }}
+              disabled={newSubmitting}
+            >
               Annulla
             </button>
             <button type="button" className="btn-primary" onClick={handleCreateConversation} disabled={newSubmitting}>
