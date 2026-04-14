@@ -85,7 +85,8 @@ export default function MessagesPage() {
   }, [activeId, loadThread]);
 
   const loadPracticesForNew = useCallback(async () => {
-    if (!user || user.role !== 'struttura') return;
+    if (!user) return;
+    if (user.role !== 'struttura' && user.role !== 'operatore') return;
     setNewError(null);
     try {
       if (newKind === 'quote') {
@@ -104,10 +105,10 @@ export default function MessagesPage() {
   }, [user, newKind]);
 
   useEffect(() => {
-    if (showNew && user?.role === 'struttura') {
+    if (showNew && user && (user.role === 'struttura' || user.role === 'operatore')) {
       loadPracticesForNew();
     }
-  }, [showNew, user?.role, loadPracticesForNew]);
+  }, [showNew, user, loadPracticesForNew]);
 
   const handleSendReply = async () => {
     if (activeId == null || !replyText.trim()) return;
@@ -199,7 +200,7 @@ export default function MessagesPage() {
             Comunicazioni collegate alle pratiche (preventivi e polizze).
           </p>
         </div>
-        {user.role === 'struttura' && (
+        {(user.role === 'struttura' || user.role === 'operatore') && (
           <button type="button" onClick={() => setShowNew(true)} className="btn-primary self-start">
             <MessageSquarePlus className="h-4 w-4" />
             Nuova conversazione
@@ -407,7 +408,15 @@ export default function MessagesPage() {
       >
         <div className="space-y-4">
           <p className="text-sm text-gray-600">
-            Scegli la pratica: il messaggio sarà inviato automaticamente all&apos;incaricato assegnato.
+            {user.role === 'struttura' ? (
+              <>
+                Scegli la pratica: il messaggio sarà inviato automaticamente all&apos;incaricato assegnato.
+              </>
+            ) : (
+              <>
+                Scegli una pratica a te assegnata: il messaggio sarà inviato alla struttura titolare.
+              </>
+            )}
           </p>
           <div>
             <label className="mb-1 block text-sm font-medium text-gray-700">Tipo pratica</label>
