@@ -111,8 +111,8 @@ export default function Sidebar({ collapsed, onCollapsedChange }: SidebarProps) 
                 <item.icon size={20} className="shrink-0 opacity-90" strokeWidth={1.75} />
               )}
               {!collapsed && (
-                <span className="flex min-w-0 flex-1 items-center gap-2">
-                  <span className="truncate">{item.label}</span>
+                <span className="flex min-w-0 flex-1 items-center justify-between gap-3">
+                  <span className="min-w-0 truncate">{item.label}</span>
                   {item.path === '/messaggi' && unreadTotal > 0 ? (
                     <span
                       className={`inline-flex shrink-0 items-center justify-center rounded-full bg-orange-500 font-bold tabular-nums text-white shadow-sm ${
