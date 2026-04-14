@@ -191,6 +191,10 @@ export default function QuoteCreate() {
       if (!assisted.codice_fiscale.trim()) errors.push('Il codice fiscale è obbligatorio.');
       if (!assisted.cellulare.trim()) errors.push('Il cellulare è obbligatorio.');
       if (!assisted.email.trim()) errors.push('L\'email è obbligatoria.');
+      if (!assisted.indirizzo.trim()) errors.push('L\'indirizzo di residenza è obbligatorio.');
+      if (!assisted.cap.trim()) errors.push('Il CAP è obbligatorio.');
+      else if (!/^\d{5}$/.test(assisted.cap.trim())) errors.push('Il CAP deve essere di 5 cifre.');
+      if (!assisted.citta.trim()) errors.push('La città è obbligatoria.');
       const cod = selectedType ? String(selectedType.codice || '').toLowerCase() : '';
       if (CON_FRAZIONAMENTO_ASSISTITO.has(cod) && !frazionamento.trim()) {
         errors.push('Il frazionamento è obbligatorio.');
@@ -244,6 +248,11 @@ export default function QuoteCreate() {
   const handleSubmit = async () => {
     if (!selectedType) return;
     setSubmitError(null);
+    const preSubmitErrors = [0, 1, 2, 3].flatMap((si) => validateStep(si));
+    if (preSubmitErrors.length) {
+      setSubmitError(preSubmitErrors[0]);
+      return;
+    }
     const allegatiErr = mandatoryChecklistMissing(
       selectedType.checklist_allegati,
       attachmentFiles,
@@ -273,9 +282,9 @@ export default function QuoteCreate() {
           codice_fiscale: assisted.codice_fiscale.trim().toUpperCase(),
           cellulare: assisted.cellulare.trim(),
           email: assisted.email.trim(),
-          indirizzo: assisted.indirizzo.trim() || null,
-          cap: assisted.cap.trim() || null,
-          citta: assisted.citta.trim() || null,
+          indirizzo: assisted.indirizzo.trim(),
+          cap: assisted.cap.trim(),
+          citta: assisted.citta.trim(),
         },
         dati_specifici: mergedDati,
         data_decorrenza: dataDecorrenza || null,
@@ -624,9 +633,9 @@ function Step2Assisted({
         <FormInput label="Data di Nascita *" type="date" value={assisted.data_nascita} onChange={(v) => onUpdate('data_nascita', v)} />
         <FormInput label="Cellulare *" type="tel" value={assisted.cellulare} onChange={(v) => onUpdate('cellulare', v)} placeholder="+39 333 1234567" />
         <FormInput label="Email *" type="email" value={assisted.email} onChange={(v) => onUpdate('email', v)} placeholder="email@esempio.it" />
-        <FormInput label="Indirizzo" value={assisted.indirizzo} onChange={(v) => onUpdate('indirizzo', v)} />
-        <FormInput label="CAP" value={assisted.cap} onChange={(v) => onUpdate('cap', v)} maxLength={5} />
-        <FormInput label="Città" value={assisted.citta} onChange={(v) => onUpdate('citta', v)} />
+        <FormInput label="Indirizzo di residenza *" value={assisted.indirizzo} onChange={(v) => onUpdate('indirizzo', v)} />
+        <FormInput label="CAP *" value={assisted.cap} onChange={(v) => onUpdate('cap', v)} maxLength={5} />
+        <FormInput label="Città *" value={assisted.citta} onChange={(v) => onUpdate('citta', v)} />
 
         {!nascondiBlocco && (mostraDecorrenza || mostraFrazionamento || mostraIndirizzoStudio) && (
           <div className="sm:col-span-2 border-t pt-4 mt-2 space-y-4">
@@ -1099,9 +1108,9 @@ function Step5Review({
           <ReviewItem label="Data di Nascita" value={formatDate(assisted.data_nascita)} />
           <ReviewItem label="Cellulare" value={assisted.cellulare} />
           <ReviewItem label="Email" value={assisted.email} />
-          {assisted.indirizzo && <ReviewItem label="Indirizzo" value={assisted.indirizzo} />}
-          {assisted.cap && <ReviewItem label="CAP" value={assisted.cap} />}
-          {assisted.citta && <ReviewItem label="Città" value={assisted.citta} />}
+          <ReviewItem label="Indirizzo di residenza" value={assisted.indirizzo} />
+          <ReviewItem label="CAP" value={assisted.cap} />
+          <ReviewItem label="Città" value={assisted.citta} />
         </ReviewSection>
 
         {/* Info aggiuntive */}

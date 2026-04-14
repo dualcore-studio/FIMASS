@@ -427,6 +427,22 @@ router.post('/', authenticateToken, authorizeRoles('struttura'), (req, res) => {
     if (!assistito.email || !String(assistito.email).trim()) {
       return res.status(400).json({ error: 'Email assistito obbligatoria' });
     }
+    const indirizzoAss = assistito.indirizzo != null ? String(assistito.indirizzo).trim() : '';
+    const capAss = assistito.cap != null ? String(assistito.cap).trim() : '';
+    const cittaAss = assistito.citta != null ? String(assistito.citta).trim() : '';
+    if (!indirizzoAss) {
+      return res.status(400).json({ error: 'Indirizzo di residenza assistito obbligatorio' });
+    }
+    if (!capAss) {
+      return res.status(400).json({ error: 'CAP assistito obbligatorio' });
+    }
+    if (!/^\d{5}$/.test(capAss)) {
+      return res.status(400).json({ error: 'CAP assistito non valido (5 cifre)' });
+    }
+    if (!cittaAss) {
+      return res.status(400).json({ error: 'Città assistito obbligatoria' });
+    }
+    Object.assign(assistito, { indirizzo: indirizzoAss, cap: capAss, citta: cittaAss });
 
     const insType = await getById('insurance_types', tipo_assicurazione_id);
     if (!insType) {
