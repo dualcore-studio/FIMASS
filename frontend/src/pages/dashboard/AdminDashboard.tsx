@@ -43,7 +43,7 @@ export default function AdminDashboard() {
   const [inProgressQuotes, setInProgressQuotes] = useState<InProgressQuoteRow[]>([]);
   const [requestedPolicies, setRequestedPolicies] = useState<Policy[]>([]);
   const [issuedPolicies, setIssuedPolicies] = useState<Policy[]>([]);
-  const [operators, setOperators] = useState<User[]>([]);
+  const [assignees, setAssignees] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [assignModalOpen, setAssignModalOpen] = useState(false);
@@ -60,14 +60,14 @@ export default function AdminDashboard() {
     setError(null);
     setLoading(true);
     try {
-      const [q, p, a, presented, policiesRequested, policiesIssued, operatorList] = await Promise.all([
+      const [q, p, a, presented, policiesRequested, policiesIssued, assigneeList] = await Promise.all([
         api.get<QuoteStats>('/quotes/stats'),
         api.get<PolicyStats>('/policies/stats'),
         api.get<AlertsReport>('/reports/alerts'),
         api.get<PaginatedResponse<Quote>>(`/quotes?stato=PRESENTATA&limit=${DASHBOARD_ROW_LIMIT}`),
         api.get<PaginatedResponse<Policy>>(`/policies?stato=RICHIESTA%20PRESENTATA&limit=${DASHBOARD_ROW_LIMIT}`),
         api.get<PaginatedResponse<Policy>>(`/policies?stato=EMESSA&limit=${DASHBOARD_ROW_LIMIT}`),
-        api.get<User[]>('/users/operators'),
+        api.get<User[]>('/users/assignees'),
       ]);
 
       let inProgress: InProgressQuoteRow[] = [];
@@ -99,7 +99,7 @@ export default function AdminDashboard() {
       setInProgressQuotes(inProgress);
       setRequestedPolicies(policiesRequested.data ?? []);
       setIssuedPolicies(policiesIssued.data ?? []);
-      setOperators(operatorList);
+      setAssignees(assigneeList);
     } catch {
       setError('Impossibile caricare i dati della dashboard. Riprova più tardi.');
     } finally {
@@ -197,13 +197,13 @@ export default function AdminDashboard() {
       return;
     }
     if (!assignOperatorId) {
-      setAssignFeedback('Seleziona un operatore prima di confermare.');
+      setAssignFeedback('Seleziona un operatore o un fornitore prima di confermare.');
       return;
     }
     setAssignFeedback(null);
     setAssignSubmitting(true);
     try {
-      await api.put(`/quotes/${quoteId}/assign`, { operatore_id: Number(assignOperatorId) });
+      await api.put(`/quotes/${quoteId}/assign`, { assigned_user_id: Number(assignOperatorId) });
       setAssignFeedback('Preventivo assegnato con successo.');
       window.setTimeout(() => {
         closeAssignModal();
@@ -311,7 +311,7 @@ export default function AdminDashboard() {
       <Modal
         isOpen={assignModalOpen && selectedPresentedRow != null}
         onClose={closeAssignModal}
-        title="Assegna operatore"
+        title="Assegna incaricato"
         size="sm"
       >
         {selectedPresentedRow && (
@@ -325,9 +325,12 @@ export default function AdminDashboard() {
                 </span>
               </p>
             </div>
+            <p className="text-sm text-slate-600">
+              Seleziona operatore o fornitore a cui assegnare il preventivo.
+            </p>
             <div>
               <label htmlFor="assign-operator-dashboard" className="mb-1 block text-sm font-medium text-slate-700">
-                Operatore
+                Incaricato
               </label>
               <select
                 id="assign-operator-dashboard"
@@ -335,10 +338,10 @@ export default function AdminDashboard() {
                 onChange={(e) => setAssignOperatorId(e.target.value)}
                 className="input-field"
               >
-                <option value="">Seleziona operatore…</option>
-                {operators.map((op) => (
-                  <option key={op.id} value={String(op.id)}>
-                    {getUserDisplayName(op)}
+                <option value="">Seleziona…</option>
+                {assignees.map((a) => (
+                  <option key={a.id} value={String(a.id)}>
+                    {getUserDisplayName(a)} ({a.role === 'fornitore' ? 'Fornitore' : 'Operatore'})
                   </option>
                 ))}
               </select>
