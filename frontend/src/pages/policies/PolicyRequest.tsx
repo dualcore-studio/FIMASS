@@ -217,7 +217,6 @@ export default function PolicyRequest() {
             </p>
 
             <PolicyPaymentExtremesCard
-              numeroPreventivo={modalQuote.numero}
               assistitoNome={modalQuote.assistito_nome}
               assistitoCognome={modalQuote.assistito_cognome}
             />

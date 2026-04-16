@@ -6,16 +6,14 @@ export const POLICY_PAYMENT_IBAN = 'IT28S0832703204000000016674';
 export const POLICY_PAYMENT_AGENCY_ADDRESS = 'BCC ROMA Ag. 4 - Via Russolillo Don Giustino, 7 00138 ROMA';
 
 export function buildPolicyPaymentCausale(
-  numeroPreventivo: string | null | undefined,
   assistitoNome: string | null | undefined,
   assistitoCognome: string | null | undefined,
 ): string {
-  const num = (numeroPreventivo ?? '').trim() || 'N/D';
   const nominativo = [assistitoNome, assistitoCognome]
     .flatMap((p) => (p != null && String(p).trim() !== '' ? [String(p).trim()] : []))
     .join(' ');
   const contraente = nominativo || 'N/D';
-  return `Polizza ${num} Assicurato ${contraente}`;
+  return `Polizza ${contraente}`;
 }
 
 async function copyToClipboard(text: string): Promise<boolean> {
@@ -44,17 +42,15 @@ async function copyToClipboard(text: string): Promise<boolean> {
 }
 
 interface PolicyPaymentExtremesCardProps {
-  numeroPreventivo: string | null | undefined;
   assistitoNome: string | null | undefined;
   assistitoCognome: string | null | undefined;
 }
 
 export default function PolicyPaymentExtremesCard({
-  numeroPreventivo,
   assistitoNome,
   assistitoCognome,
 }: PolicyPaymentExtremesCardProps) {
-  const causale = buildPolicyPaymentCausale(numeroPreventivo, assistitoNome, assistitoCognome);
+  const causale = buildPolicyPaymentCausale(assistitoNome, assistitoCognome);
   const [copyHint, setCopyHint] = useState<string | null>(null);
   const hintTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
