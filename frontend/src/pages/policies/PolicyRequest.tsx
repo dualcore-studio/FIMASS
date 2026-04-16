@@ -5,6 +5,7 @@ import { api, ApiError } from '../../utils/api';
 import type { Quote } from '../../types';
 import { formatDate } from '../../utils/helpers';
 import StatusBadge from '../../components/common/StatusBadge';
+import PolicyPaymentExtremesCard from '../../components/policies/PolicyPaymentExtremesCard';
 import Modal from '../../components/ui/Modal';
 
 export default function PolicyRequest() {
@@ -202,7 +203,7 @@ export default function PolicyRequest() {
         isOpen={Boolean(modalQuote)}
         onClose={() => !submitting && closeModal()}
         title="Richiedi emissione polizza"
-        size="md"
+        size="lg"
       >
         {modalQuote ? (
           <div className="space-y-4">
@@ -214,6 +215,12 @@ export default function PolicyRequest() {
               {' — '}
               {[modalQuote.assistito_nome, modalQuote.assistito_cognome].filter(Boolean).join(' ') || 'Assistito'}
             </p>
+
+            <PolicyPaymentExtremesCard
+              numeroPreventivo={modalQuote.numero}
+              assistitoNome={modalQuote.assistito_nome}
+              assistitoCognome={modalQuote.assistito_cognome}
+            />
 
             <div>
               <label htmlFor="note_polizza" className="mb-1 block text-sm font-medium text-slate-700">
