@@ -54,6 +54,12 @@ function typePayload(t: InsuranceType) {
   };
 }
 
+function normalizeInsuranceTipoOrdine(v: unknown): number {
+  if (v == null || v === '') return 0;
+  const n = Number(v);
+  return Number.isFinite(n) ? n : 0;
+}
+
 function Modal({
   title,
   children,
@@ -278,6 +284,15 @@ function TabTipologie() {
     const cod = formCodice.trim().toLowerCase().replace(/\s+/g, '_');
     if (!nom || !cod) {
       setError('Nome e codice sono obbligatori.');
+      return;
+    }
+    const ordVal = normalizeInsuranceTipoOrdine(formOrdine);
+    const dupOrd = types.some((x) => {
+      if (modal === 'edit' && editing && x.id === editing.id) return false;
+      return normalizeInsuranceTipoOrdine(x.ordine) === ordVal;
+    });
+    if (dupOrd) {
+      setError('Questo numero d\'ordine è già assegnato a un\'altra tipologia.');
       return;
     }
     setSavingModal(true);
@@ -550,6 +565,9 @@ function TabTipologie() {
                   value={formOrdine}
                   onChange={(e) => setFormOrdine(Number(e.target.value))}
                 />
+                <p className="mt-1 text-xs text-gray-500">
+                  Ordine di visualizzazione univoco (non ripetibile tra tipologie diverse).
+                </p>
               </div>
               <div>
                 <label className="mb-1 block text-sm font-medium text-gray-700">Stato</label>

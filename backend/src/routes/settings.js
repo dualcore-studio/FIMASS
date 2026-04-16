@@ -1,6 +1,6 @@
 const express = require('express');
 const {
-  list, insert, upsertById, getById, sortBy, removeById, findOne,
+  list, insert, upsertById, getById, removeById, findOne,
 } = require('../data/store');
 const { authenticateToken, authorizeRoles } = require('../middleware/auth');
 const {
@@ -11,6 +11,44 @@ const {
 } = require('../lib/insuranceTypes');
 
 const router = express.Router();
+
+function normalizeInsuranceTypeOrdine(val) {
+  if (val == null || val === '') return 0;
+  const n = Number(val);
+  return Number.isFinite(n) ? n : 0;
+}
+
+/** Ordine crescente; a parità di ordine ordina per id (stabile). */
+function sortInsuranceTypes(types) {
+  return [...types].sort((a, b) => {
+    const ao = normalizeInsuranceTypeOrdine(a?.ordine);
+    const bo = normalizeInsuranceTypeOrdine(b?.ordine);
+    if (ao !== bo) return ao - bo;
+    const ida = Number(a?.id) || 0;
+    const idb = Number(b?.id) || 0;
+    if (ida !== idb) return ida - idb;
+    return String(a?.nome ?? '').localeCompare(String(b?.nome ?? ''), 'it', { sensitivity: 'base' });
+  });
+}
+
+function findInsuranceTypeOrdineConflict(types, ordine, excludeId = null) {
+  const target = normalizeInsuranceTypeOrdine(ordine);
+  return types.find((t) => {
+    if (excludeId != null && Number(t.id) === Number(excludeId)) return false;
+    return normalizeInsuranceTypeOrdine(t?.ordine) === target;
+  }) || null;
+}
+
+/**
+ * Impedisce di assegnare un ordine già usato da un'altra tipologia.
+ * Se la riga manteneva già quell'ordine, consente il salvataggio (dati legacy con duplicati non bloccano toggle/nome).
+ */
+function assertNewOrdineNotTaken(types, finalOrd, excludeId, previousOrd) {
+  const conflict = findInsuranceTypeOrdineConflict(types, finalOrd, excludeId);
+  if (!conflict) return null;
+  if (normalizeInsuranceTypeOrdine(previousOrd) === normalizeInsuranceTypeOrdine(finalOrd)) return null;
+  return conflict;
+}
 
 function respondTypesJson(types, res) {
   const mapped = types.map((t) => {
@@ -63,8 +101,7 @@ router.put('/general', authenticateToken, authorizeRoles('admin'), (req, res) =>
 router.get('/insurance-types', authenticateToken, (req, res) => {
   (async () => {
     let types = await list('insurance_types');
-    types = sortBy(types, 'ordine', 'asc');
-    types = sortBy(types, 'nome', 'asc');
+    types = sortInsuranceTypes(types);
     respondTypesJson(types, res);
   })().catch((err) => {
     console.error('Error loading insurance types:', err);
@@ -75,8 +112,7 @@ router.get('/insurance-types', authenticateToken, (req, res) => {
 router.get('/insurance-types/active', authenticateToken, (req, res) => {
   (async () => {
     let types = await list('insurance_types', (t) => isInsuranceTypeActive(t));
-    types = sortBy(types, 'ordine', 'asc');
-    types = sortBy(types, 'nome', 'asc');
+    types = sortInsuranceTypes(types);
 
     if (req.user.role === 'struttura' && req.user.enabled_types) {
       let enabledTypes;
@@ -117,13 +153,19 @@ router.post('/insurance-types', authenticateToken, authorizeRoles('admin'), (req
     const dup = await findOne('insurance_types', (t) => String(t.codice || '').toLowerCase() === cod.toLowerCase());
     if (dup) return res.status(409).json({ error: 'Codice tipologia già in uso' });
 
+    const allTypes = await list('insurance_types');
+    const newOrd = normalizeInsuranceTypeOrdine(ordine);
+    if (findInsuranceTypeOrdineConflict(allTypes, newOrd, null)) {
+      return res.status(409).json({ error: 'Questo numero d\'ordine è già assegnato a un\'altra tipologia.' });
+    }
+
     const campi = normalizeCampiSpecifici(campi_specifici);
     const checklist = normalizeChecklistAllegati(checklist_allegati);
     const result = await insert('insurance_types', {
       nome: nom,
       codice: cod,
       stato: stato && String(stato).toLowerCase() === 'disattivo' ? 'disattivo' : 'attivo',
-      ordine: ordine != null && ordine !== '' ? Number(ordine) : 0,
+      ordine: newOrd,
       descrizione: descrizione != null && String(descrizione).trim() !== '' ? String(descrizione).trim() : null,
       campi_specifici: campi,
       checklist_allegati: checklist,
@@ -160,9 +202,14 @@ router.put('/insurance-types/:id', authenticateToken, authorizeRoles('admin'), (
     if (body.stato !== undefined) {
       st = String(body.stato).toLowerCase() === 'disattivo' ? 'disattivo' : 'attivo';
     }
-    let ord = ex.ordine ?? 0;
+    let ord = normalizeInsuranceTypeOrdine(ex.ordine);
     if (body.ordine !== undefined && body.ordine !== null && body.ordine !== '') {
-      ord = Number(body.ordine);
+      ord = normalizeInsuranceTypeOrdine(body.ordine);
+    }
+    const allTypes = await list('insurance_types');
+    const ordConflict = assertNewOrdineNotTaken(allTypes, ord, exists.id, ex.ordine);
+    if (ordConflict) {
+      return res.status(409).json({ error: 'Questo numero d\'ordine è già assegnato a un\'altra tipologia.' });
     }
     let descr = ex.descrizione ?? null;
     if (body.descrizione !== undefined) {
