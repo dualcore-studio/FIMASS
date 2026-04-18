@@ -1,5 +1,5 @@
 /**
- * Garanzie RC Auto dai soli flag nei dati specifici (chiavi in shared/rcAutoGuaranteeFields.json).
+ * Garanzie RC Auto dai flag booleani nei dati specifici della pratica (chiavi in shared/rcAutoGuaranteeFields.json).
  */
 
 const path = require('path');
@@ -7,17 +7,38 @@ const path = require('path');
 // eslint-disable-next-line import/no-dynamic-require, global-require
 const RC_AUTO_GUARANTEE_FIELDS = require(path.join(__dirname, '..', '..', '..', 'shared', 'rcAutoGuaranteeFields.json'));
 
+const NEST_KEYS = ['formData', 'form', 'values', 'fields', 'campi'];
+
 function normalizeNome(s) {
   return String(s || '').trim();
 }
 
-function isRcAutoGuaranteeSi(val) {
-  const t = String(val ?? '')
-    .trim()
-    .normalize('NFD')
-    .replace(/\p{M}/gu, '')
-    .toLowerCase();
-  return t === 'si';
+function isRcAutoGuaranteeFieldTrue(val) {
+  return val === true;
+}
+
+/**
+ * Oggetto che contiene i booleani garanzia (stesso livello per tutte le chiavi).
+ * @param {Record<string, unknown> | null | undefined} datiSpecifici
+ * @returns {Record<string, unknown>}
+ */
+function resolveRcAutoGuaranteeSource(datiSpecifici) {
+  if (!datiSpecifici || typeof datiSpecifici !== 'object') return {};
+  const guaranteeKeys = Object.keys(RC_AUTO_GUARANTEE_FIELDS);
+  /** @type {Record<string, unknown>[]} */
+  const candidates = [datiSpecifici];
+  for (const k of NEST_KEYS) {
+    const v = datiSpecifici[k];
+    if (v && typeof v === 'object' && !Array.isArray(v)) {
+      candidates.push(v);
+    }
+  }
+  for (const o of candidates) {
+    if (guaranteeKeys.some((key) => Object.prototype.hasOwnProperty.call(o, key))) {
+      return o;
+    }
+  }
+  return datiSpecifici;
 }
 
 /**
@@ -27,9 +48,10 @@ function isRcAutoGuaranteeSi(val) {
 function getRcGaranzieSelezionate(datiSpecifici) {
   if (!datiSpecifici || typeof datiSpecifici !== 'object') return [];
 
+  const src = resolveRcAutoGuaranteeSource(datiSpecifici);
   const out = [];
   for (const [key, label] of Object.entries(RC_AUTO_GUARANTEE_FIELDS)) {
-    if (isRcAutoGuaranteeSi(datiSpecifici[key])) {
+    if (Object.prototype.hasOwnProperty.call(src, key) && isRcAutoGuaranteeFieldTrue(src[key])) {
       out.push(label);
     }
   }
@@ -92,8 +114,9 @@ function totalFromBreakdown(pricingBreakdown) {
 
 module.exports = {
   RC_AUTO_GUARANTEE_FIELDS,
+  resolveRcAutoGuaranteeSource,
   getRcGaranzieSelezionate,
-  isRcAutoGuaranteeSi,
+  isRcAutoGuaranteeFieldTrue,
   isRcAutoTipoCodice,
   validateRcPricingForGaranzie,
   totalFromBreakdown,
