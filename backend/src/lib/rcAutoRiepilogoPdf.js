@@ -6,7 +6,7 @@ const RC_AUTO_GUARANTEE_FIELDS = require(path.join(__dirname, '..', '..', '..', 
 const RC_AUTO_GUARANTEE_KEY_SET = new Set(Object.keys(RC_AUTO_GUARANTEE_FIELDS));
 
 /** Incrementare quando cambia il layout del PDF: consente rigenerazione automatica su download. */
-const RC_AUTO_RIEPILOGO_PDF_TEMPLATE_VERSION = 5;
+const RC_AUTO_RIEPILOGO_PDF_TEMPLATE_VERSION = 6;
 
 /**
  * Spazio verticale aggiuntivo uniforme tra i blocchi principali del preventivo (obiettivo ~1 cm).
@@ -589,7 +589,7 @@ function pipeRcAutoRiepilogoPdf({ quote, typeRow, elaborazione, dest }) {
     drawRule(doc, { color: COL.ruleStrong, width: 0.5, gapAfter: 0.28 });
 
     addMainSectionVerticalGap(doc);
-    sectionTitle(doc, 'Contraente / assistito', contentW);
+    sectionTitle(doc, 'Contraente / Assistito', contentW);
     drawAssistitoDataBox(doc, quote, contentW);
 
     const ds = quote.dati_specifici && typeof quote.dati_specifici === 'object' ? quote.dati_specifici : {};
