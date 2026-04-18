@@ -126,6 +126,9 @@ export interface Quote {
   note_allegati?: string | null;
   dati_specifici: Record<string, unknown> | null;
   dati_preventivo: Record<string, unknown> | null;
+  /** Allegato PDF riepilogo generato dal sistema (solo RC Auto elaborata). */
+  preventivo_riepilogo_attachment_id?: number | null;
+  preventivo_riepilogo_nome?: string | null;
   has_policy: number;
   created_at: string;
   updated_at: string;

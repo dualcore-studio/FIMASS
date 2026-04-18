@@ -1,11 +1,13 @@
 const express = require('express');
+const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
-const { del } = require('@vercel/blob');
+const { v4: uuidv4 } = require('uuid');
+const { del, put } = require('@vercel/blob');
 const { authenticateToken, authorizeRoles } = require('../middleware/auth');
 const { logActivity } = require('./logs');
 const { list, getById, findOne, insert, upsertById, removeById, like, paginate } = require('../data/store');
-const { loadContext, enrichQuote } = require('../data/views');
+const { loadContext, enrichQuote, parseMaybeJson } = require('../data/views');
 const { sortQuotesForList } = require('../utils/practiceListSort');
 const { isQuoteClosedForAssignment, normalizeQuoteStato } = require('../utils/quoteStato');
 const {
@@ -18,6 +20,14 @@ const { sendAttachmentDownload } = require('../lib/attachmentDownload');
 const { isInsuranceTypeActive, strutturaCanUseInsuranceType } = require('../lib/insuranceTypes');
 const { quoteAssigneeUserId, userIsAssignedToQuote, practiceHasAssignee } = require('../utils/practiceAssignee');
 const { syncConversationsForQuoteAssignment, syncConversationsForPolicyAssignment } = require('../services/messagingSync');
+const {
+  getRcGaranzieSelezionate,
+  isRcAutoTipoCodice,
+  validateRcPricingForGaranzie,
+  totalFromBreakdown,
+} = require('../lib/rcAutoGaranzie');
+const { pipeRcAutoRiepilogoPdf } = require('../lib/rcAutoRiepilogoPdf');
+const { persistQuoteAttachmentFromDisk, tempPdfPath } = require('../lib/persistQuoteAttachmentFromDisk');
 
 const ALLOWED_QUOTE_STATI = new Set(['PRESENTATA', 'ASSEGNATA', 'IN LAVORAZIONE', 'STANDBY', 'ELABORATA']);
 
@@ -26,6 +36,35 @@ const router = express.Router();
 const isVercelEnv = Boolean(process.env.VERCEL);
 function getUploadsDir() {
   return process.env.UPLOADS_DIR || (isVercelEnv ? '/tmp/uploads' : path.join(__dirname, '..', '..', 'uploads'));
+}
+
+const elaborazioneUploadDir = getUploadsDir();
+if (!fs.existsSync(elaborazioneUploadDir)) {
+  fs.mkdirSync(elaborazioneUploadDir, { recursive: true });
+}
+
+const elaborazioneUpload = multer({
+  storage: multer.diskStorage({
+    destination: (_req, _file, cb) => cb(null, elaborazioneUploadDir),
+    filename: (_req, file, cb) => {
+      const ext = path.extname(file.originalname);
+      cb(null, `${uuidv4()}${ext}`);
+    },
+  }),
+  limits: { fileSize: 10 * 1024 * 1024 },
+  fileFilter: (_req, file, cb) => {
+    const allowed = ['.pdf', '.doc', '.docx', '.xls', '.xlsx'];
+    const ext = path.extname(file.originalname).toLowerCase();
+    if (allowed.includes(ext)) cb(null, true);
+    else cb(new Error('Tipo file non consentito'));
+  },
+});
+
+function latestQuoteAttachment(ctx, quoteId, tipo) {
+  const rows = ctx.attachments.filter(
+    (a) => a.entity_type === 'quote' && Number(a.entity_id) === Number(quoteId) && a.tipo === tipo,
+  );
+  return rows.sort((a, b) => String(b.created_at || '').localeCompare(String(a.created_at || '')))[0];
 }
 
 async function purgeAttachmentsForEntity(entityType, entityId) {
@@ -154,14 +193,14 @@ router.get('/', authenticateToken, (req, res) => {
       };
       quotes = sortQuotesForList(quotes, sortByParam, sortDir || 'desc', sortMap);
       quotes = quotes.map((q) => {
-        const prevAtts = ctx.attachments.filter(
-          (a) => a.entity_type === 'quote' && Number(a.entity_id) === Number(q.id) && a.tipo === 'preventivo_elaborato',
-        );
-        const latestPrev = prevAtts.sort((a, b) => String(b.created_at || '').localeCompare(String(a.created_at || '')))[0];
+        const latestPrev = latestQuoteAttachment(ctx, q.id, 'preventivo_elaborato');
+        const latestRiep = latestQuoteAttachment(ctx, q.id, 'preventivo_riepilogo_rc');
         return {
           ...q,
           preventivo_finale_attachment_id: latestPrev?.id ?? null,
           preventivo_finale_nome: latestPrev?.nome_originale ?? null,
+          preventivo_riepilogo_attachment_id: latestRiep?.id ?? null,
+          preventivo_riepilogo_nome: latestRiep?.nome_originale ?? null,
         };
       });
       res.json(paginate(quotes, page, limit));
@@ -382,12 +421,21 @@ router.get('/:id/preventivo-finale', authenticateToken, (req, res) => {
         return res.status(403).json({ error: 'Download disponibile solo per preventivi elaborati' });
       }
 
-      const prevAtts = ctx.attachments.filter(
-        (a) => a.entity_type === 'quote' && Number(a.entity_id) === Number(quoteId) && a.tipo === 'preventivo_elaborato',
-      );
-      const latest = prevAtts.sort((a, b) => String(b.created_at || '').localeCompare(String(a.created_at || '')))[0];
+      const isRc = isRcAutoTipoCodice(quote.tipo_codice);
+      if (isRc && quote.stato === 'ELABORATA') {
+        const latestRiep = latestQuoteAttachment(ctx, quoteId, 'preventivo_riepilogo_rc');
+        if (latestRiep) {
+          sendAttachmentDownload(latestRiep, res, {
+            downloadFilename: latestRiep.nome_originale || `Riepilogo-${quote.numero || quoteId}.pdf`,
+            logPrefix: `[preventivo-finale riepilogo-rc quote=${quoteId} attachment=${latestRiep.id}]`,
+          });
+          return;
+        }
+      }
+
+      const latest = latestQuoteAttachment(ctx, quoteId, 'preventivo_elaborato');
       if (!latest) {
-        return res.status(404).json({ error: 'Nessun preventivo elaborato caricato per questa pratica' });
+        return res.status(404).json({ error: 'Nessun documento preventivo disponibile per questa pratica' });
       }
 
       sendAttachmentDownload(latest, res, {
@@ -400,6 +448,178 @@ router.get('/:id/preventivo-finale', authenticateToken, (req, res) => {
     }
   })();
 });
+
+/**
+ * Elaborazione RC Auto: prezzi garanzie, note facoltative, PDF riepilogo, allegato operatore facoltativo, stato ELABORATA.
+ */
+router.post(
+  '/:id/elaborazione-rc-auto',
+  authenticateToken,
+  elaborazioneUpload.single('file'),
+  (req, res) => {
+    (async () => {
+      const quoteId = parseInt(req.params.id, 10);
+      if (Number.isNaN(quoteId)) {
+        return res.status(400).json({ error: 'ID preventivo non valido' });
+      }
+      try {
+        const ctx = await loadContext();
+        const row = await getById('quotes', quoteId);
+        if (!row) return res.status(404).json({ error: 'Preventivo non trovato' });
+
+        if (req.user.role !== 'operatore' && req.user.role !== 'fornitore') {
+          return res.status(403).json({ error: 'Operazione riservata all\'incaricato' });
+        }
+        if (!userIsAssignedToQuote(req.user, row)) {
+          return res.status(403).json({ error: 'Non sei l\'incaricato assegnato a questa pratica' });
+        }
+
+        const quote = enrichQuote(row, ctx);
+        if (!isRcAutoTipoCodice(quote.tipo_codice)) {
+          return res.status(400).json({ error: 'Questa operazione è disponibile solo per pratiche RC Auto' });
+        }
+
+        const statoCur = normalizeQuoteStato(quote.stato);
+        if (statoCur === 'ELABORATA') {
+          return res.status(400).json({ error: 'Il preventivo risulta già elaborato' });
+        }
+        const allowedFrom = new Set(['IN LAVORAZIONE', 'STANDBY']);
+        if (!allowedFrom.has(statoCur)) {
+          return res.status(400).json({ error: 'Stato pratica non compatibile con l\'elaborazione' });
+        }
+
+        let payload;
+        try {
+          payload = JSON.parse(req.body.payload || '{}');
+        } catch {
+          return res.status(400).json({ error: 'Payload non valido' });
+        }
+
+        const garanzie = getRcGaranzieSelezionate(quote.dati_specifici);
+        const pricingBreakdown = Array.isArray(payload.pricingBreakdown) ? payload.pricingBreakdown : [];
+        const valid = validateRcPricingForGaranzie(pricingBreakdown, garanzie);
+        if (!valid.ok) {
+          return res.status(400).json({ error: valid.error });
+        }
+
+        let notes = payload.notes != null ? String(payload.notes) : '';
+        if (notes.length > 1000) notes = notes.slice(0, 1000);
+        const notesTrim = notes.trim() || null;
+
+        const totalPrice = Math.round(totalFromBreakdown(pricingBreakdown) * 100) / 100;
+        const elaboratedAt = new Date().toISOString().slice(0, 19).replace('T', ' ');
+        const typeRow = ctx.typesById.get(Number(quote.tipo_assicurazione_id)) || {};
+
+        if (req.file) {
+          let downloadUrl = null;
+          let storageKey = req.file.filename;
+          if (process.env.BLOB_READ_WRITE_TOKEN) {
+            const blob = await put(`attachments/${req.file.filename}`, fs.createReadStream(req.file.path), {
+              access: 'public',
+              addRandomSuffix: false,
+              token: process.env.BLOB_READ_WRITE_TOKEN,
+            });
+            downloadUrl = blob.url;
+            storageKey = blob.pathname;
+            if (fs.existsSync(req.file.path)) fs.unlinkSync(req.file.path);
+          }
+          await insert('attachments', {
+            entity_type: 'quote',
+            entity_id: quoteId,
+            tipo: 'preventivo_elaborato',
+            nome_file: storageKey,
+            nome_originale: req.file.originalname,
+            mime_type: req.file.mimetype,
+            dimensione: req.file.size,
+            caricato_da: req.user.id,
+            url: downloadUrl,
+          });
+        }
+
+        const pdfPath = tempPdfPath();
+        const pdfBuffer = await pipeRcAutoRiepilogoPdf({
+          quote,
+          typeRow,
+          elaborazione: {
+            pricingBreakdown,
+            totalPrice,
+            notes: notesTrim,
+            elaboratedAt,
+          },
+          dest: null,
+        });
+        fs.writeFileSync(pdfPath, pdfBuffer);
+        const pdfOriginalName = `Riepilogo-preventivo-RC-${quote.numero || quoteId}.pdf`;
+        const pdfIns = await persistQuoteAttachmentFromDisk({
+          localPath: pdfPath,
+          originalName: pdfOriginalName,
+          quoteId,
+          tipo: 'preventivo_riepilogo_rc',
+          userId: req.user.id,
+        });
+
+        const prevDp = parseMaybeJson(row.dati_preventivo) || {};
+        const elaborazioneBlock = {
+          pricingBreakdown,
+          totalPrice,
+          notes: notesTrim,
+          elaboratedAt,
+          riepilogo_attachment_id: pdfIns.id,
+          generatedPdfPath: pdfIns.nome_file,
+        };
+        const prevStato = quote.stato;
+        await upsertById('quotes', quoteId, {
+          stato: 'ELABORATA',
+          dati_preventivo: { ...prevDp, elaborazione_rc_auto: elaborazioneBlock },
+        });
+
+        await insert('quote_status_history', {
+          quote_id: quoteId,
+          stato_precedente: prevStato,
+          stato_nuovo: 'ELABORATA',
+          motivo: null,
+          utente_id: req.user.id,
+        });
+
+        await logActivity({
+          utente_id: req.user.id,
+          utente_nome: getUserDisplayName(req.user),
+          ruolo: req.user.role,
+          azione: 'CAMBIO_STATO',
+          modulo: 'preventivi',
+          riferimento_id: quoteId,
+          riferimento_tipo: 'quote',
+          dettaglio: `Preventivo ${quote.numero}: ${prevStato} → ELABORATA (elaborazione RC Auto, PDF riepilogo)`,
+        });
+
+        const ctxAfter = await loadContext();
+        const enrichedAfter = enrichQuote(await getById('quotes', quoteId), ctxAfter);
+        const assistitoLabel = [enrichedAfter.assistito_nome, enrichedAfter.assistito_cognome].filter(Boolean).join(' ').trim() || '—';
+        const dataAggiornamento = enrichedAfter.updated_at || elaboratedAt;
+        const strutturaMail = enrichedAfter.struttura_email && String(enrichedAfter.struttura_email).trim();
+        if (strutturaMail) {
+          await sendQuoteStatusChangeToStructureMail({
+            to: strutturaMail,
+            strutturaNome: enrichedAfter.struttura_nome || 'Struttura',
+            quoteId: enrichedAfter.id,
+            quoteNumero: enrichedAfter.numero,
+            assistitoLabel,
+            tipoNome: enrichedAfter.tipo_nome || '—',
+            statoPrecedente: prevStato,
+            statoNuovo: 'ELABORATA',
+            dataAggiornamento,
+            motivoStandby: null,
+          });
+        }
+
+        res.json({ message: 'Elaborazione RC Auto completata', riepilogo_attachment_id: pdfIns.id });
+      } catch (err) {
+        console.error('Error elaborazione RC Auto:', err);
+        if (!res.headersSent) res.status(500).json({ error: 'Errore durante l\'elaborazione RC Auto' });
+      }
+    })();
+  },
+);
 
 router.get('/:id', authenticateToken, (req, res) => {
   (async () => {
@@ -433,7 +653,19 @@ router.get('/:id', authenticateToken, (req, res) => {
         .map((a) => ({ ...a, caricato_nome: ctx.usersById.get(Number(a.caricato_da))?.nome, caricato_cognome: ctx.usersById.get(Number(a.caricato_da))?.cognome, caricato_denominazione: ctx.usersById.get(Number(a.caricato_da))?.denominazione }))
         .sort((a, b) => String(b.created_at || '').localeCompare(String(a.created_at || '')));
       const policy = ctx.policies.find((p) => Number(p.quote_id) === Number(row.id));
-      res.json({ ...quote, history, notes, attachments, policy: policy ? { id: policy.id, numero: policy.numero, stato: policy.stato } : null });
+      const latestPrev = latestQuoteAttachment(ctx, row.id, 'preventivo_elaborato');
+      const latestRiep = latestQuoteAttachment(ctx, row.id, 'preventivo_riepilogo_rc');
+      res.json({
+        ...quote,
+        history,
+        notes,
+        attachments,
+        policy: policy ? { id: policy.id, numero: policy.numero, stato: policy.stato } : null,
+        preventivo_finale_attachment_id: latestPrev?.id ?? null,
+        preventivo_finale_nome: latestPrev?.nome_originale ?? null,
+        preventivo_riepilogo_attachment_id: latestRiep?.id ?? null,
+        preventivo_riepilogo_nome: latestRiep?.nome_originale ?? null,
+      });
     } catch (err) {
       console.error('Error fetching quote:', err);
       res.status(500).json({ error: 'Errore nel recupero preventivo' });
@@ -732,13 +964,29 @@ router.put('/:id/status', authenticateToken, (req, res) => {
       }
       if (statoNormalized === 'ELABORATA') {
         const ctxPre = await loadContext();
-        const hasFinale = ctxPre.attachments.some(
-          (a) => a.entity_type === 'quote'
-            && Number(a.entity_id) === Number(req.params.id)
-            && a.tipo === 'preventivo_elaborato',
-        );
-        if (!hasFinale) {
-          return res.status(400).json({ error: 'Per passare a Elaborata è necessario caricare il file finale del preventivo' });
+        const enrichedPre = enrichQuote(quote, ctxPre);
+        const isRc = isRcAutoTipoCodice(enrichedPre.tipo_codice);
+        if (isRc) {
+          const hasRiepilogo = ctxPre.attachments.some(
+            (a) => a.entity_type === 'quote'
+              && Number(a.entity_id) === Number(req.params.id)
+              && a.tipo === 'preventivo_riepilogo_rc',
+          );
+          if (!hasRiepilogo) {
+            return res.status(400).json({
+              error:
+                'Per le pratiche RC Auto completa l\'elaborazione dal modale dedicato: verrà generato il PDF riepilogativo obbligatorio.',
+            });
+          }
+        } else {
+          const hasFinale = ctxPre.attachments.some(
+            (a) => a.entity_type === 'quote'
+              && Number(a.entity_id) === Number(req.params.id)
+              && a.tipo === 'preventivo_elaborato',
+          );
+          if (!hasFinale) {
+            return res.status(400).json({ error: 'Per passare a Elaborata è necessario caricare il file finale del preventivo' });
+          }
         }
       }
     }

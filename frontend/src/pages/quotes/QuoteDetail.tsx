@@ -433,6 +433,7 @@ export default function QuoteDetail() {
         isOpen={showElaborataModal}
         onClose={() => setShowElaborataModal(false)}
         quoteId={Number(id)}
+        quote={quote}
         onCompleted={fetchQuote}
         onError={setActionError}
       />
@@ -857,8 +858,15 @@ function TabPreventivo({ quote, role, isAssignedOperator, onRefresh }: TabPreven
   const [uploadError, setUploadError] = useState<string | null>(null);
   const [downloading, setDownloading] = useState(false);
   const [downloadError, setDownloadError] = useState<string | null>(null);
+  const [downloadingAllegato, setDownloadingAllegato] = useState(false);
+
+  const isRcAuto = String(quote.tipo_codice || '').toLowerCase() === 'rc_auto';
 
   const preventivoAttachment = [...(quote.attachments || []).filter((a) => a.tipo === 'preventivo_elaborato')].sort(
+    (a, b) => String(b.created_at || '').localeCompare(String(a.created_at || '')),
+  )[0];
+
+  const riepilogoAttachment = [...(quote.attachments || []).filter((a) => a.tipo === 'preventivo_riepilogo_rc')].sort(
     (a, b) => String(b.created_at || '').localeCompare(String(a.created_at || '')),
   )[0];
 
@@ -887,11 +895,15 @@ function TabPreventivo({ quote, role, isAssignedOperator, onRefresh }: TabPreven
   };
 
   const handleDownloadPreventivo = async () => {
-    if (!preventivoAttachment) return;
     setDownloadError(null);
     setDownloading(true);
     try {
-      await downloadPreventivoFinale(quote.id, preventivoAttachment.nome_originale);
+      const name = isRcAuto
+        ? riepilogoAttachment?.nome_originale || `Riepilogo-preventivo-${quote.numero}.pdf`
+        : preventivoAttachment?.nome_originale || `preventivo-${quote.id}.pdf`;
+      if (!isRcAuto && !preventivoAttachment) return;
+      if (isRcAuto && quote.stato === 'ELABORATA' && !riepilogoAttachment && !preventivoAttachment) return;
+      await downloadPreventivoFinale(quote.id, name);
     } catch (e) {
       setDownloadError(e instanceof ApiError ? e.message : 'Download non riuscito.');
     } finally {
@@ -899,10 +911,84 @@ function TabPreventivo({ quote, role, isAssignedOperator, onRefresh }: TabPreven
     }
   };
 
+  const handleDownloadAllegatoOperatore = async () => {
+    if (!preventivoAttachment) return;
+    setDownloadError(null);
+    setDownloadingAllegato(true);
+    try {
+      await api.download(`/attachments/download/${preventivoAttachment.id}`, preventivoAttachment.nome_originale);
+    } catch (e) {
+      setDownloadError(e instanceof ApiError ? e.message : 'Download non riuscito.');
+    } finally {
+      setDownloadingAllegato(false);
+    }
+  };
+
+  const showRiepilogoCard = isRcAuto && quote.stato === 'ELABORATA' && riepilogoAttachment;
+  const showLegacySingleCard = !isRcAuto && preventivoAttachment;
+  const showEmptyState =
+    !showRiepilogoCard && !showLegacySingleCard && !(isRcAuto && quote.stato === 'ELABORATA' && !riepilogoAttachment);
+
   return (
     <div className="space-y-6">
-      {/* PDF del preventivo */}
-      {preventivoAttachment ? (
+      {showRiepilogoCard ? (
+        <div className="card p-6">
+          <h3 className="mb-4 text-sm font-semibold uppercase tracking-wider text-gray-500">
+            PDF riepilogativo (sistema)
+          </h3>
+          <div className="flex items-center justify-between rounded-lg border border-gray-200 bg-gray-50 p-4">
+            <div className="flex items-center gap-3">
+              <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-slate-100">
+                <FileText className="h-5 w-5 text-slate-700" />
+              </div>
+              <div>
+                <p className="text-sm font-medium text-gray-900">{riepilogoAttachment.nome_originale}</p>
+                <p className="text-xs text-gray-500">{formatFileSize(riepilogoAttachment.dimensione)}</p>
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={handleDownloadPreventivo}
+              disabled={downloading}
+              className="btn-primary"
+            >
+              <Download className="h-4 w-4" />
+              {downloading ? 'Download…' : 'Scarica PDF riepilogo'}
+            </button>
+          </div>
+          {downloadError ? <p className="mt-2 text-sm text-red-600">{downloadError}</p> : null}
+        </div>
+      ) : null}
+
+      {isRcAuto && quote.stato === 'ELABORATA' && preventivoAttachment ? (
+        <div className="card p-6">
+          <h3 className="mb-4 text-sm font-semibold uppercase tracking-wider text-gray-500">
+            Allegato operatore
+          </h3>
+          <div className="flex items-center justify-between rounded-lg border border-gray-200 bg-gray-50 p-4">
+            <div className="flex items-center gap-3">
+              <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-red-100">
+                <FileText className="h-5 w-5 text-red-600" />
+              </div>
+              <div>
+                <p className="text-sm font-medium text-gray-900">{preventivoAttachment.nome_originale}</p>
+                <p className="text-xs text-gray-500">{formatFileSize(preventivoAttachment.dimensione)}</p>
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={handleDownloadAllegatoOperatore}
+              disabled={downloadingAllegato}
+              className="btn-secondary"
+            >
+              <Download className="h-4 w-4" />
+              {downloadingAllegato ? 'Download…' : 'Scarica allegato operatore'}
+            </button>
+          </div>
+        </div>
+      ) : null}
+
+      {showLegacySingleCard ? (
         <div className="card p-6">
           <h3 className="mb-4 text-sm font-semibold uppercase tracking-wider text-gray-500">
             Documento Preventivo
@@ -929,7 +1015,9 @@ function TabPreventivo({ quote, role, isAssignedOperator, onRefresh }: TabPreven
           </div>
           {downloadError ? <p className="mt-2 text-sm text-red-600">{downloadError}</p> : null}
         </div>
-      ) : (
+      ) : null}
+
+      {showEmptyState ? (
         <div className="card px-6 py-12 text-center">
           <ClipboardList className="mx-auto h-12 w-12 text-gray-300" />
           <p className="mt-3 text-sm text-gray-500">Nessun documento preventivo caricato.</p>
@@ -939,7 +1027,14 @@ function TabPreventivo({ quote, role, isAssignedOperator, onRefresh }: TabPreven
               : 'Il documento sarà disponibile quando l\u2019operatore lo caricherà.'}
           </p>
         </div>
-      )}
+      ) : null}
+
+      {isRcAuto && quote.stato === 'ELABORATA' && !riepilogoAttachment ? (
+        <p className="text-sm text-amber-800">
+          Il PDF riepilogativo sarà disponibile dopo l&apos;elaborazione da parte dell&apos;incaricato tramite il modale
+          dedicato.
+        </p>
+      ) : null}
 
       {/* Upload form per operatore/admin */}
       {canUpload && (
@@ -975,20 +1070,81 @@ function TabPreventivo({ quote, role, isAssignedOperator, onRefresh }: TabPreven
       )}
 
       {/* Dati preventivo (se presenti) */}
-      {quote.dati_preventivo && Object.keys(quote.dati_preventivo).length > 0 && (
-        <div className="card p-6">
-          <h3 className="mb-4 text-sm font-semibold uppercase tracking-wider text-gray-500">Dati Preventivo Elaborato</h3>
-          <dl className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 text-sm">
-            {Object.entries(quote.dati_preventivo).map(([key, value]) => (
-              <InfoRow
-                key={key}
-                label={key.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase())}
-                value={typeof value === 'boolean' ? (value ? 'Sì' : 'No') : String(value ?? '-')}
-              />
-            ))}
-          </dl>
-        </div>
-      )}
+      {(() => {
+        const dp = quote.dati_preventivo;
+        if (!dp || typeof dp !== 'object') return null;
+        const elabora = dp.elaborazione_rc_auto;
+        const rest = Object.entries(dp).filter(([k]) => k !== 'elaborazione_rc_auto');
+        if (!elabora && rest.length === 0) return null;
+        const fmtEuro = (n: unknown) =>
+          typeof n === 'number'
+            ? new Intl.NumberFormat('it-IT', { style: 'currency', currency: 'EUR' }).format(n)
+            : '—';
+        return (
+          <>
+            {elabora && typeof elabora === 'object' && elabora !== null ? (
+              <div className="card p-6">
+                <h3 className="mb-4 text-sm font-semibold uppercase tracking-wider text-gray-500">
+                  Riepilogo premi (RC Auto)
+                </h3>
+                <div className="space-y-3 text-sm">
+                  {Array.isArray((elabora as { pricingBreakdown?: unknown }).pricingBreakdown) &&
+                  ((elabora as { pricingBreakdown: { nome: string; prezzo: number }[] }).pricingBreakdown.length >
+                    0) ? (
+                    <ul className="divide-y divide-gray-100 rounded-lg border border-gray-200">
+                      {(elabora as { pricingBreakdown: { nome: string; prezzo: number }[] }).pricingBreakdown.map(
+                        (row) => (
+                          <li key={row.nome} className="flex justify-between gap-3 px-3 py-2">
+                            <span className="text-gray-800">{row.nome}</span>
+                            <span className="tabular-nums text-gray-900">{fmtEuro(row.prezzo)}</span>
+                          </li>
+                        ),
+                      )}
+                    </ul>
+                  ) : (
+                    <p className="text-gray-500">Nessuna garanzia tariffata.</p>
+                  )}
+                  <div className="flex justify-between rounded-lg bg-slate-50 px-3 py-2 font-semibold">
+                    <span>Totale</span>
+                    <span className="tabular-nums">
+                      {fmtEuro((elabora as { totalPrice?: number }).totalPrice)}
+                    </span>
+                  </div>
+                  {(elabora as { notes?: string | null }).notes ? (
+                    <div>
+                      <p className="text-xs font-medium uppercase tracking-wide text-gray-500">Note operatore</p>
+                      <p className="mt-1 whitespace-pre-wrap text-gray-800">
+                        {(elabora as { notes: string }).notes}
+                      </p>
+                    </div>
+                  ) : null}
+                  {(elabora as { elaboratedAt?: string }).elaboratedAt ? (
+                    <p className="text-xs text-gray-500">
+                      Elaborato il {formatDateTime(String((elabora as { elaboratedAt: string }).elaboratedAt))}
+                    </p>
+                  ) : null}
+                </div>
+              </div>
+            ) : null}
+            {rest.length > 0 ? (
+              <div className="card p-6">
+                <h3 className="mb-4 text-sm font-semibold uppercase tracking-wider text-gray-500">
+                  Dati Preventivo Elaborato
+                </h3>
+                <dl className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 text-sm">
+                  {rest.map(([key, value]) => (
+                    <InfoRow
+                      key={key}
+                      label={key.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase())}
+                      value={typeof value === 'boolean' ? (value ? 'Sì' : 'No') : String(value ?? '-')}
+                    />
+                  ))}
+                </dl>
+              </div>
+            ) : null}
+          </>
+        );
+      })()}
     </div>
   );
 }

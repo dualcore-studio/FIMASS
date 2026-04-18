@@ -68,13 +68,15 @@ export default function QuoteRowActions({
 
   const assignEnabled = adminCanAssignQuote(quote.stato);
   const reassignEnabled = adminCanReassignQuote(quote.stato);
-  const downloadPrevEnabled = adminCanDownloadPreventivoFinale(
-    quote.stato,
-    quote.preventivo_finale_attachment_id,
-  );
+  const downloadPrevEnabled = adminCanDownloadPreventivoFinale(quote);
   const standbyReasonEnabled = quote.stato === 'STANDBY';
   const richiediPolizzaEnabled =
     quote.stato === 'ELABORATA' && Number(quote.has_policy) === 0;
+
+  const allegatoOperatoreEnabled =
+    quote.stato === 'ELABORATA' &&
+    String(quote.tipo_codice || '').toLowerCase() === 'rc_auto' &&
+    quote.preventivo_finale_attachment_id != null;
 
   const operatorStandbyEnabled = operatorCanStandby(quote.stato);
   const operatorInLavEnabled = operatorCanInLavorazione(quote.stato);
@@ -188,11 +190,25 @@ export default function QuoteRowActions({
   };
 
   const handleDownloadPreventivo = async () => {
-    if (!downloadPrevEnabled || !quote.preventivo_finale_attachment_id) return;
+    if (!downloadPrevEnabled) return;
     close();
     try {
-      const name = quote.preventivo_finale_nome || `preventivo-finale-${quote.id}.pdf`;
+      const isRc = String(quote.tipo_codice || '').toLowerCase() === 'rc_auto';
+      const name = isRc
+        ? quote.preventivo_riepilogo_nome || `Riepilogo-preventivo-${quote.numero || quote.id}.pdf`
+        : quote.preventivo_finale_nome || `preventivo-finale-${quote.id}.pdf`;
       await downloadPreventivoFinale(quote.id, name);
+    } catch (e) {
+      onActionError(e instanceof ApiError ? e.message : 'Download non riuscito.');
+    }
+  };
+
+  const handleDownloadAllegatoOperatore = async () => {
+    if (!quote.preventivo_finale_attachment_id) return;
+    close();
+    try {
+      const name = quote.preventivo_finale_nome || `allegato-operatore-${quote.id}`;
+      await api.download(`/attachments/download/${quote.preventivo_finale_attachment_id}`, name);
     } catch (e) {
       onActionError(e instanceof ApiError ? e.message : 'Download non riuscito.');
     }
@@ -237,6 +253,15 @@ export default function QuoteRowActions({
           onClick={handleDownloadPreventivo}
         >
           Scarica preventivo
+        </button>
+        <button
+          type="button"
+          role="menuitem"
+          className={itemClass(allegatoOperatoreEnabled)}
+          disabled={!allegatoOperatoreEnabled}
+          onClick={handleDownloadAllegatoOperatore}
+        >
+          Scarica allegato operatore
         </button>
         <button
           type="button"
@@ -337,6 +362,15 @@ export default function QuoteRowActions({
           onClick={handleDownloadPreventivo}
         >
           Scarica preventivo
+        </button>
+        <button
+          type="button"
+          role="menuitem"
+          className={itemClass(allegatoOperatoreEnabled)}
+          disabled={!allegatoOperatoreEnabled}
+          onClick={handleDownloadAllegatoOperatore}
+        >
+          Scarica allegato operatore
         </button>
         <button type="button" role="menuitem" className={itemClass(true)} onClick={handleExportPdf}>
           Esporta
@@ -439,6 +473,15 @@ export default function QuoteRowActions({
           onClick={handleDownloadPreventivo}
         >
           Scarica preventivo
+        </button>
+        <button
+          type="button"
+          role="menuitem"
+          className={itemClass(allegatoOperatoreEnabled)}
+          disabled={!allegatoOperatoreEnabled}
+          onClick={handleDownloadAllegatoOperatore}
+        >
+          Scarica allegato operatore
         </button>
         <button
           type="button"

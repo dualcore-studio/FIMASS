@@ -182,7 +182,7 @@ export default function QuotesList() {
   const [standbyLoading, setStandbyLoading] = useState(false);
 
   const [operatorStandbyQuoteId, setOperatorStandbyQuoteId] = useState<number | null>(null);
-  const [operatorElaborataQuoteId, setOperatorElaborataQuoteId] = useState<number | null>(null);
+  const [operatorElaborataQuote, setOperatorElaborataQuote] = useState<Quote | null>(null);
   const [operatorInLavQuoteId, setOperatorInLavQuoteId] = useState<number | null>(null);
 
   const tableSort = useListTableSort();
@@ -652,7 +652,7 @@ export default function QuotesList() {
                                 : role === 'operatore'
                                   ? {
                                       onOpenOperatorStandby: (row) => setOperatorStandbyQuoteId(row.id),
-                                      onOpenOperatorElaborata: (row) => setOperatorElaborataQuoteId(row.id),
+                                      onOpenOperatorElaborata: (row) => setOperatorElaborataQuote(row),
                                       onOpenOperatorInLavorazione: (row) => setOperatorInLavQuoteId(row.id),
                                     }
                                 : role === 'fornitore'
@@ -674,7 +674,7 @@ export default function QuotesList() {
                                         setAssignError(null);
                                       },
                                       onOpenOperatorStandby: (row) => setOperatorStandbyQuoteId(row.id),
-                                      onOpenOperatorElaborata: (row) => setOperatorElaborataQuoteId(row.id),
+                                      onOpenOperatorElaborata: (row) => setOperatorElaborataQuote(row),
                                       onOpenOperatorInLavorazione: (row) => setOperatorInLavQuoteId(row.id),
                                     }
                                   : {
@@ -833,9 +833,10 @@ export default function QuotesList() {
         onError={setActionError}
       />
       <OperatorElaborataModal
-        isOpen={operatorElaborataQuoteId != null}
-        onClose={() => setOperatorElaborataQuoteId(null)}
-        quoteId={operatorElaborataQuoteId ?? 0}
+        isOpen={operatorElaborataQuote != null}
+        onClose={() => setOperatorElaborataQuote(null)}
+        quoteId={operatorElaborataQuote?.id ?? 0}
+        quote={operatorElaborataQuote}
         onCompleted={fetchQuotes}
         onError={setActionError}
       />
