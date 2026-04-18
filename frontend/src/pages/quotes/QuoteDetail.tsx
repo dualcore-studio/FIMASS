@@ -22,6 +22,7 @@ import {
 } from 'lucide-react';
 import { api, ApiError } from '../../utils/api';
 import { downloadPreventivoFinale } from '../../utils/downloadPreventivoFinale';
+import { userCanRegenerateRcRiepilogoPdf } from '../../utils/rcAutoElaboration';
 import type { Quote, User, Attachment, QuoteNote, StatusHistory } from '../../types';
 import { formatDate, formatDateTime, getUserDisplayName, isQuoteClosedForAssignment } from '../../utils/helpers';
 import { useAuth } from '../../context/AuthContext';
@@ -417,6 +418,7 @@ export default function QuoteDetail() {
             quote={quote}
             role={role}
             isAssignedOperator={isAssignedStaff}
+            canRegenerateRiepilogoRc={userCanRegenerateRcRiepilogoPdf(quote, role, currentUser?.id)}
             onRefresh={fetchQuote}
           />
         )}
@@ -849,16 +851,25 @@ interface TabPreventivoProps {
   quote: Quote;
   role?: string;
   isAssignedOperator: boolean;
+  canRegenerateRiepilogoRc: boolean;
   onRefresh: () => void;
 }
 
-function TabPreventivo({ quote, role, isAssignedOperator, onRefresh }: TabPreventivoProps) {
+function TabPreventivo({
+  quote,
+  role,
+  isAssignedOperator,
+  canRegenerateRiepilogoRc,
+  onRefresh,
+}: TabPreventivoProps) {
   const [file, setFile] = useState<File | null>(null);
   const [uploading, setUploading] = useState(false);
   const [uploadError, setUploadError] = useState<string | null>(null);
   const [downloading, setDownloading] = useState(false);
   const [downloadError, setDownloadError] = useState<string | null>(null);
   const [downloadingAllegato, setDownloadingAllegato] = useState(false);
+  const [rigeneraBusy, setRigeneraBusy] = useState(false);
+  const [riepilogoSuccess, setRiepilogoSuccess] = useState<string | null>(null);
 
   const isRcAuto = String(quote.tipo_codice || '').toLowerCase() === 'rc_auto';
 
@@ -924,7 +935,24 @@ function TabPreventivo({ quote, role, isAssignedOperator, onRefresh }: TabPreven
     }
   };
 
-  const showRiepilogoCard = isRcAuto && quote.stato === 'ELABORATA' && riepilogoAttachment;
+  const handleRigeneraRiepilogoRc = async () => {
+    if (!canRegenerateRiepilogoRc || rigeneraBusy) return;
+    setRiepilogoSuccess(null);
+    setDownloadError(null);
+    setRigeneraBusy(true);
+    try {
+      await api.post<{ message: string }>(`/quotes/${quote.id}/rigenera-riepilogo-rc-auto`);
+      setRiepilogoSuccess('PDF rigenerato con successo');
+      await onRefresh();
+    } catch (e) {
+      setDownloadError(e instanceof ApiError ? e.message : 'Rigenerazione PDF non riuscita.');
+    } finally {
+      setRigeneraBusy(false);
+    }
+  };
+
+  const showRiepilogoCard =
+    isRcAuto && quote.stato === 'ELABORATA' && (riepilogoAttachment != null || canRegenerateRiepilogoRc);
   const showLegacySingleCard = !isRcAuto && preventivoAttachment;
   const showEmptyState =
     !showRiepilogoCard && !showLegacySingleCard && !(isRcAuto && quote.stato === 'ELABORATA' && !riepilogoAttachment);
@@ -942,20 +970,41 @@ function TabPreventivo({ quote, role, isAssignedOperator, onRefresh }: TabPreven
                 <FileText className="h-5 w-5 text-slate-700" />
               </div>
               <div>
-                <p className="text-sm font-medium text-gray-900">{riepilogoAttachment.nome_originale}</p>
-                <p className="text-xs text-gray-500">{formatFileSize(riepilogoAttachment.dimensione)}</p>
+                <p className="text-sm font-medium text-gray-900">
+                  {riepilogoAttachment?.nome_originale ?? 'PDF riepilogo (sistema)'}
+                </p>
+                <p className="text-xs text-gray-500">
+                  {riepilogoAttachment ? formatFileSize(riepilogoAttachment.dimensione) : 'File non disponibile: rigenera o scarica per crearne uno nuovo.'}
+                </p>
               </div>
             </div>
-            <button
-              type="button"
-              onClick={handleDownloadPreventivo}
-              disabled={downloading}
-              className="btn-primary"
-            >
-              <Download className="h-4 w-4" />
-              {downloading ? 'Download…' : 'Scarica PDF riepilogo'}
-            </button>
+            <div className="flex flex-wrap items-center gap-2">
+              <button
+                type="button"
+                onClick={handleDownloadPreventivo}
+                disabled={downloading}
+                className="btn-primary"
+              >
+                <Download className="h-4 w-4" />
+                {downloading ? 'Download…' : 'Scarica PDF riepilogo'}
+              </button>
+              {canRegenerateRiepilogoRc ? (
+                <button
+                  type="button"
+                  onClick={() => {
+                    void handleRigeneraRiepilogoRc();
+                  }}
+                  disabled={rigeneraBusy}
+                  className="btn-secondary"
+                  title="Rigenera il PDF con il layout aggiornato, usando i dati già salvati"
+                >
+                  <RotateCcw className="h-4 w-4" />
+                  {rigeneraBusy ? 'Rigenerazione…' : 'Rigenera PDF'}
+                </button>
+              ) : null}
+            </div>
           </div>
+          {riepilogoSuccess ? <p className="mt-2 text-sm text-emerald-700">{riepilogoSuccess}</p> : null}
           {downloadError ? <p className="mt-2 text-sm text-red-600">{downloadError}</p> : null}
         </div>
       ) : null}

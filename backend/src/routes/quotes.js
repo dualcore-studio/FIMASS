@@ -16,7 +16,7 @@ const {
   sendQuotePresentedByStructureToAdminMail,
 } = require('../lib/resend');
 const { pipeQuoteSummaryPdf } = require('../lib/quoteSummaryPdf');
-const { sendAttachmentDownload } = require('../lib/attachmentDownload');
+const { sendAttachmentDownload, resolveLocalDiskPath, isHttpUrl } = require('../lib/attachmentDownload');
 const { isInsuranceTypeActive, strutturaCanUseInsuranceType } = require('../lib/insuranceTypes');
 const { quoteAssigneeUserId, userIsAssignedToQuote, practiceHasAssignee } = require('../utils/practiceAssignee');
 const { syncConversationsForQuoteAssignment, syncConversationsForPolicyAssignment } = require('../services/messagingSync');
@@ -26,7 +26,7 @@ const {
   validateRcPricingForGaranzie,
   totalFromBreakdown,
 } = require('../lib/rcAutoGaranzie');
-const { pipeRcAutoRiepilogoPdf } = require('../lib/rcAutoRiepilogoPdf');
+const { pipeRcAutoRiepilogoPdf, RC_AUTO_RIEPILOGO_PDF_TEMPLATE_VERSION } = require('../lib/rcAutoRiepilogoPdf');
 const { persistQuoteAttachmentFromDisk, tempPdfPath } = require('../lib/persistQuoteAttachmentFromDisk');
 
 const ALLOWED_QUOTE_STATI = new Set(['PRESENTATA', 'ASSEGNATA', 'IN LAVORAZIONE', 'STANDBY', 'ELABORATA']);
@@ -65,6 +65,162 @@ function latestQuoteAttachment(ctx, quoteId, tipo) {
     (a) => a.entity_type === 'quote' && Number(a.entity_id) === Number(quoteId) && a.tipo === tipo,
   );
   return rows.sort((a, b) => String(b.created_at || '').localeCompare(String(a.created_at || '')))[0];
+}
+
+async function deleteAttachmentRecord(att) {
+  if (!att) return;
+  const urlVal = att.url != null ? String(att.url).trim() : '';
+  if (urlVal && process.env.BLOB_READ_WRITE_TOKEN) {
+    try {
+      await del(urlVal, { token: process.env.BLOB_READ_WRITE_TOKEN });
+    } catch (e) {
+      console.warn('Blob delete failed:', e.message);
+    }
+  } else {
+    const disk = resolveLocalDiskPath(att);
+    if (disk.path && fs.existsSync(disk.path)) {
+      try {
+        fs.unlinkSync(disk.path);
+      } catch {
+        /* ignore */
+      }
+    }
+  }
+  try {
+    await removeById('attachments', att.id);
+  } catch (e) {
+    console.warn('removeById attachment failed:', e.message);
+  }
+}
+
+async function purgeQuoteRiepilogoRcAttachments(ctx, quoteId) {
+  const rows = ctx.attachments.filter(
+    (a) => a.entity_type === 'quote' && Number(a.entity_id) === Number(quoteId) && a.tipo === 'preventivo_riepilogo_rc',
+  );
+  for (const att of rows) {
+    await deleteAttachmentRecord(att);
+  }
+}
+
+function quoteHasRegenerableRcElaborazione(quote) {
+  const dp = quote.dati_preventivo;
+  if (!dp || typeof dp !== 'object') return null;
+  const elab = dp.elaborazione_rc_auto;
+  if (!elab || typeof elab !== 'object') return null;
+  const pricingBreakdown = Array.isArray(elab.pricingBreakdown) ? elab.pricingBreakdown : [];
+  if (pricingBreakdown.length === 0) return null;
+  return elab;
+}
+
+function needsAutoRegenerateRiepilogo(ctx, quoteId, quote) {
+  const elab = quoteHasRegenerableRcElaborazione(quote);
+  if (!elab) return false;
+  const latestRiep = latestQuoteAttachment(ctx, quoteId, 'preventivo_riepilogo_rc');
+  if (!latestRiep) return true;
+  const ver = Number(elab.riepilogoPdfTemplateVersion);
+  if (!Number.isFinite(ver) || ver !== RC_AUTO_RIEPILOGO_PDF_TEMPLATE_VERSION) return true;
+  const urlVal = latestRiep.url != null ? String(latestRiep.url).trim() : '';
+  if (isHttpUrl(urlVal)) return false;
+  const disk = resolveLocalDiskPath(latestRiep);
+  if (disk.missing) return true;
+  return false;
+}
+
+/**
+ * Rigenera il PDF riepilogo RC Auto dai dati già salvati in dati_preventivo.elaborazione_rc_auto.
+ * @returns {Promise<{ ok: true, riepilogo_attachment_id: number } | { ok: false, error: string }>}
+ */
+async function regenerateRcAutoRiepilogoStoredData(quoteId, actingUser) {
+  const ctx = await loadContext();
+  const row = await getById('quotes', quoteId);
+  if (!row) return { ok: false, error: 'Preventivo non trovato' };
+  const quote = enrichQuote(row, ctx);
+  if (!isRcAutoTipoCodice(quote.tipo_codice)) {
+    return { ok: false, error: 'Questa operazione è disponibile solo per pratiche RC Auto' };
+  }
+  if (normalizeQuoteStato(quote.stato) !== 'ELABORATA') {
+    return { ok: false, error: 'La pratica non è in stato Elaborata' };
+  }
+  const elab = quoteHasRegenerableRcElaborazione(quote);
+  if (!elab) {
+    return { ok: false, error: 'Nessun dato di elaborazione RC Auto salvato su questa pratica' };
+  }
+  const pricingBreakdown = Array.isArray(elab.pricingBreakdown) ? elab.pricingBreakdown : [];
+  const garanzie = getRcGaranzieSelezionate(quote.dati_specifici);
+  const valid = validateRcPricingForGaranzie(pricingBreakdown, garanzie);
+  if (!valid.ok) {
+    return { ok: false, error: valid.error };
+  }
+  const recomputed = Math.round(totalFromBreakdown(pricingBreakdown) * 100) / 100;
+  let totalPrice =
+    typeof elab.totalPrice === 'number' ? Math.round(elab.totalPrice * 100) / 100 : recomputed;
+  if (Math.abs(totalPrice - recomputed) > 0.02) {
+    return { ok: false, error: 'Totali non coerenti con il riepilogo garanzie' };
+  }
+  totalPrice = recomputed;
+  let notesTrim = elab.notes != null ? String(elab.notes) : '';
+  if (notesTrim.length > 1000) notesTrim = notesTrim.slice(0, 1000);
+  notesTrim = notesTrim.trim() || null;
+  const elaboratedAt =
+    elab.elaboratedAt != null && String(elab.elaboratedAt).trim()
+      ? String(elab.elaboratedAt).trim()
+      : new Date().toISOString().slice(0, 19).replace('T', ' ');
+  const typeRow = ctx.typesById.get(Number(quote.tipo_assicurazione_id)) || {};
+  const pdfBuffer = await pipeRcAutoRiepilogoPdf({
+    quote,
+    typeRow,
+    elaborazione: {
+      pricingBreakdown,
+      totalPrice,
+      notes: notesTrim,
+      elaboratedAt,
+    },
+    dest: null,
+  });
+  const pdfPath = tempPdfPath();
+  fs.writeFileSync(pdfPath, pdfBuffer);
+  const pdfOriginalName = `Riepilogo-preventivo-RC-${quote.numero || quoteId}.pdf`;
+
+  await purgeQuoteRiepilogoRcAttachments(ctx, quoteId);
+
+  const pdfIns = await persistQuoteAttachmentFromDisk({
+    localPath: pdfPath,
+    originalName: pdfOriginalName,
+    quoteId,
+    tipo: 'preventivo_riepilogo_rc',
+    userId: actingUser.id,
+  });
+  const prevDp = parseMaybeJson(row.dati_preventivo) || {};
+  const elaborazioneBlock = {
+    pricingBreakdown,
+    totalPrice,
+    notes: notesTrim,
+    elaboratedAt,
+    riepilogo_attachment_id: pdfIns.id,
+    generatedPdfPath: pdfIns.nome_file,
+    riepilogoPdfTemplateVersion: RC_AUTO_RIEPILOGO_PDF_TEMPLATE_VERSION,
+  };
+  await upsertById('quotes', quoteId, {
+    dati_preventivo: { ...prevDp, elaborazione_rc_auto: elaborazioneBlock },
+  });
+  await logActivity({
+    utente_id: actingUser.id,
+    utente_nome: getUserDisplayName(actingUser),
+    ruolo: actingUser.role,
+    azione: 'RIGENERA_PDF_RC',
+    modulo: 'preventivi',
+    riferimento_id: quoteId,
+    riferimento_tipo: 'quote',
+    dettaglio: `Rigenerato PDF riepilogo RC Auto per preventivo ${quote.numero}`,
+  });
+  return { ok: true, riepilogo_attachment_id: pdfIns.id };
+}
+
+function userCanPostRegenerateRcRiepilogo(user, row) {
+  if (!user || !row) return false;
+  if (user.role === 'admin' || user.role === 'supervisore') return true;
+  if (user.role === 'operatore' || user.role === 'fornitore') return userIsAssignedToQuote(user, row);
+  return false;
 }
 
 async function purgeAttachmentsForEntity(entityType, entityId) {
@@ -404,10 +560,10 @@ router.get('/:id/preventivo-finale', authenticateToken, (req, res) => {
       return res.status(400).json({ error: 'ID preventivo non valido' });
     }
     try {
-      const ctx = await loadContext();
-      const row = await getById('quotes', quoteId);
+      let ctx = await loadContext();
+      let row = await getById('quotes', quoteId);
       if (!row) return res.status(404).json({ error: 'Preventivo non trovato' });
-      const quote = enrichQuote(row, ctx);
+      let quote = enrichQuote(row, ctx);
       if (req.user.role === 'struttura' && Number(quote.struttura_id) !== Number(req.user.id)) {
         return res.status(403).json({ error: 'Accesso non autorizzato' });
       }
@@ -423,6 +579,16 @@ router.get('/:id/preventivo-finale', authenticateToken, (req, res) => {
 
       const isRc = isRcAutoTipoCodice(quote.tipo_codice);
       if (isRc && quote.stato === 'ELABORATA') {
+        if (needsAutoRegenerateRiepilogo(ctx, quoteId, quote)) {
+          const regen = await regenerateRcAutoRiepilogoStoredData(quoteId, req.user);
+          if (!regen.ok) {
+            console.warn(`[preventivo-finale quote=${quoteId}] auto-rigenera PDF RC non eseguita:`, regen.error);
+          } else {
+            ctx = await loadContext();
+            row = await getById('quotes', quoteId);
+            quote = enrichQuote(row, ctx);
+          }
+        }
         const latestRiep = latestQuoteAttachment(ctx, quoteId, 'preventivo_riepilogo_rc');
         if (latestRiep) {
           sendAttachmentDownload(latestRiep, res, {
@@ -566,6 +732,7 @@ router.post(
           elaboratedAt,
           riepilogo_attachment_id: pdfIns.id,
           generatedPdfPath: pdfIns.nome_file,
+          riepilogoPdfTemplateVersion: RC_AUTO_RIEPILOGO_PDF_TEMPLATE_VERSION,
         };
         const prevStato = quote.stato;
         await upsertById('quotes', quoteId, {
@@ -620,6 +787,35 @@ router.post(
     })();
   },
 );
+
+/** Rigenera il PDF riepilogo RC Auto da dati già salvati (stato ELABORATA invariato). */
+router.post('/:id/rigenera-riepilogo-rc-auto', authenticateToken, (req, res) => {
+  (async () => {
+    const quoteId = parseInt(req.params.id, 10);
+    if (Number.isNaN(quoteId)) {
+      return res.status(400).json({ error: 'ID preventivo non valido' });
+    }
+    try {
+      const row = await getById('quotes', quoteId);
+      if (!row) return res.status(404).json({ error: 'Preventivo non trovato' });
+      if (!userCanPostRegenerateRcRiepilogo(req.user, row)) {
+        return res.status(403).json({ error: 'Operazione non autorizzata' });
+      }
+      const result = await regenerateRcAutoRiepilogoStoredData(quoteId, req.user);
+      if (!result.ok) {
+        const st = result.error === 'Preventivo non trovato' ? 404 : 400;
+        return res.status(st).json({ error: result.error });
+      }
+      res.json({
+        message: 'PDF rigenerato con successo',
+        riepilogo_attachment_id: result.riepilogo_attachment_id,
+      });
+    } catch (err) {
+      console.error('Error rigenera riepilogo RC Auto:', err);
+      if (!res.headersSent) res.status(500).json({ error: 'Errore durante la rigenerazione del PDF' });
+    }
+  })();
+});
 
 router.get('/:id', authenticateToken, (req, res) => {
   (async () => {

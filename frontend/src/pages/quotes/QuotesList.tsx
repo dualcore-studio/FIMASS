@@ -160,6 +160,7 @@ export default function QuotesList() {
   const [loading, setLoading] = useState(true);
   const [listError, setListError] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
+  const [actionSuccess, setActionSuccess] = useState<string | null>(null);
 
   const [deleteQuoteId, setDeleteQuoteId] = useState<number | null>(null);
   const [deleteSubmitting, setDeleteSubmitting] = useState(false);
@@ -352,6 +353,7 @@ export default function QuotesList() {
   const handleDeleteQuote = async () => {
     if (deleteQuoteId == null) return;
     setActionError(null);
+    setActionSuccess(null);
     setDeleteSubmitting(true);
     try {
       await api.delete(`/quotes/${deleteQuoteId}`);
@@ -406,6 +408,11 @@ export default function QuotesList() {
       {actionError && (
         <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">
           {actionError}
+        </div>
+      )}
+      {actionSuccess && (
+        <div className="rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-900">
+          {actionSuccess}
         </div>
       )}
 
@@ -642,7 +649,17 @@ export default function QuotesList() {
                               quote={q}
                               onNavigateDetail={(id) => navigate(`/preventivi/${id}`)}
                               onOpenHistory={setHistoryQuoteId}
-                              onActionError={setActionError}
+                              onActionError={(msg) => {
+                                setActionSuccess(null);
+                                setActionError(msg);
+                              }}
+                              onActionSuccess={(msg) => {
+                                setActionError(null);
+                                setActionSuccess(msg);
+                              }}
+                              onRiepilogoRegenerated={() => {
+                                void fetchQuotes();
+                              }}
                               {...(role === 'struttura'
                                 ? {
                                     onOpenStandbyReason: (row) => setStandbyQuoteId(row.id),

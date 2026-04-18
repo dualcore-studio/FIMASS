@@ -5,6 +5,9 @@ const PDFDocument = require('pdfkit');
 const RC_AUTO_GUARANTEE_FIELDS = require(path.join(__dirname, '..', '..', '..', 'shared', 'rcAutoGuaranteeFields.json'));
 const RC_AUTO_GUARANTEE_KEY_SET = new Set(Object.keys(RC_AUTO_GUARANTEE_FIELDS));
 
+/** Incrementare quando cambia il layout del PDF: consente rigenerazione automatica su download. */
+const RC_AUTO_RIEPILOGO_PDF_TEMPLATE_VERSION = 2;
+
 const COL = {
   ink: '#0f172a',
   body: '#334155',
@@ -410,4 +413,9 @@ function pipeRcAutoRiepilogoPdf({ quote, typeRow, elaborazione, dest }) {
   });
 }
 
-module.exports = { pipeRcAutoRiepilogoPdf, PRIVACY, INTERMEDIATION };
+module.exports = {
+  pipeRcAutoRiepilogoPdf,
+  PRIVACY,
+  INTERMEDIATION,
+  RC_AUTO_RIEPILOGO_PDF_TEMPLATE_VERSION,
+};

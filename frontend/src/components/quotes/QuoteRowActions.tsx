@@ -2,8 +2,10 @@ import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react
 import { createPortal } from 'react-dom';
 import { ChevronDown } from 'lucide-react';
 import type { Quote } from '../../types';
+import { useAuth } from '../../context/AuthContext';
 import { api, ApiError } from '../../utils/api';
 import { downloadPreventivoFinale } from '../../utils/downloadPreventivoFinale';
+import { userCanRegenerateRcRiepilogoPdf } from '../../utils/rcAutoElaboration';
 import {
   adminCanAssignQuote,
   adminCanDownloadPreventivoFinale,
@@ -44,6 +46,9 @@ export type QuoteRowActionsProps = {
   onOpenOperatorStandby?: (quote: Quote) => void;
   onOpenOperatorElaborata?: (quote: Quote) => void;
   onOpenOperatorInLavorazione?: (quote: Quote) => void;
+  /** Dopo rigenerazione PDF riepilogo RC (es. refresh elenco). */
+  onRiepilogoRegenerated?: () => void;
+  onActionSuccess?: (message: string) => void;
 };
 
 export default function QuoteRowActions({
@@ -60,8 +65,12 @@ export default function QuoteRowActions({
   onOpenOperatorStandby,
   onOpenOperatorElaborata,
   onOpenOperatorInLavorazione,
+  onRiepilogoRegenerated,
+  onActionSuccess,
 }: QuoteRowActionsProps) {
+  const { user } = useAuth();
   const [open, setOpen] = useState(false);
+  const [rigeneraBusy, setRigeneraBusy] = useState(false);
   const wrapRef = useRef<HTMLDivElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
   const [menuPos, setMenuPos] = useState<MenuPos>({ top: 0, left: 0 });
@@ -81,6 +90,24 @@ export default function QuoteRowActions({
   const operatorStandbyEnabled = operatorCanStandby(quote.stato);
   const operatorInLavEnabled = operatorCanInLavorazione(quote.stato);
   const operatorElaborataEnabled = operatorCanElaborata(quote.stato);
+
+  const rigeneraRiepilogoEnabled =
+    user != null && userCanRegenerateRcRiepilogoPdf(quote, user.role, user.id);
+
+  const handleRigeneraRiepilogoRc = async () => {
+    if (!rigeneraRiepilogoEnabled || rigeneraBusy) return;
+    close();
+    setRigeneraBusy(true);
+    try {
+      await api.post<{ message: string }>(`/quotes/${quote.id}/rigenera-riepilogo-rc-auto`);
+      onActionSuccess?.('PDF rigenerato con successo');
+      onRiepilogoRegenerated?.();
+    } catch (e) {
+      onActionError(e instanceof ApiError ? e.message : 'Rigenerazione PDF non riuscita.');
+    } finally {
+      setRigeneraBusy(false);
+    }
+  };
 
   const updatePosition = useCallback(() => {
     const trigger = wrapRef.current?.querySelector<HTMLElement>('[data-quote-actions-trigger]');
@@ -372,6 +399,17 @@ export default function QuoteRowActions({
         >
           Scarica allegato operatore
         </button>
+        <button
+          type="button"
+          role="menuitem"
+          className={itemClass(rigeneraRiepilogoEnabled && !rigeneraBusy)}
+          disabled={!rigeneraRiepilogoEnabled || rigeneraBusy}
+          onClick={() => {
+            void handleRigeneraRiepilogoRc();
+          }}
+        >
+          {rigeneraBusy ? 'Rigenerazione…' : 'Rigenera riepilogo PDF'}
+        </button>
         <button type="button" role="menuitem" className={itemClass(true)} onClick={handleExportPdf}>
           Esporta
         </button>
@@ -482,6 +520,17 @@ export default function QuoteRowActions({
           onClick={handleDownloadAllegatoOperatore}
         >
           Scarica allegato operatore
+        </button>
+        <button
+          type="button"
+          role="menuitem"
+          className={itemClass(rigeneraRiepilogoEnabled && !rigeneraBusy)}
+          disabled={!rigeneraRiepilogoEnabled || rigeneraBusy}
+          onClick={() => {
+            void handleRigeneraRiepilogoRc();
+          }}
+        >
+          {rigeneraBusy ? 'Rigenerazione…' : 'Rigenera riepilogo PDF'}
         </button>
         <button
           type="button"
