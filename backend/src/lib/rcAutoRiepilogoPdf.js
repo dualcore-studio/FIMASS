@@ -10,7 +10,6 @@ const COL = {
   body: '#334155',
   muted: '#64748b',
   rule: '#d1d5db',
-  footer: '#64748b',
   totalBg: '#f1f5f9',
 };
 
