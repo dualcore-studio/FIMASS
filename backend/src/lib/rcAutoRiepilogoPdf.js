@@ -101,6 +101,55 @@ function sectionTitle(doc, title) {
   doc.font('Helvetica').fillColor(COL.body);
 }
 
+/** Altezza del blocco legale (deve coincidere con `drawLegalFooterBlock`). */
+function measureLegalFooterBlockHeight(doc, contentW) {
+  doc.save();
+  doc.font('Helvetica').fontSize(11).fillColor(COL.body);
+  let h = doc.currentLineHeight() * 1.25;
+  h += doc.currentLineHeight() * 0.35;
+  h += doc.currentLineHeight() * 0.65;
+  doc.font('Helvetica-Bold').fontSize(9).fillColor(COL.muted);
+  h += doc.currentLineHeight();
+  h += doc.currentLineHeight() * 0.45;
+  doc.font('Helvetica').fontSize(8).fillColor(COL.body);
+  h += doc.heightOfString(PRIVACY, { lineGap: 4, align: 'justify', width: contentW });
+  h += doc.currentLineHeight() * 0.85;
+  h += doc.heightOfString(INTERMEDIATION, { lineGap: 4, align: 'justify', width: contentW });
+  h += doc.currentLineHeight() * 0.5;
+  doc.restore();
+  return h;
+}
+
+/** Disegna note privacy / intermediazione in coda alla pagina (ultima pagina del documento). */
+function drawLegalFooterBlock(doc, contentW) {
+  const pageBottom = doc.page.height - doc.page.margins.bottom;
+  const footerH = measureLegalFooterBlockHeight(doc, contentW);
+  if (doc.y + footerH > pageBottom) {
+    doc.addPage();
+  }
+  const y0 = pageBottom - footerH;
+  doc.y = y0;
+
+  doc.font('Helvetica').fontSize(11).fillColor(COL.body);
+  doc.moveDown(1.25);
+  drawRule(doc);
+  doc.moveDown(0.65);
+  doc.fontSize(9).font('Helvetica-Bold').fillColor(COL.muted).text('Note informative', { align: 'left' });
+  doc.moveDown(0.45);
+  doc.fontSize(8).font('Helvetica').fillColor(COL.body).text(PRIVACY, {
+    lineGap: 4,
+    align: 'justify',
+    width: contentW,
+  });
+  doc.moveDown(0.85);
+  doc.fontSize(8).font('Helvetica').fillColor(COL.body).text(INTERMEDIATION, {
+    lineGap: 4,
+    align: 'justify',
+    width: contentW,
+  });
+  doc.moveDown(0.5);
+}
+
 /**
  * Genera PDF riepilogo RC Auto (senza logo) su stream Writable o Buffer callback.
  * @param {object} params
@@ -211,23 +260,7 @@ function pipeRcAutoRiepilogoPdf({ quote, typeRow, elaborazione, dest }) {
       });
     }
 
-    doc.moveDown(1.25);
-    drawRule(doc);
-    doc.moveDown(0.65);
-    doc.fontSize(9).font('Helvetica-Bold').fillColor(COL.muted).text('Note informative', { align: 'left' });
-    doc.moveDown(0.45);
-    doc.fontSize(8).font('Helvetica').fillColor(COL.body).text(PRIVACY, {
-      lineGap: 4,
-      align: 'justify',
-      width: contentW,
-    });
-    doc.moveDown(0.85);
-    doc.fontSize(8).font('Helvetica').fillColor(COL.body).text(INTERMEDIATION, {
-      lineGap: 4,
-      align: 'justify',
-      width: contentW,
-    });
-    doc.moveDown(0.5);
+    drawLegalFooterBlock(doc, contentW);
 
     doc.end();
   });
