@@ -5,6 +5,7 @@ import type { Quote } from '../../types';
 import { useAuth } from '../../context/AuthContext';
 import { api, ApiError } from '../../utils/api';
 import { downloadPreventivoFinale } from '../../utils/downloadPreventivoFinale';
+import { rcPreventivoPdfDownloadFilename } from '../../utils/rcPreventivoPdfFilename';
 import { userCanRegenerateRcRiepilogoPdf } from '../../utils/rcAutoElaboration';
 import {
   adminCanAssignQuote,
@@ -46,7 +47,7 @@ export type QuoteRowActionsProps = {
   onOpenOperatorStandby?: (quote: Quote) => void;
   onOpenOperatorElaborata?: (quote: Quote) => void;
   onOpenOperatorInLavorazione?: (quote: Quote) => void;
-  /** Dopo rigenerazione PDF riepilogo RC (es. refresh elenco). */
+  /** Dopo rigenerazione preventivo RC (es. refresh elenco). */
   onRiepilogoRegenerated?: () => void;
   onActionSuccess?: (message: string) => void;
 };
@@ -99,11 +100,23 @@ export default function QuoteRowActions({
     close();
     setRigeneraBusy(true);
     try {
-      await api.post<{ message: string }>(`/quotes/${quote.id}/rigenera-riepilogo-rc-auto`);
-      onActionSuccess?.('PDF rigenerato con successo');
+      const res = await api.post<{ message: string; filename?: string }>(
+        `/quotes/${quote.id}/rigenera-riepilogo-rc-auto`,
+      );
+      const downloadName = res.filename?.trim() || rcPreventivoPdfDownloadFilename(quote);
+      try {
+        await downloadPreventivoFinale(quote.id, downloadName);
+        onActionSuccess?.('Preventivo rigenerato con successo');
+      } catch (dl) {
+        const hint =
+          dl instanceof ApiError
+            ? `${dl.message}. Puoi scaricare il file aggiornato da «Scarica preventivo» nel dettaglio pratica.`
+            : 'Il download automatico non è riuscito. Apri la pratica e usa «Scarica preventivo».';
+        onActionSuccess?.(`Preventivo rigenerato. ${hint}`);
+      }
       onRiepilogoRegenerated?.();
     } catch (e) {
-      onActionError(e instanceof ApiError ? e.message : 'Rigenerazione PDF non riuscita.');
+      onActionError(e instanceof ApiError ? e.message : 'Rigenerazione preventivo non riuscita.');
     } finally {
       setRigeneraBusy(false);
     }
@@ -222,7 +235,7 @@ export default function QuoteRowActions({
     try {
       const isRc = String(quote.tipo_codice || '').toLowerCase() === 'rc_auto';
       const name = isRc
-        ? quote.preventivo_riepilogo_nome || `Riepilogo-preventivo-${quote.numero || quote.id}.pdf`
+        ? quote.preventivo_riepilogo_nome || rcPreventivoPdfDownloadFilename(quote)
         : quote.preventivo_finale_nome || `preventivo-finale-${quote.id}.pdf`;
       await downloadPreventivoFinale(quote.id, name);
     } catch (e) {
@@ -408,7 +421,7 @@ export default function QuoteRowActions({
             void handleRigeneraRiepilogoRc();
           }}
         >
-          {rigeneraBusy ? 'Rigenerazione…' : 'Rigenera riepilogo PDF'}
+          {rigeneraBusy ? 'Rigenerazione…' : 'Rigenera Preventivo'}
         </button>
         <button type="button" role="menuitem" className={itemClass(true)} onClick={handleExportPdf}>
           Esporta
@@ -530,7 +543,7 @@ export default function QuoteRowActions({
             void handleRigeneraRiepilogoRc();
           }}
         >
-          {rigeneraBusy ? 'Rigenerazione…' : 'Rigenera riepilogo PDF'}
+          {rigeneraBusy ? 'Rigenerazione…' : 'Rigenera Preventivo'}
         </button>
         <button
           type="button"

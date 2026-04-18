@@ -22,6 +22,7 @@ import {
 } from 'lucide-react';
 import { api, ApiError } from '../../utils/api';
 import { downloadPreventivoFinale } from '../../utils/downloadPreventivoFinale';
+import { rcPreventivoPdfDownloadFilename } from '../../utils/rcPreventivoPdfFilename';
 import { userCanRegenerateRcRiepilogoPdf } from '../../utils/rcAutoElaboration';
 import type { Quote, User, Attachment, QuoteNote, StatusHistory } from '../../types';
 import { formatDate, formatDateTime, getUserDisplayName, isQuoteClosedForAssignment } from '../../utils/helpers';
@@ -910,7 +911,7 @@ function TabPreventivo({
     setDownloading(true);
     try {
       const name = isRcAuto
-        ? riepilogoAttachment?.nome_originale || `Riepilogo-preventivo-${quote.numero}.pdf`
+        ? riepilogoAttachment?.nome_originale || rcPreventivoPdfDownloadFilename(quote)
         : preventivoAttachment?.nome_originale || `preventivo-${quote.id}.pdf`;
       if (!isRcAuto && !preventivoAttachment) return;
       if (isRcAuto && quote.stato === 'ELABORATA' && !riepilogoAttachment && !preventivoAttachment) return;
@@ -941,11 +942,23 @@ function TabPreventivo({
     setDownloadError(null);
     setRigeneraBusy(true);
     try {
-      await api.post<{ message: string }>(`/quotes/${quote.id}/rigenera-riepilogo-rc-auto`);
-      setRiepilogoSuccess('PDF rigenerato con successo');
+      const res = await api.post<{ message: string; filename?: string }>(
+        `/quotes/${quote.id}/rigenera-riepilogo-rc-auto`,
+      );
+      const downloadName = res.filename?.trim() || rcPreventivoPdfDownloadFilename(quote);
+      setRiepilogoSuccess('Preventivo rigenerato con successo');
+      try {
+        await downloadPreventivoFinale(quote.id, downloadName);
+      } catch (dl) {
+        setDownloadError(
+          dl instanceof ApiError
+            ? `${dl.message} Usa «Scarica preventivo» per scaricare il file aggiornato.`
+            : 'Download automatico non riuscito. Usa «Scarica preventivo».',
+        );
+      }
       await onRefresh();
     } catch (e) {
-      setDownloadError(e instanceof ApiError ? e.message : 'Rigenerazione PDF non riuscita.');
+      setDownloadError(e instanceof ApiError ? e.message : 'Rigenerazione preventivo non riuscita.');
     } finally {
       setRigeneraBusy(false);
     }
@@ -962,7 +975,7 @@ function TabPreventivo({
       {showRiepilogoCard ? (
         <div className="card p-6">
           <h3 className="mb-4 text-sm font-semibold uppercase tracking-wider text-gray-500">
-            PDF riepilogativo (sistema)
+            Preventivo (PDF sistema)
           </h3>
           <div className="flex items-center justify-between rounded-lg border border-gray-200 bg-gray-50 p-4">
             <div className="flex items-center gap-3">
@@ -971,10 +984,12 @@ function TabPreventivo({
               </div>
               <div>
                 <p className="text-sm font-medium text-gray-900">
-                  {riepilogoAttachment?.nome_originale ?? 'PDF riepilogo (sistema)'}
+                  {riepilogoAttachment?.nome_originale ?? 'Preventivo PDF (sistema)'}
                 </p>
                 <p className="text-xs text-gray-500">
-                  {riepilogoAttachment ? formatFileSize(riepilogoAttachment.dimensione) : 'File non disponibile: rigenera o scarica per crearne uno nuovo.'}
+                  {riepilogoAttachment
+                    ? formatFileSize(riepilogoAttachment.dimensione)
+                    : 'File non disponibile: usa «Rigenera Preventivo» o «Scarica preventivo».'}
                 </p>
               </div>
             </div>
@@ -982,11 +997,11 @@ function TabPreventivo({
               <button
                 type="button"
                 onClick={handleDownloadPreventivo}
-                disabled={downloading}
+                disabled={downloading || rigeneraBusy}
                 className="btn-primary"
               >
                 <Download className="h-4 w-4" />
-                {downloading ? 'Download…' : 'Scarica PDF riepilogo'}
+                {downloading ? 'Download…' : 'Scarica preventivo'}
               </button>
               {canRegenerateRiepilogoRc ? (
                 <button
@@ -996,10 +1011,10 @@ function TabPreventivo({
                   }}
                   disabled={rigeneraBusy}
                   className="btn-secondary"
-                  title="Rigenera il PDF con il layout aggiornato, usando i dati già salvati"
+                  title="Rigenera il preventivo PDF con il template aggiornato (dati già salvati). Avvia anche il download del nuovo file."
                 >
                   <RotateCcw className="h-4 w-4" />
-                  {rigeneraBusy ? 'Rigenerazione…' : 'Rigenera PDF'}
+                  {rigeneraBusy ? 'Rigenerazione…' : 'Rigenera Preventivo'}
                 </button>
               ) : null}
             </div>
@@ -1078,10 +1093,10 @@ function TabPreventivo({
         </div>
       ) : null}
 
-      {isRcAuto && quote.stato === 'ELABORATA' && !riepilogoAttachment ? (
+      {isRcAuto && quote.stato === 'ELABORATA' && !riepilogoAttachment && !canRegenerateRiepilogoRc ? (
         <p className="text-sm text-amber-800">
-          Il PDF riepilogativo sarà disponibile dopo l&apos;elaborazione da parte dell&apos;incaricato tramite il modale
-          dedicato.
+          Il preventivo PDF di sistema sarà disponibile dopo l&apos;elaborazione da parte dell&apos;incaricato tramite il
+          modale dedicato.
         </p>
       ) : null}
 

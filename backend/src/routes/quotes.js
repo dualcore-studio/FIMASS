@@ -67,6 +67,14 @@ function latestQuoteAttachment(ctx, quoteId, tipo) {
   return rows.sort((a, b) => String(b.created_at || '').localeCompare(String(a.created_at || '')))[0];
 }
 
+/** Nome file coerente per il PDF preventivo RC generato dal sistema (storage e download). */
+function rcAutoSistemaPreventivoPdfName(quoteNumero, quoteId) {
+  const raw = quoteNumero != null ? String(quoteNumero).trim() : '';
+  const safe = raw.replace(/[/\\?%*:|"<>]/g, '-').replace(/\s+/g, ' ').trim();
+  if (safe) return `Preventivo-${safe}.pdf`;
+  return `Preventivo-RC-${quoteId}.pdf`;
+}
+
 async function deleteAttachmentRecord(att) {
   if (!att) return;
   const urlVal = att.url != null ? String(att.url).trim() : '';
@@ -128,7 +136,7 @@ function needsAutoRegenerateRiepilogo(ctx, quoteId, quote) {
 
 /**
  * Rigenera il PDF riepilogo RC Auto dai dati già salvati in dati_preventivo.elaborazione_rc_auto.
- * @returns {Promise<{ ok: true, riepilogo_attachment_id: number } | { ok: false, error: string }>}
+ * @returns {Promise<{ ok: true, riepilogo_attachment_id: number, filename: string } | { ok: false, error: string }>}
  */
 async function regenerateRcAutoRiepilogoStoredData(quoteId, actingUser) {
   const ctx = await loadContext();
@@ -179,7 +187,7 @@ async function regenerateRcAutoRiepilogoStoredData(quoteId, actingUser) {
   });
   const pdfPath = tempPdfPath();
   fs.writeFileSync(pdfPath, pdfBuffer);
-  const pdfOriginalName = `Riepilogo-preventivo-RC-${quote.numero || quoteId}.pdf`;
+  const pdfOriginalName = rcAutoSistemaPreventivoPdfName(quote.numero, quoteId);
 
   await purgeQuoteRiepilogoRcAttachments(ctx, quoteId);
 
@@ -213,7 +221,7 @@ async function regenerateRcAutoRiepilogoStoredData(quoteId, actingUser) {
     riferimento_tipo: 'quote',
     dettaglio: `Rigenerato PDF riepilogo RC Auto per preventivo ${quote.numero}`,
   });
-  return { ok: true, riepilogo_attachment_id: pdfIns.id };
+  return { ok: true, riepilogo_attachment_id: pdfIns.id, filename: pdfOriginalName };
 }
 
 function userCanPostRegenerateRcRiepilogo(user, row) {
@@ -592,7 +600,8 @@ router.get('/:id/preventivo-finale', authenticateToken, (req, res) => {
         const latestRiep = latestQuoteAttachment(ctx, quoteId, 'preventivo_riepilogo_rc');
         if (latestRiep) {
           sendAttachmentDownload(latestRiep, res, {
-            downloadFilename: latestRiep.nome_originale || `Riepilogo-${quote.numero || quoteId}.pdf`,
+            downloadFilename:
+              latestRiep.nome_originale || rcAutoSistemaPreventivoPdfName(quote.numero, quoteId),
             logPrefix: `[preventivo-finale riepilogo-rc quote=${quoteId} attachment=${latestRiep.id}]`,
           });
           return;
@@ -715,7 +724,7 @@ router.post(
           dest: null,
         });
         fs.writeFileSync(pdfPath, pdfBuffer);
-        const pdfOriginalName = `Riepilogo-preventivo-RC-${quote.numero || quoteId}.pdf`;
+        const pdfOriginalName = rcAutoSistemaPreventivoPdfName(quote.numero, quoteId);
         const pdfIns = await persistQuoteAttachmentFromDisk({
           localPath: pdfPath,
           originalName: pdfOriginalName,
@@ -807,8 +816,9 @@ router.post('/:id/rigenera-riepilogo-rc-auto', authenticateToken, (req, res) => 
         return res.status(st).json({ error: result.error });
       }
       res.json({
-        message: 'PDF rigenerato con successo',
+        message: 'Preventivo rigenerato con successo',
         riepilogo_attachment_id: result.riepilogo_attachment_id,
+        filename: result.filename,
       });
     } catch (err) {
       console.error('Error rigenera riepilogo RC Auto:', err);
