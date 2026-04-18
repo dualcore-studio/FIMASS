@@ -6,7 +6,7 @@ const RC_AUTO_GUARANTEE_FIELDS = require(path.join(__dirname, '..', '..', '..', 
 const RC_AUTO_GUARANTEE_KEY_SET = new Set(Object.keys(RC_AUTO_GUARANTEE_FIELDS));
 
 /** Incrementare quando cambia il layout del PDF: consente rigenerazione automatica su download. */
-const RC_AUTO_RIEPILOGO_PDF_TEMPLATE_VERSION = 2;
+const RC_AUTO_RIEPILOGO_PDF_TEMPLATE_VERSION = 3;
 
 const COL = {
   ink: '#0f172a',
@@ -30,6 +30,7 @@ const INTERMEDIATION =
 
 const VEICOLO_KEYS = [
   'targa',
+  'telaio',
   'tipo_veicolo',
   'marca',
   'modello',
@@ -47,14 +48,28 @@ const VEICOLO_KEYS = [
 
 /** Parametri condivisi tra misura e disegno del blocco “Note informative” (stesso flusso, niente ancoraggio al fondo pagina). */
 const INFORM = {
-  marginTop: 20,
-  pad: 12,
-  titleSize: 9,
-  bodySize: 7.5,
-  lineGap: 5,
-  titleToBody: 7,
-  betweenTexts: 11,
+  marginTop: 10,
+  pad: 8,
+  titleSize: 8,
+  bodySize: 6.8,
+  lineGap: 2.5,
+  titleToBody: 4,
+  betweenTexts: 7,
 };
+
+/** Chiavi veicolo impaginate nella griglia 3×3 (il resto va in coda su 2 colonne). */
+const VEHICLE_GRID_KEYS = new Set([
+  'targa',
+  'telaio',
+  'marca',
+  'modello',
+  'tipo_veicolo',
+  'alimentazione',
+  'anno_immatricolazione',
+  'tipo_guida',
+  'classe_cu',
+  'massimale_rc',
+]);
 
 function formatValue(val) {
   if (val === null || val === undefined) return '—';
@@ -99,6 +114,26 @@ function labelForCampo(typeRow, key) {
   return (found && found.label) || humanizeKey(key);
 }
 
+function isEmptyField(v) {
+  return v === undefined || v === null || String(v).trim() === '';
+}
+
+function targaTelaioCell(ds, typeRow) {
+  const targa = !isEmptyField(ds.targa) ? formatValue(ds.targa) : null;
+  const telaio = !isEmptyField(ds.telaio) ? formatValue(ds.telaio) : null;
+  const lt = labelForCampo(typeRow, 'targa');
+  const ln = labelForCampo(typeRow, 'telaio');
+  if (targa && telaio) return `${lt}: ${targa} · ${ln}: ${telaio}`;
+  if (targa) return `${lt}: ${targa}`;
+  if (telaio) return `${ln}: ${telaio}`;
+  return '';
+}
+
+function lvLine(typeRow, key, ds) {
+  if (!key || isEmptyField(ds[key])) return '';
+  return `${labelForCampo(typeRow, key)}: ${formatValue(ds[key])}`;
+}
+
 function pageContentWidth(doc) {
   return doc.page.width - doc.page.margins.left - doc.page.margins.right;
 }
@@ -119,11 +154,165 @@ function drawRule(doc, opts = {}) {
 }
 
 function sectionTitle(doc, title) {
-  doc.moveDown(0.55);
-  doc.fontSize(11).font('Helvetica-Bold').fillColor(COL.ink).text(title, { align: 'left' });
-  doc.moveDown(0.22);
-  drawRule(doc, { gapAfter: 0.38 });
+  doc.moveDown(0.32);
+  doc.fontSize(10).font('Helvetica-Bold').fillColor(COL.ink).text(title, { align: 'left' });
+  doc.moveDown(0.1);
+  drawRule(doc, { width: 0.4, gapAfter: 0.22 });
   doc.font('Helvetica').fillColor(COL.body);
+}
+
+/**
+ * Box anagrafica contraente: griglia 2 colonne + indirizzo a tutta larghezza.
+ */
+function drawAssistitoDataBox(doc, quote, contentW) {
+  const pad = 8;
+  const colGap = 10;
+  const fs = 9;
+  const lineGap = 1.25;
+  const nome = [quote.assistito_nome, quote.assistito_cognome].filter(Boolean).join(' ').trim() || '—';
+
+  const rows = [
+    [`Nome: ${nome}`, `Codice fiscale: ${formatValue(quote.assistito_cf)}`],
+    [`Data di nascita: ${formatValue(quote.assistito_data_nascita)}`, `Cellulare: ${formatValue(quote.assistito_cellulare)}`],
+    [`Email: ${formatValue(quote.assistito_email)}`, ''],
+  ];
+  const indLineParts = [quote.assistito_indirizzo, quote.assistito_cap, quote.assistito_citta].filter(Boolean);
+  const indLine = indLineParts.length ? `Indirizzo: ${indLineParts.join(' — ')}` : '';
+
+  const innerW = contentW - 2 * pad;
+  const colW = (innerW - colGap) / 2;
+  const leftX = doc.page.margins.left + pad;
+
+  doc.save();
+  doc.font('Helvetica').fontSize(fs);
+  let contentH = pad;
+  for (const [l, r] of rows) {
+    const hL = doc.heightOfString(l, { width: colW, lineGap });
+    const hR = r && r.trim() ? doc.heightOfString(r, { width: colW, lineGap }) : 0;
+    contentH += Math.max(hL, hR) + 3;
+  }
+  if (indLine) contentH += doc.heightOfString(indLine, { width: innerW, lineGap }) + 1;
+  contentH += pad;
+  doc.restore();
+
+  if (doc.y + contentH > pageBottomY(doc)) doc.addPage();
+
+  const boxTop = doc.y;
+  doc.save();
+  doc
+    .roundedRect(doc.page.margins.left, boxTop, contentW, contentH, 3)
+    .fill(COL.noteBoxFill)
+    .strokeColor(COL.noteBoxStroke)
+    .lineWidth(0.45)
+    .stroke();
+  doc.restore();
+
+  let ty = boxTop + pad;
+  doc.font('Helvetica').fontSize(fs).fillColor(COL.body);
+  for (const [l, r] of rows) {
+    const hL = doc.heightOfString(l, { width: colW, lineGap });
+    const hR = r && r.trim() ? doc.heightOfString(r, { width: colW, lineGap }) : 0;
+    const rh = Math.max(hL, hR);
+    doc.text(l, leftX, ty, { width: colW, lineGap });
+    if (r && r.trim()) doc.text(r, leftX + colW + colGap, ty, { width: colW, lineGap });
+    ty += rh + 3;
+  }
+  if (indLine) doc.text(indLine, leftX, ty, { width: innerW, lineGap });
+
+  doc.y = boxTop + contentH + 5;
+}
+
+function vehicleGridRowHeight(doc, trip, w3, fs, lineGap) {
+  const [a, b, c] = trip;
+  const colH = (s) => {
+    if (!s || !String(s).trim()) return 0;
+    return doc.heightOfString(s, { width: w3, lineGap });
+  };
+  return Math.max(colH(a), colH(b), colH(c), fs * 0.85);
+}
+
+/**
+ * Dati veicolo: fino a 3 righe da 3 colonne + eventuali campi extra su 2 colonne.
+ */
+function drawVehicleDataBox(doc, ds, typeRow, contentW) {
+  const pad = 8;
+  const g = 6;
+  const pairGap = 10;
+  const fs = 9;
+  const lineGap = 1.2;
+  const innerW = contentW - 2 * pad;
+  const w3 = (innerW - 2 * g) / 3;
+  const leftX = doc.page.margins.left + pad;
+
+  const gridRows = [
+    [targaTelaioCell(ds, typeRow), lvLine(typeRow, 'marca', ds), lvLine(typeRow, 'modello', ds)],
+    [lvLine(typeRow, 'tipo_veicolo', ds), lvLine(typeRow, 'alimentazione', ds), lvLine(typeRow, 'anno_immatricolazione', ds)],
+    [lvLine(typeRow, 'tipo_guida', ds), lvLine(typeRow, 'classe_cu', ds), lvLine(typeRow, 'massimale_rc', ds)],
+  ];
+  const activeGrid = gridRows.filter((r) => r.some((c) => c && String(c).trim()));
+
+  const remainder = [];
+  for (const k of VEICOLO_KEYS) {
+    if (k === 'garanzie_selezionate' || k === 'garanzie_richieste') continue;
+    if (RC_AUTO_GUARANTEE_KEY_SET.has(k)) continue;
+    if (VEHICLE_GRID_KEYS.has(k)) continue;
+    if (ds[k] !== undefined && ds[k] !== null && String(ds[k]).trim() !== '') {
+      remainder.push({ k, v: ds[k] });
+    }
+  }
+
+  const colW2 = (innerW - pairGap) / 2;
+
+  doc.save();
+  doc.font('Helvetica').fontSize(fs);
+  let contentH = pad;
+  for (const row of activeGrid) {
+    contentH += vehicleGridRowHeight(doc, row, w3, fs, lineGap) + 3;
+  }
+  for (let i = 0; i < remainder.length; i += 2) {
+    const labL = `${labelForCampo(typeRow, remainder[i].k)}: ${formatValue(remainder[i].v)}`;
+    const labR = remainder[i + 1] ? `${labelForCampo(typeRow, remainder[i + 1].k)}: ${formatValue(remainder[i + 1].v)}` : '';
+    const hL = doc.heightOfString(labL, { width: colW2, lineGap });
+    const hR = labR ? doc.heightOfString(labR, { width: colW2, lineGap }) : 0;
+    contentH += Math.max(hL, hR) + 3;
+  }
+  contentH += pad;
+  doc.restore();
+
+  if (doc.y + contentH > pageBottomY(doc)) doc.addPage();
+
+  const boxTop = doc.y;
+  doc.save();
+  doc
+    .roundedRect(doc.page.margins.left, boxTop, contentW, contentH, 3)
+    .fill(COL.noteBoxFill)
+    .strokeColor(COL.noteBoxStroke)
+    .lineWidth(0.45)
+    .stroke();
+  doc.restore();
+
+  let ty = boxTop + pad;
+  doc.font('Helvetica').fontSize(fs).fillColor(COL.body);
+  for (const row of activeGrid) {
+    const [a, b, c] = row;
+    const rh = vehicleGridRowHeight(doc, row, w3, fs, lineGap);
+    if (a && String(a).trim()) doc.text(a, leftX, ty, { width: w3, lineGap });
+    if (b && String(b).trim()) doc.text(b, leftX + w3 + g, ty, { width: w3, lineGap });
+    if (c && String(c).trim()) doc.text(c, leftX + 2 * (w3 + g), ty, { width: w3, lineGap });
+    ty += rh + 3;
+  }
+  for (let i = 0; i < remainder.length; i += 2) {
+    const labL = `${labelForCampo(typeRow, remainder[i].k)}: ${formatValue(remainder[i].v)}`;
+    const labR = remainder[i + 1] ? `${labelForCampo(typeRow, remainder[i + 1].k)}: ${formatValue(remainder[i + 1].v)}` : '';
+    const hL = doc.heightOfString(labL, { width: colW2, lineGap });
+    const hR = labR ? doc.heightOfString(labR, { width: colW2, lineGap }) : 0;
+    const rh = Math.max(hL, hR);
+    doc.text(labL, leftX, ty, { width: colW2, lineGap });
+    if (labR) doc.text(labR, leftX + colW2 + pairGap, ty, { width: colW2, lineGap });
+    ty += rh + 3;
+  }
+
+  doc.y = boxTop + contentH + 5;
 }
 
 /**
@@ -181,26 +370,28 @@ function drawInformativeBlock(doc, contentW) {
   ty += privacyH + INFORM.betweenTexts;
   doc.text(INTERMEDIATION, left + INFORM.pad, ty, { width: innerW, lineGap: INFORM.lineGap, align: 'justify' });
 
-  doc.y = boxTop + innerH + 10;
+  doc.y = boxTop + innerH + 6;
 }
 
 function notesBoxHeight(doc, contentW, notesText) {
-  const marginTop = 16;
-  const pad = 12;
+  const marginTop = 8;
+  const pad = 8;
+  const titleToBody = 5;
   const innerW = contentW - 2 * pad;
   doc.save();
-  doc.font('Helvetica-Bold').fontSize(10);
+  doc.font('Helvetica-Bold').fontSize(9.5);
   const titleH = doc.heightOfString('Note', { width: innerW });
-  doc.font('Helvetica').fontSize(10);
-  const bodyH = doc.heightOfString(notesText, { width: innerW, lineGap: 4 });
+  doc.font('Helvetica').fontSize(9);
+  const bodyH = doc.heightOfString(notesText, { width: innerW, lineGap: 2.5 });
   doc.restore();
-  const innerH = pad + titleH + 8 + bodyH + pad;
+  const innerH = pad + titleH + titleToBody + bodyH + pad;
   return marginTop + innerH;
 }
 
 function drawNotesBox(doc, contentW, notesText) {
-  const marginTop = 16;
-  const pad = 12;
+  const marginTop = 8;
+  const pad = 8;
+  const titleToBody = 5;
   const left = doc.page.margins.left;
   const innerW = contentW - 2 * pad;
   const totalH = notesBoxHeight(doc, contentW, notesText);
@@ -210,25 +401,25 @@ function drawNotesBox(doc, contentW, notesText) {
 
   const boxTop = doc.y + marginTop;
   doc.save();
-  doc.font('Helvetica-Bold').fontSize(10);
+  doc.font('Helvetica-Bold').fontSize(9.5);
   const titleH = doc.heightOfString('Note', { width: innerW });
-  doc.font('Helvetica').fontSize(10);
-  const bodyH = doc.heightOfString(notesText, { width: innerW, lineGap: 4 });
+  doc.font('Helvetica').fontSize(9);
+  const bodyH = doc.heightOfString(notesText, { width: innerW, lineGap: 2.5 });
   doc.restore();
-  const innerH = pad + titleH + 8 + bodyH + pad;
+  const innerH = pad + titleH + titleToBody + bodyH + pad;
 
   doc.save();
-  doc.roundedRect(left, boxTop, contentW, innerH, 4).fill(COL.noteBoxFill).strokeColor(COL.noteBoxStroke).lineWidth(0.5).stroke();
+  doc.roundedRect(left, boxTop, contentW, innerH, 3).fill(COL.noteBoxFill).strokeColor(COL.noteBoxStroke).lineWidth(0.45).stroke();
   doc.restore();
 
   let ty = boxTop + pad;
-  doc.font('Helvetica-Bold').fontSize(10).fillColor(COL.ink);
+  doc.font('Helvetica-Bold').fontSize(9.5).fillColor(COL.ink);
   doc.text('Note', left + pad, ty, { width: innerW });
-  ty += titleH + 8;
-  doc.font('Helvetica').fontSize(10).fillColor(COL.body);
-  doc.text(notesText, left + pad, ty, { width: innerW, lineGap: 4 });
+  ty += titleH + titleToBody;
+  doc.font('Helvetica').fontSize(9).fillColor(COL.body);
+  doc.text(notesText, left + pad, ty, { width: innerW, lineGap: 2.5 });
 
-  doc.y = boxTop + innerH + 14;
+  doc.y = boxTop + innerH + 8;
 }
 
 /**
@@ -236,12 +427,13 @@ function drawNotesBox(doc, contentW, notesText) {
  */
 function drawGuaranteeTable(doc, rows, contentW) {
   const left = doc.page.margins.left;
-  const wName = contentW * 0.67;
+  const wName = contentW * 0.68;
   const wPrice = contentW - wName;
-  const headerH = 28;
-  const rowPadX = 12;
-  const rowPadY = 9;
-  const minRowH = 24;
+  const headerH = 22;
+  const rowPadX = 8;
+  const rowPadY = 5;
+  const minRowH = 19;
+  const bodyFs = 9;
 
   let y = doc.y;
 
@@ -256,15 +448,15 @@ function drawGuaranteeTable(doc, rows, contentW) {
   doc.save();
   doc.rect(left, y, contentW, headerH).fill(COL.tableHeaderBg);
   doc.restore();
-  doc.font('Helvetica-Bold').fontSize(9.5).fillColor(COL.ink);
-  doc.text('Garanzia', left + rowPadX, y + 9, { width: wName - rowPadX });
-  doc.text('Premio', left + wName, y + 9, { width: wPrice - rowPadX, align: 'right' });
+  doc.font('Helvetica-Bold').fontSize(9).fillColor(COL.ink);
+  doc.text('Garanzia', left + rowPadX, y + 7, { width: wName - rowPadX });
+  doc.text('Premio', left + wName, y + 7, { width: wPrice - rowPadX, align: 'right' });
   y += headerH;
 
-  doc.font('Helvetica').fontSize(10).fillColor(COL.body);
+  doc.font('Helvetica').fontSize(bodyFs).fillColor(COL.body);
   rows.forEach((r, i) => {
     const nome = String(r.nome || '—');
-    const nameH = doc.heightOfString(nome, { width: wName - rowPadX });
+    const nameH = doc.heightOfString(nome, { width: wName - rowPadX, lineGap: 1 });
     const rowH = Math.max(nameH + rowPadY * 2, minRowH);
 
     ensureSpace(rowH);
@@ -274,8 +466,8 @@ function drawGuaranteeTable(doc, rows, contentW) {
       doc.restore();
     }
 
-    doc.text(nome, left + rowPadX, y + rowPadY, { width: wName - rowPadX });
-    doc.font('Helvetica').fontSize(10).fillColor(COL.body);
+    doc.text(nome, left + rowPadX, y + rowPadY, { width: wName - rowPadX, lineGap: 1 });
+    doc.font('Helvetica').fontSize(bodyFs).fillColor(COL.body);
     doc.text(formatEuro(r.prezzo), left + wName, y + rowPadY, { width: wPrice - rowPadX, align: 'right' });
 
     doc.save();
@@ -285,32 +477,34 @@ function drawGuaranteeTable(doc, rows, contentW) {
     y += rowH;
   });
 
-  doc.y = y + 6;
+  doc.y = y + 4;
 }
 
 /**
  * Totale in box dedicato, più visibile della tabella.
  */
 function drawTotalBox(doc, contentW, totalPrice) {
-  doc.moveDown(0.45);
-  const left = doc.page.margins.left;
-  const boxH = 48;
+  doc.moveDown(0.25);
+  const pageLeft = doc.page.margins.left;
+  const boxW = Math.min(228, Math.floor(contentW * 0.48));
+  const boxH = 34;
+  const boxLeft = pageLeft + contentW - boxW;
   if (doc.y + boxH > pageBottomY(doc)) {
     doc.addPage();
   }
   const top = doc.y;
 
   doc.save();
-  doc.roundedRect(left, top, contentW, boxH, 5).fill(COL.totalBg).strokeColor(COL.totalBorder).lineWidth(1).stroke();
+  doc.roundedRect(boxLeft, top, boxW, boxH, 4).fill(COL.totalBg).strokeColor(COL.totalBorder).lineWidth(0.85).stroke();
   doc.restore();
 
-  const textTop = top + 15;
-  doc.font('Helvetica-Bold').fontSize(12).fillColor(COL.ink);
-  doc.text('Totale', left + 16, textTop, { width: contentW * 0.5 });
-  doc.font('Helvetica-Bold').fontSize(15).fillColor(COL.ink);
-  doc.text(formatEuro(totalPrice), left + 16, textTop - 1, { width: contentW - 32, align: 'right' });
+  const textTop = top + 11;
+  doc.font('Helvetica-Bold').fontSize(10).fillColor(COL.ink);
+  doc.text('Totale', boxLeft + 10, textTop, { width: 72 });
+  doc.font('Helvetica-Bold').fontSize(12.5).fillColor(COL.ink);
+  doc.text(formatEuro(totalPrice), boxLeft + 10, textTop - 0.5, { width: boxW - 20, align: 'right' });
 
-  doc.y = top + boxH + 14;
+  doc.y = top + boxH + 8;
 }
 
 /**
@@ -325,7 +519,7 @@ function drawTotalBox(doc, contentW, totalPrice) {
 function pipeRcAutoRiepilogoPdf({ quote, typeRow, elaborazione, dest }) {
   return new Promise((resolve, reject) => {
     const doc = new PDFDocument({
-      margin: 44,
+      margin: 40,
       size: 'A4',
       info: {
         Title: `Preventivo RC Auto — ${quote.numero || quote.id}`,
@@ -348,53 +542,42 @@ function pipeRcAutoRiepilogoPdf({ quote, typeRow, elaborazione, dest }) {
 
     const contentW = pageContentWidth(doc);
 
-    /* Intestazione */
-    doc.fontSize(22).font('Helvetica-Bold').fillColor(COL.ink).text('Preventivo RC Auto', { align: 'center' });
-    doc.moveDown(0.5);
-    doc.fontSize(11).font('Helvetica').fillColor(COL.body);
+    /* Intestazione compatta */
+    doc.fontSize(17).font('Helvetica-Bold').fillColor(COL.ink).text('Preventivo RC Auto', { align: 'center', width: contentW });
+    doc.moveDown(0.22);
+    doc.fontSize(10).font('Helvetica').fillColor(COL.body);
     doc.text(`Pratica / preventivo n. ${quote.numero || quote.id}`, { align: 'center', width: contentW });
-    doc.moveDown(0.28);
-    doc.fontSize(10).fillColor(COL.muted);
+    doc.moveDown(0.12);
+    doc.fontSize(9).fillColor(COL.muted);
     doc.text(`Data elaborazione: ${formatDateTimeIt(elaborazione.elaboratedAt)}`, { align: 'center', width: contentW });
-    doc.moveDown(0.65);
-    drawRule(doc, { color: COL.ruleStrong, width: 0.55, gapAfter: 0.45 });
+    doc.moveDown(0.38);
+    drawRule(doc, { color: COL.ruleStrong, width: 0.5, gapAfter: 0.28 });
 
     sectionTitle(doc, 'Contraente / assistito');
-    const nome = [quote.assistito_nome, quote.assistito_cognome].filter(Boolean).join(' ').trim() || '—';
-    doc.fontSize(10).text(`Nome: ${nome}`, { lineGap: 5 });
-    doc.text(`Codice fiscale: ${formatValue(quote.assistito_cf)}`, { lineGap: 5 });
-    doc.text(`Data di nascita: ${formatValue(quote.assistito_data_nascita)}`, { lineGap: 5 });
-    const indirizzo = [quote.assistito_indirizzo, quote.assistito_cap, quote.assistito_citta].filter(Boolean).join(' — ');
-    if (indirizzo) doc.text(`Indirizzo: ${indirizzo}`, { lineGap: 5 });
-    doc.text(`Cellulare: ${formatValue(quote.assistito_cellulare)}`, { lineGap: 5 });
-    doc.text(`Email: ${formatValue(quote.assistito_email)}`, { lineGap: 5 });
-    doc.moveDown(0.35);
+    drawAssistitoDataBox(doc, quote, contentW);
 
     const ds = quote.dati_specifici && typeof quote.dati_specifici === 'object' ? quote.dati_specifici : {};
-    const veicoloLines = [];
+    let hasVehicle = false;
     for (const k of VEICOLO_KEYS) {
       if (k === 'garanzie_selezionate' || k === 'garanzie_richieste') continue;
       if (RC_AUTO_GUARANTEE_KEY_SET.has(k)) continue;
       if (ds[k] !== undefined && ds[k] !== null && String(ds[k]).trim() !== '') {
-        veicoloLines.push({ k, v: ds[k] });
+        hasVehicle = true;
+        break;
       }
     }
-    if (veicoloLines.length > 0) {
+    if (hasVehicle) {
       sectionTitle(doc, 'Dati veicolo e coperture richieste');
-      for (const { k, v } of veicoloLines) {
-        const lab = labelForCampo(typeRow, k);
-        doc.fontSize(10).text(`${lab}: ${formatValue(v)}`, { lineGap: 4 });
-      }
-      doc.moveDown(0.35);
+      drawVehicleDataBox(doc, ds, typeRow, contentW);
     }
 
-    doc.moveDown(0.25);
+    doc.moveDown(0.12);
     sectionTitle(doc, 'Garanzie e premi');
-    doc.moveDown(0.15);
+    doc.moveDown(0.08);
     const rows = Array.isArray(elaborazione.pricingBreakdown) ? elaborazione.pricingBreakdown : [];
     if (rows.length === 0) {
-      doc.fontSize(10).font('Helvetica-Oblique').fillColor(COL.muted).text('Nessuna garanzia selezionata nella richiesta.', {
-        lineGap: 4,
+      doc.fontSize(9).font('Helvetica-Oblique').fillColor(COL.muted).text('Nessuna garanzia selezionata nella richiesta.', {
+        lineGap: 2,
       });
       doc.fillColor(COL.body).font('Helvetica');
     } else {
