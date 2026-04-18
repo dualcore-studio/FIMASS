@@ -9,8 +9,14 @@ const COL = {
   ink: '#0f172a',
   body: '#334155',
   muted: '#64748b',
-  rule: '#d1d5db',
-  totalBg: '#f1f5f9',
+  rule: '#cbd5e1',
+  ruleStrong: '#94a3b8',
+  totalBg: '#e8f0fe',
+  totalBorder: '#64748b',
+  tableHeaderBg: '#e2e8f0',
+  tableRowAlt: '#f8fafc',
+  noteBoxFill: '#f8fafc',
+  noteBoxStroke: '#cbd5e1',
 };
 
 const PRIVACY =
@@ -35,6 +41,17 @@ const VEICOLO_KEYS = [
   'tipologia_preventivo_rc',
   'proprietario_diverso',
 ];
+
+/** Parametri condivisi tra misura e disegno del blocco “Note informative” (stesso flusso, niente ancoraggio al fondo pagina). */
+const INFORM = {
+  marginTop: 20,
+  pad: 12,
+  titleSize: 9,
+  bodySize: 7.5,
+  lineGap: 5,
+  titleToBody: 7,
+  betweenTexts: 11,
+};
 
 function formatValue(val) {
   if (val === null || val === undefined) return '—';
@@ -83,71 +100,214 @@ function pageContentWidth(doc) {
   return doc.page.width - doc.page.margins.left - doc.page.margins.right;
 }
 
-function drawRule(doc) {
+function pageBottomY(doc) {
+  return doc.page.height - doc.page.margins.bottom;
+}
+
+function drawRule(doc, opts = {}) {
+  const color = opts.color ?? COL.rule;
   const x0 = doc.page.margins.left;
   const x1 = doc.page.width - doc.page.margins.right;
   const y = doc.y;
   doc.save();
-  doc.strokeColor(COL.rule).lineWidth(0.35).moveTo(x0, y).lineTo(x1, y).stroke();
+  doc.strokeColor(color).lineWidth(opts.width ?? 0.45).moveTo(x0, y).lineTo(x1, y).stroke();
   doc.restore();
-  doc.moveDown(0.35);
+  doc.moveDown(opts.gapAfter ?? 0.4);
 }
 
 function sectionTitle(doc, title) {
-  doc.moveDown(0.35);
+  doc.moveDown(0.55);
   doc.fontSize(11).font('Helvetica-Bold').fillColor(COL.ink).text(title, { align: 'left' });
-  doc.moveDown(0.15);
-  drawRule(doc);
+  doc.moveDown(0.22);
+  drawRule(doc, { gapAfter: 0.38 });
   doc.font('Helvetica').fillColor(COL.body);
 }
 
-/** Altezza del blocco legale (deve coincidere con `drawLegalFooterBlock`). */
-function measureLegalFooterBlockHeight(doc, contentW) {
+/**
+ * Altezza del blocco informativo (privacy + intermediazione), identica al rendering.
+ * @param {PDFKit.PDFDocument} doc
+ * @param {number} contentW
+ */
+function informativeBlockHeight(doc, contentW) {
+  const innerW = contentW - 2 * INFORM.pad;
   doc.save();
-  doc.font('Helvetica').fontSize(11).fillColor(COL.body);
-  let h = doc.currentLineHeight() * 1.25;
-  h += doc.currentLineHeight() * 0.35;
-  h += doc.currentLineHeight() * 0.65;
-  doc.font('Helvetica-Bold').fontSize(9).fillColor(COL.muted);
-  h += doc.currentLineHeight();
-  h += doc.currentLineHeight() * 0.45;
-  doc.font('Helvetica').fontSize(8).fillColor(COL.body);
-  h += doc.heightOfString(PRIVACY, { lineGap: 4, align: 'justify', width: contentW });
-  h += doc.currentLineHeight() * 0.85;
-  h += doc.heightOfString(INTERMEDIATION, { lineGap: 4, align: 'justify', width: contentW });
-  h += doc.currentLineHeight() * 0.5;
+  doc.font('Helvetica-Bold').fontSize(INFORM.titleSize);
+  const titleH = doc.heightOfString('Note informative', { width: innerW });
+  doc.font('Helvetica').fontSize(INFORM.bodySize);
+  const privacyH = doc.heightOfString(PRIVACY, { width: innerW, lineGap: INFORM.lineGap, align: 'justify' });
+  const interH = doc.heightOfString(INTERMEDIATION, { width: innerW, lineGap: INFORM.lineGap, align: 'justify' });
   doc.restore();
-  return h;
+  const innerH = INFORM.pad + titleH + INFORM.titleToBody + privacyH + INFORM.betweenTexts + interH + INFORM.pad;
+  return INFORM.marginTop + innerH;
 }
 
-/** Disegna note privacy / intermediazione in coda alla pagina (ultima pagina del documento). */
-function drawLegalFooterBlock(doc, contentW) {
-  const pageBottom = doc.page.height - doc.page.margins.bottom;
-  const footerH = measureLegalFooterBlockHeight(doc, contentW);
-  if (doc.y + footerH > pageBottom) {
+/**
+ * Note informative: sempre un unico blocco non spezzato (page break prima se non c’è spazio).
+ */
+function drawInformativeBlock(doc, contentW) {
+  const totalH = informativeBlockHeight(doc, contentW);
+  if (doc.y + totalH > pageBottomY(doc)) {
     doc.addPage();
   }
-  const y0 = pageBottom - footerH;
-  doc.y = y0;
 
-  doc.font('Helvetica').fontSize(11).fillColor(COL.body);
-  doc.moveDown(1.25);
-  drawRule(doc);
-  doc.moveDown(0.65);
-  doc.fontSize(9).font('Helvetica-Bold').fillColor(COL.muted).text('Note informative', { align: 'left' });
+  const left = doc.page.margins.left;
+  const innerW = contentW - 2 * INFORM.pad;
+  const boxTop = doc.y + INFORM.marginTop;
+
+  doc.save();
+  doc.font('Helvetica-Bold').fontSize(INFORM.titleSize);
+  const titleH = doc.heightOfString('Note informative', { width: innerW });
+  doc.font('Helvetica').fontSize(INFORM.bodySize);
+  const privacyH = doc.heightOfString(PRIVACY, { width: innerW, lineGap: INFORM.lineGap, align: 'justify' });
+  const interH = doc.heightOfString(INTERMEDIATION, { width: innerW, lineGap: INFORM.lineGap, align: 'justify' });
+  doc.restore();
+
+  const innerH = INFORM.pad + titleH + INFORM.titleToBody + privacyH + INFORM.betweenTexts + interH + INFORM.pad;
+
+  doc.save();
+  doc.roundedRect(left, boxTop, contentW, innerH, 4).fill(COL.noteBoxFill).strokeColor(COL.noteBoxStroke).lineWidth(0.55).stroke();
+  doc.restore();
+
+  let ty = boxTop + INFORM.pad;
+  doc.font('Helvetica-Bold').fontSize(INFORM.titleSize).fillColor(COL.muted);
+  doc.text('Note informative', left + INFORM.pad, ty, { width: innerW });
+  ty += titleH + INFORM.titleToBody;
+
+  doc.font('Helvetica').fontSize(INFORM.bodySize).fillColor(COL.body);
+  doc.text(PRIVACY, left + INFORM.pad, ty, { width: innerW, lineGap: INFORM.lineGap, align: 'justify' });
+  ty += privacyH + INFORM.betweenTexts;
+  doc.text(INTERMEDIATION, left + INFORM.pad, ty, { width: innerW, lineGap: INFORM.lineGap, align: 'justify' });
+
+  doc.y = boxTop + innerH + 10;
+}
+
+function notesBoxHeight(doc, contentW, notesText) {
+  const marginTop = 16;
+  const pad = 12;
+  const innerW = contentW - 2 * pad;
+  doc.save();
+  doc.font('Helvetica-Bold').fontSize(10);
+  const titleH = doc.heightOfString('Note', { width: innerW });
+  doc.font('Helvetica').fontSize(10);
+  const bodyH = doc.heightOfString(notesText, { width: innerW, lineGap: 4 });
+  doc.restore();
+  const innerH = pad + titleH + 8 + bodyH + pad;
+  return marginTop + innerH;
+}
+
+function drawNotesBox(doc, contentW, notesText) {
+  const marginTop = 16;
+  const pad = 12;
+  const left = doc.page.margins.left;
+  const innerW = contentW - 2 * pad;
+  const totalH = notesBoxHeight(doc, contentW, notesText);
+  if (doc.y + totalH > pageBottomY(doc)) {
+    doc.addPage();
+  }
+
+  const boxTop = doc.y + marginTop;
+  doc.save();
+  doc.font('Helvetica-Bold').fontSize(10);
+  const titleH = doc.heightOfString('Note', { width: innerW });
+  doc.font('Helvetica').fontSize(10);
+  const bodyH = doc.heightOfString(notesText, { width: innerW, lineGap: 4 });
+  doc.restore();
+  const innerH = pad + titleH + 8 + bodyH + pad;
+
+  doc.save();
+  doc.roundedRect(left, boxTop, contentW, innerH, 4).fill(COL.noteBoxFill).strokeColor(COL.noteBoxStroke).lineWidth(0.5).stroke();
+  doc.restore();
+
+  let ty = boxTop + pad;
+  doc.font('Helvetica-Bold').fontSize(10).fillColor(COL.ink);
+  doc.text('Note', left + pad, ty, { width: innerW });
+  ty += titleH + 8;
+  doc.font('Helvetica').fontSize(10).fillColor(COL.body);
+  doc.text(notesText, left + pad, ty, { width: innerW, lineGap: 4 });
+
+  doc.y = boxTop + innerH + 14;
+}
+
+/**
+ * Tabella garanzie con header evidenziato, righe leggibili, importi a destra.
+ */
+function drawGuaranteeTable(doc, rows, contentW) {
+  const left = doc.page.margins.left;
+  const wName = contentW * 0.67;
+  const wPrice = contentW - wName;
+  const headerH = 28;
+  const rowPadX = 12;
+  const rowPadY = 9;
+  const minRowH = 24;
+
+  let y = doc.y;
+
+  const ensureSpace = (needH) => {
+    if (y + needH > pageBottomY(doc)) {
+      doc.addPage();
+      y = doc.y;
+    }
+  };
+
+  ensureSpace(headerH);
+  doc.save();
+  doc.rect(left, y, contentW, headerH).fill(COL.tableHeaderBg);
+  doc.restore();
+  doc.font('Helvetica-Bold').fontSize(9.5).fillColor(COL.ink);
+  doc.text('Garanzia', left + rowPadX, y + 9, { width: wName - rowPadX });
+  doc.text('Premio', left + wName, y + 9, { width: wPrice - rowPadX, align: 'right' });
+  y += headerH;
+
+  doc.font('Helvetica').fontSize(10).fillColor(COL.body);
+  rows.forEach((r, i) => {
+    const nome = String(r.nome || '—');
+    const nameH = doc.heightOfString(nome, { width: wName - rowPadX });
+    const rowH = Math.max(nameH + rowPadY * 2, minRowH);
+
+    ensureSpace(rowH);
+    if (i % 2 === 1) {
+      doc.save();
+      doc.rect(left, y, contentW, rowH).fill(COL.tableRowAlt);
+      doc.restore();
+    }
+
+    doc.text(nome, left + rowPadX, y + rowPadY, { width: wName - rowPadX });
+    doc.font('Helvetica').fontSize(10).fillColor(COL.body);
+    doc.text(formatEuro(r.prezzo), left + wName, y + rowPadY, { width: wPrice - rowPadX, align: 'right' });
+
+    doc.save();
+    doc.strokeColor('#e5e7eb').lineWidth(0.35).moveTo(left, y + rowH).lineTo(left + contentW, y + rowH).stroke();
+    doc.restore();
+
+    y += rowH;
+  });
+
+  doc.y = y + 6;
+}
+
+/**
+ * Totale in box dedicato, più visibile della tabella.
+ */
+function drawTotalBox(doc, contentW, totalPrice) {
   doc.moveDown(0.45);
-  doc.fontSize(8).font('Helvetica').fillColor(COL.body).text(PRIVACY, {
-    lineGap: 4,
-    align: 'justify',
-    width: contentW,
-  });
-  doc.moveDown(0.85);
-  doc.fontSize(8).font('Helvetica').fillColor(COL.body).text(INTERMEDIATION, {
-    lineGap: 4,
-    align: 'justify',
-    width: contentW,
-  });
-  doc.moveDown(0.5);
+  const left = doc.page.margins.left;
+  const boxH = 48;
+  if (doc.y + boxH > pageBottomY(doc)) {
+    doc.addPage();
+  }
+  const top = doc.y;
+
+  doc.save();
+  doc.roundedRect(left, top, contentW, boxH, 5).fill(COL.totalBg).strokeColor(COL.totalBorder).lineWidth(1).stroke();
+  doc.restore();
+
+  const textTop = top + 15;
+  doc.font('Helvetica-Bold').fontSize(12).fillColor(COL.ink);
+  doc.text('Totale', left + 16, textTop, { width: contentW * 0.5 });
+  doc.font('Helvetica-Bold').fontSize(15).fillColor(COL.ink);
+  doc.text(formatEuro(totalPrice), left + 16, textTop - 1, { width: contentW - 32, align: 'right' });
+
+  doc.y = top + boxH + 14;
 }
 
 /**
@@ -162,7 +322,7 @@ function drawLegalFooterBlock(doc, contentW) {
 function pipeRcAutoRiepilogoPdf({ quote, typeRow, elaborazione, dest }) {
   return new Promise((resolve, reject) => {
     const doc = new PDFDocument({
-      margin: 48,
+      margin: 44,
       size: 'A4',
       info: {
         Title: `Preventivo RC Auto — ${quote.numero || quote.id}`,
@@ -185,27 +345,27 @@ function pipeRcAutoRiepilogoPdf({ quote, typeRow, elaborazione, dest }) {
 
     const contentW = pageContentWidth(doc);
 
-    doc.fontSize(18).font('Helvetica-Bold').fillColor(COL.ink).text('Preventivo RC Auto', { align: 'center' });
-    doc.moveDown(0.25);
-    doc.fontSize(12).font('Helvetica').fillColor(COL.muted).text(`Pratica / preventivo n. ${quote.numero || quote.id}`, {
-      align: 'center',
-    });
-    doc.moveDown(0.15);
-    doc
-      .fontSize(9)
-      .fillColor(COL.muted)
-      .text(`Data elaborazione: ${formatDateTimeIt(elaborazione.elaboratedAt)}`, { align: 'center', width: contentW });
-    doc.moveDown(0.6);
+    /* Intestazione */
+    doc.fontSize(22).font('Helvetica-Bold').fillColor(COL.ink).text('Preventivo RC Auto', { align: 'center' });
+    doc.moveDown(0.5);
+    doc.fontSize(11).font('Helvetica').fillColor(COL.body);
+    doc.text(`Pratica / preventivo n. ${quote.numero || quote.id}`, { align: 'center', width: contentW });
+    doc.moveDown(0.28);
+    doc.fontSize(10).fillColor(COL.muted);
+    doc.text(`Data elaborazione: ${formatDateTimeIt(elaborazione.elaboratedAt)}`, { align: 'center', width: contentW });
+    doc.moveDown(0.65);
+    drawRule(doc, { color: COL.ruleStrong, width: 0.55, gapAfter: 0.45 });
 
     sectionTitle(doc, 'Contraente / assistito');
     const nome = [quote.assistito_nome, quote.assistito_cognome].filter(Boolean).join(' ').trim() || '—';
-    doc.fontSize(10).text(`Nome: ${nome}`, { lineGap: 4 });
-    doc.text(`Codice fiscale: ${formatValue(quote.assistito_cf)}`, { lineGap: 4 });
-    doc.text(`Data di nascita: ${formatValue(quote.assistito_data_nascita)}`, { lineGap: 4 });
+    doc.fontSize(10).text(`Nome: ${nome}`, { lineGap: 5 });
+    doc.text(`Codice fiscale: ${formatValue(quote.assistito_cf)}`, { lineGap: 5 });
+    doc.text(`Data di nascita: ${formatValue(quote.assistito_data_nascita)}`, { lineGap: 5 });
     const indirizzo = [quote.assistito_indirizzo, quote.assistito_cap, quote.assistito_citta].filter(Boolean).join(' — ');
-    if (indirizzo) doc.text(`Indirizzo: ${indirizzo}`, { lineGap: 4 });
-    doc.text(`Cellulare: ${formatValue(quote.assistito_cellulare)}`, { lineGap: 4 });
-    doc.text(`Email: ${formatValue(quote.assistito_email)}`, { lineGap: 4 });
+    if (indirizzo) doc.text(`Indirizzo: ${indirizzo}`, { lineGap: 5 });
+    doc.text(`Cellulare: ${formatValue(quote.assistito_cellulare)}`, { lineGap: 5 });
+    doc.text(`Email: ${formatValue(quote.assistito_email)}`, { lineGap: 5 });
+    doc.moveDown(0.35);
 
     const ds = quote.dati_specifici && typeof quote.dati_specifici === 'object' ? quote.dati_specifici : {};
     const veicoloLines = [];
@@ -220,11 +380,14 @@ function pipeRcAutoRiepilogoPdf({ quote, typeRow, elaborazione, dest }) {
       sectionTitle(doc, 'Dati veicolo e coperture richieste');
       for (const { k, v } of veicoloLines) {
         const lab = labelForCampo(typeRow, k);
-        doc.fontSize(10).text(`${lab}: ${formatValue(v)}`, { lineGap: 3 });
+        doc.fontSize(10).text(`${lab}: ${formatValue(v)}`, { lineGap: 4 });
       }
+      doc.moveDown(0.35);
     }
 
+    doc.moveDown(0.25);
     sectionTitle(doc, 'Garanzie e premi');
+    doc.moveDown(0.15);
     const rows = Array.isArray(elaborazione.pricingBreakdown) ? elaborazione.pricingBreakdown : [];
     if (rows.length === 0) {
       doc.fontSize(10).font('Helvetica-Oblique').fillColor(COL.muted).text('Nessuna garanzia selezionata nella richiesta.', {
@@ -232,35 +395,16 @@ function pipeRcAutoRiepilogoPdf({ quote, typeRow, elaborazione, dest }) {
       });
       doc.fillColor(COL.body).font('Helvetica');
     } else {
-      doc.font('Helvetica-Bold').fontSize(9).fillColor(COL.muted);
-      doc.text('Garanzia', doc.page.margins.left, doc.y, { width: contentW * 0.62, continued: true });
-      doc.text('Premio', { align: 'right' });
-      doc.font('Helvetica').fillColor(COL.body);
-      doc.moveDown(0.2);
-      for (const r of rows) {
-        doc.fontSize(10).text(r.nome || '—', doc.page.margins.left, doc.y, { width: contentW * 0.62, continued: true });
-        doc.text(formatEuro(r.prezzo), { align: 'right' });
-        doc.moveDown(0.15);
-      }
+      drawGuaranteeTable(doc, rows, contentW);
     }
 
-    doc.moveDown(0.35);
-    const totY = doc.y;
-    doc.roundedRect(doc.page.margins.left, totY, contentW, 36, 4).fill(COL.totalBg);
-    doc.fillColor(COL.ink);
-    doc.font('Helvetica-Bold').fontSize(12);
-    doc.text('Totale', doc.page.margins.left + 12, totY + 11, { width: contentW - 24, continued: true });
-    doc.text(formatEuro(elaborazione.totalPrice), { align: 'right' });
-    doc.y = totY + 40;
+    drawTotalBox(doc, contentW, elaborazione.totalPrice);
 
     if (elaborazione.notes && String(elaborazione.notes).trim()) {
-      sectionTitle(doc, 'Note');
-      doc.font('Helvetica').fontSize(10).fillColor(COL.body).text(String(elaborazione.notes).trim(), {
-        lineGap: 4,
-      });
+      drawNotesBox(doc, contentW, String(elaborazione.notes).trim());
     }
 
-    drawLegalFooterBlock(doc, contentW);
+    drawInformativeBlock(doc, contentW);
 
     doc.end();
   });
