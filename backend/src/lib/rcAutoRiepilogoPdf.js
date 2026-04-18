@@ -6,7 +6,7 @@ const RC_AUTO_GUARANTEE_FIELDS = require(path.join(__dirname, '..', '..', '..', 
 const RC_AUTO_GUARANTEE_KEY_SET = new Set(Object.keys(RC_AUTO_GUARANTEE_FIELDS));
 
 /** Incrementare quando cambia il layout del PDF: consente rigenerazione automatica su download. */
-const RC_AUTO_RIEPILOGO_PDF_TEMPLATE_VERSION = 3;
+const RC_AUTO_RIEPILOGO_PDF_TEMPLATE_VERSION = 4;
 
 const COL = {
   ink: '#0f172a',
@@ -46,9 +46,16 @@ const VEICOLO_KEYS = [
   'proprietario_diverso',
 ];
 
-/** Parametri condivisi tra misura e disegno del blocco “Note informative” (stesso flusso, niente ancoraggio al fondo pagina). */
+/** Blocco legale in fondo pagina (equivalente a footer con margin-top: auto; non spezzare). */
 const INFORM = {
-  marginTop: 10,
+  /** Spazio minimo tra ultimo contenuto e area footer. */
+  minGapAfterMain: 8,
+  /** Padding sopra la linea (come padding-top sul footer). */
+  footerPadTop: 10,
+  footerBorderWidth: 0.55,
+  footerBorderColor: '#dddddd',
+  /** Fascia sotto la linea prima del box arrotondato (evita sovrapposizione al tratto). */
+  footerBelowRuleBand: 3,
   pad: 8,
   titleSize: 8,
   bodySize: 6.8,
@@ -153,12 +160,14 @@ function drawRule(doc, opts = {}) {
   doc.moveDown(opts.gapAfter ?? 0.4);
 }
 
-function sectionTitle(doc, title) {
+function sectionTitle(doc, title, contentW) {
+  const left = doc.page.margins.left;
   doc.moveDown(0.32);
-  doc.fontSize(10).font('Helvetica-Bold').fillColor(COL.ink).text(title, { align: 'left' });
+  doc.fontSize(10).font('Helvetica-Bold').fillColor(COL.ink).text(title, left, doc.y, { width: contentW, align: 'left' });
   doc.moveDown(0.1);
   drawRule(doc, { width: 0.4, gapAfter: 0.22 });
   doc.font('Helvetica').fillColor(COL.body);
+  doc.x = left;
 }
 
 /**
@@ -320,7 +329,7 @@ function drawVehicleDataBox(doc, ds, typeRow, contentW) {
  * @param {PDFKit.PDFDocument} doc
  * @param {number} contentW
  */
-function informativeBlockHeight(doc, contentW) {
+function informativeInnerBoxHeight(doc, contentW) {
   const innerW = contentW - 2 * INFORM.pad;
   doc.save();
   doc.font('Helvetica-Bold').fontSize(INFORM.titleSize);
@@ -329,22 +338,29 @@ function informativeBlockHeight(doc, contentW) {
   const privacyH = doc.heightOfString(PRIVACY, { width: innerW, lineGap: INFORM.lineGap, align: 'justify' });
   const interH = doc.heightOfString(INTERMEDIATION, { width: innerW, lineGap: INFORM.lineGap, align: 'justify' });
   doc.restore();
-  const innerH = INFORM.pad + titleH + INFORM.titleToBody + privacyH + INFORM.betweenTexts + interH + INFORM.pad;
-  return INFORM.marginTop + innerH;
+  return INFORM.pad + titleH + INFORM.titleToBody + privacyH + INFORM.betweenTexts + interH + INFORM.pad;
+}
+
+/** Altezza totale footer: padding sopra + bordo + box arrotondato (blocco atomico, page-break-inside: avoid). */
+function informativeBlockHeight(doc, contentW) {
+  const innerH = informativeInnerBoxHeight(doc, contentW);
+  return INFORM.footerPadTop + INFORM.footerBelowRuleBand + innerH;
 }
 
 /**
- * Note informative: sempre un unico blocco non spezzato (page break prima se non c’è spazio).
+ * Note informative: blocco unico ancorato al fondo pagina (come flex + margin-top: auto); mai spezzato.
  */
 function drawInformativeBlock(doc, contentW) {
-  const totalH = informativeBlockHeight(doc, contentW);
-  if (doc.y + totalH > pageBottomY(doc)) {
-    doc.addPage();
-  }
-
   const left = doc.page.margins.left;
   const innerW = contentW - 2 * INFORM.pad;
-  const boxTop = doc.y + INFORM.marginTop;
+  const totalH = informativeBlockHeight(doc, contentW);
+
+  let footerTop = pageBottomY(doc) - totalH;
+  const minTop = doc.y + INFORM.minGapAfterMain;
+  if (footerTop < minTop) {
+    doc.addPage();
+    footerTop = pageBottomY(doc) - totalH;
+  }
 
   doc.save();
   doc.font('Helvetica-Bold').fontSize(INFORM.titleSize);
@@ -355,6 +371,14 @@ function drawInformativeBlock(doc, contentW) {
   doc.restore();
 
   const innerH = INFORM.pad + titleH + INFORM.titleToBody + privacyH + INFORM.betweenTexts + interH + INFORM.pad;
+
+  const borderY = footerTop + INFORM.footerPadTop;
+  doc.save();
+  doc.strokeColor(INFORM.footerBorderColor).lineWidth(INFORM.footerBorderWidth);
+  doc.moveTo(left, borderY).lineTo(left + contentW, borderY).stroke();
+  doc.restore();
+
+  const boxTop = borderY + INFORM.footerBelowRuleBand;
 
   doc.save();
   doc.roundedRect(left, boxTop, contentW, innerH, 4).fill(COL.noteBoxFill).strokeColor(COL.noteBoxStroke).lineWidth(0.55).stroke();
@@ -362,7 +386,7 @@ function drawInformativeBlock(doc, contentW) {
 
   let ty = boxTop + INFORM.pad;
   doc.font('Helvetica-Bold').fontSize(INFORM.titleSize).fillColor(COL.muted);
-  doc.text('Note informative', left + INFORM.pad, ty, { width: innerW });
+  doc.text('Note informative', left + INFORM.pad, ty, { width: innerW, align: 'left' });
   ty += titleH + INFORM.titleToBody;
 
   doc.font('Helvetica').fontSize(INFORM.bodySize).fillColor(COL.body);
@@ -370,7 +394,8 @@ function drawInformativeBlock(doc, contentW) {
   ty += privacyH + INFORM.betweenTexts;
   doc.text(INTERMEDIATION, left + INFORM.pad, ty, { width: innerW, lineGap: INFORM.lineGap, align: 'justify' });
 
-  doc.y = boxTop + innerH + 6;
+  doc.y = footerTop + totalH;
+  doc.x = left;
 }
 
 function notesBoxHeight(doc, contentW, notesText) {
@@ -553,7 +578,7 @@ function pipeRcAutoRiepilogoPdf({ quote, typeRow, elaborazione, dest }) {
     doc.moveDown(0.38);
     drawRule(doc, { color: COL.ruleStrong, width: 0.5, gapAfter: 0.28 });
 
-    sectionTitle(doc, 'Contraente / assistito');
+    sectionTitle(doc, 'Contraente / assistito', contentW);
     drawAssistitoDataBox(doc, quote, contentW);
 
     const ds = quote.dati_specifici && typeof quote.dati_specifici === 'object' ? quote.dati_specifici : {};
@@ -567,13 +592,11 @@ function pipeRcAutoRiepilogoPdf({ quote, typeRow, elaborazione, dest }) {
       }
     }
     if (hasVehicle) {
-      sectionTitle(doc, 'Dati veicolo e coperture richieste');
+      sectionTitle(doc, 'Dati veicolo e coperture richieste', contentW);
       drawVehicleDataBox(doc, ds, typeRow, contentW);
     }
 
-    doc.moveDown(0.12);
-    sectionTitle(doc, 'Garanzie e premi');
-    doc.moveDown(0.08);
+    sectionTitle(doc, 'Garanzie e premi', contentW);
     const rows = Array.isArray(elaborazione.pricingBreakdown) ? elaborazione.pricingBreakdown : [];
     if (rows.length === 0) {
       doc.fontSize(9).font('Helvetica-Oblique').fillColor(COL.muted).text('Nessuna garanzia selezionata nella richiesta.', {
