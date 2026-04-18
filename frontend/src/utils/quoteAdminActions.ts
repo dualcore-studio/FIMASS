@@ -15,6 +15,8 @@ export function adminCanDownloadPreventivoFinale(quote: {
   tipo_codice?: string | null;
   preventivo_finale_attachment_id?: number | null;
   preventivo_riepilogo_attachment_id?: number | null;
+  /** Come in `Quote`: JSON pratica, include `elaborazione_rc_auto` per RC Auto. */
+  dati_preventivo?: Record<string, unknown> | null;
 }): boolean {
   if (quote.stato !== 'ELABORATA') return false;
   if (String(quote.tipo_codice || '').toLowerCase() === 'rc_auto') {
