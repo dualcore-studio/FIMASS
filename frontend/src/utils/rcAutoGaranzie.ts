@@ -1,40 +1,29 @@
-/** Garanzie RC Auto dalla richiesta (allineato al backend). */
+/**
+ * Garanzie RC Auto dai soli flag nei dati specifici (allineato al backend).
+ * Fonte unica: shared/rcAutoGuaranteeFields.json
+ */
+import RC_AUTO_GUARANTEE_FIELDS_JSON from '../../../shared/rcAutoGuaranteeFields.json';
 
-function normalizeNome(s: unknown): string {
-  return String(s ?? '').trim();
+export const RC_AUTO_GUARANTEE_FIELDS = RC_AUTO_GUARANTEE_FIELDS_JSON as Readonly<Record<string, string>>;
+
+export function isRcAutoGuaranteeSi(val: unknown): boolean {
+  const t = String(val ?? '')
+    .trim()
+    .normalize('NFD')
+    .replace(/\p{M}/gu, '')
+    .toLowerCase();
+  return t === 'si';
 }
 
+/** Etichette garanzia selezionate (valore "Si"), nell'ordine definito dalla mappa. */
 export function getRcGaranzieSelezionate(datiSpecifici: Record<string, unknown> | null | undefined): string[] {
   if (!datiSpecifici || typeof datiSpecifici !== 'object') return [];
 
-  const rawNew = datiSpecifici.garanzie_selezionate;
-  if (Array.isArray(rawNew) && rawNew.length > 0) {
-    const out: string[] = [];
-    const seen = new Set<string>();
-    for (const x of rawNew) {
-      const n = normalizeNome(x);
-      if (!n || seen.has(n)) continue;
-      seen.add(n);
-      out.push(n);
+  const out: string[] = [];
+  for (const [key, label] of Object.entries(RC_AUTO_GUARANTEE_FIELDS)) {
+    if (isRcAutoGuaranteeSi(datiSpecifici[key])) {
+      out.push(label);
     }
-    return out;
   }
-
-  const legacy = datiSpecifici.garanzie_richieste;
-  if (typeof legacy === 'string' && legacy.trim()) {
-    const parts = legacy
-      .split(/[,;\n\r]+/)
-      .map((p) => normalizeNome(p))
-      .filter(Boolean);
-    const out: string[] = [];
-    const seen = new Set<string>();
-    for (const n of parts) {
-      if (seen.has(n)) continue;
-      seen.add(n);
-      out.push(n);
-    }
-    return out;
-  }
-
-  return [];
+  return out;
 }

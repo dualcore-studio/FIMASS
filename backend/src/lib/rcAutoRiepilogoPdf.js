@@ -1,4 +1,9 @@
+const path = require('path');
 const PDFDocument = require('pdfkit');
+
+// eslint-disable-next-line import/no-dynamic-require, global-require
+const RC_AUTO_GUARANTEE_FIELDS = require(path.join(__dirname, '..', '..', '..', 'shared', 'rcAutoGuaranteeFields.json'));
+const RC_AUTO_GUARANTEE_KEY_SET = new Set(Object.keys(RC_AUTO_GUARANTEE_FIELDS));
 
 const COL = {
   ink: '#0f172a',
@@ -11,6 +16,9 @@ const COL = {
 
 const PRIVACY =
   'Il presente documento ha finalità informativa e riepilogativa dei dati trasmessi e delle garanzie selezionate. Il trattamento dei dati personali avviene nel rispetto della normativa vigente in materia di protezione dei dati personali.';
+
+const INTERMEDIATION =
+  "Il servizio di intermediazione assicurativa di FIMASS by Sportello Amico è gestito da Tuo Broker srls, Broker Assicurativo regolamentato dall'IVASS ed iscritto al RUI in data 16/02/2021 con numero B000677151 consultabile sul Registro Unico Intermediari • P.IVA 16028461008 • PEC pectuobroker@pec.it";
 
 const VEICOLO_KEYS = [
   'targa',
@@ -155,6 +163,7 @@ function pipeRcAutoRiepilogoPdf({ quote, typeRow, elaborazione, dest }) {
     const veicoloLines = [];
     for (const k of VEICOLO_KEYS) {
       if (k === 'garanzie_selezionate' || k === 'garanzie_richieste') continue;
+      if (RC_AUTO_GUARANTEE_KEY_SET.has(k)) continue;
       if (ds[k] !== undefined && ds[k] !== null && String(ds[k]).trim() !== '') {
         veicoloLines.push({ k, v: ds[k] });
       }
@@ -203,21 +212,26 @@ function pipeRcAutoRiepilogoPdf({ quote, typeRow, elaborazione, dest }) {
       });
     }
 
-    doc.moveDown(0.8);
-    sectionTitle(doc, 'Privacy e liberatoria');
-    doc.fontSize(8.5).font('Helvetica').fillColor(COL.body).text(PRIVACY, {
-      lineGap: 3,
+    doc.moveDown(1.25);
+    drawRule(doc);
+    doc.moveDown(0.65);
+    doc.fontSize(9).font('Helvetica-Bold').fillColor(COL.muted).text('Note informative', { align: 'left' });
+    doc.moveDown(0.45);
+    doc.fontSize(8).font('Helvetica').fillColor(COL.body).text(PRIVACY, {
+      lineGap: 4,
       align: 'justify',
-    });
-
-    const yFoot = doc.page.height - doc.page.margins.bottom - 14;
-    doc.fontSize(7).font('Helvetica').fillColor(COL.footer).text('Documento riepilogativo — senza marchi o loghi aziendali', doc.page.margins.left, yFoot, {
       width: contentW,
-      align: 'center',
     });
+    doc.moveDown(0.85);
+    doc.fontSize(8).font('Helvetica').fillColor(COL.body).text(INTERMEDIATION, {
+      lineGap: 4,
+      align: 'justify',
+      width: contentW,
+    });
+    doc.moveDown(0.5);
 
     doc.end();
   });
 }
 
-module.exports = { pipeRcAutoRiepilogoPdf, PRIVACY };
+module.exports = { pipeRcAutoRiepilogoPdf, PRIVACY, INTERMEDIATION };

@@ -1,48 +1,39 @@
 /**
- * Garanzie RC Auto richieste dalla struttura (campo multiselect + compatibilità testo libero legacy).
+ * Garanzie RC Auto dai soli flag nei dati specifici (chiavi in shared/rcAutoGuaranteeFields.json).
  */
+
+const path = require('path');
+
+// eslint-disable-next-line import/no-dynamic-require, global-require
+const RC_AUTO_GUARANTEE_FIELDS = require(path.join(__dirname, '..', '..', '..', 'shared', 'rcAutoGuaranteeFields.json'));
 
 function normalizeNome(s) {
   return String(s || '').trim();
 }
 
+function isRcAutoGuaranteeSi(val) {
+  const t = String(val ?? '')
+    .trim()
+    .normalize('NFD')
+    .replace(/\p{M}/gu, '')
+    .toLowerCase();
+  return t === 'si';
+}
+
 /**
  * @param {Record<string, unknown> | null | undefined} datiSpecifici
- * @returns {string[]} nomi garanzie nell'ordine salvato, senza duplicati
+ * @returns {string[]} etichette garanzia nell'ordine della mappa
  */
 function getRcGaranzieSelezionate(datiSpecifici) {
   if (!datiSpecifici || typeof datiSpecifici !== 'object') return [];
 
-  const rawNew = datiSpecifici.garanzie_selezionate;
-  if (Array.isArray(rawNew) && rawNew.length > 0) {
-    const out = [];
-    const seen = new Set();
-    for (const x of rawNew) {
-      const n = normalizeNome(x);
-      if (!n || seen.has(n)) continue;
-      seen.add(n);
-      out.push(n);
+  const out = [];
+  for (const [key, label] of Object.entries(RC_AUTO_GUARANTEE_FIELDS)) {
+    if (isRcAutoGuaranteeSi(datiSpecifici[key])) {
+      out.push(label);
     }
-    return out;
   }
-
-  const legacy = datiSpecifici.garanzie_richieste;
-  if (typeof legacy === 'string' && legacy.trim()) {
-    const parts = legacy
-      .split(/[,;\n\r]+/)
-      .map((p) => normalizeNome(p))
-      .filter(Boolean);
-    const out = [];
-    const seen = new Set();
-    for (const n of parts) {
-      if (seen.has(n)) continue;
-      seen.add(n);
-      out.push(n);
-    }
-    return out;
-  }
-
-  return [];
+  return out;
 }
 
 function isRcAutoTipoCodice(codice) {
@@ -100,7 +91,9 @@ function totalFromBreakdown(pricingBreakdown) {
 }
 
 module.exports = {
+  RC_AUTO_GUARANTEE_FIELDS,
   getRcGaranzieSelezionate,
+  isRcAutoGuaranteeSi,
   isRcAutoTipoCodice,
   validateRcPricingForGaranzie,
   totalFromBreakdown,
