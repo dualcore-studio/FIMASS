@@ -6,7 +6,13 @@ const RC_AUTO_GUARANTEE_FIELDS = require(path.join(__dirname, '..', '..', '..', 
 const RC_AUTO_GUARANTEE_KEY_SET = new Set(Object.keys(RC_AUTO_GUARANTEE_FIELDS));
 
 /** Incrementare quando cambia il layout del PDF: consente rigenerazione automatica su download. */
-const RC_AUTO_RIEPILOGO_PDF_TEMPLATE_VERSION = 4;
+const RC_AUTO_RIEPILOGO_PDF_TEMPLATE_VERSION = 5;
+
+/**
+ * Spazio verticale aggiuntivo uniforme tra i blocchi principali del preventivo (obiettivo ~1 cm).
+ * 28.35 pt = 1 cm; 22 pt ~7.8 mm: compromesso per veicolo + note su una sola pagina A4.
+ */
+const MAIN_SECTION_GAP_PT = 22;
 
 const COL = {
   ink: '#0f172a',
@@ -147,6 +153,10 @@ function pageContentWidth(doc) {
 
 function pageBottomY(doc) {
   return doc.page.height - doc.page.margins.bottom;
+}
+
+function addMainSectionVerticalGap(doc) {
+  doc.y += MAIN_SECTION_GAP_PT;
 }
 
 function drawRule(doc, opts = {}) {
@@ -578,6 +588,7 @@ function pipeRcAutoRiepilogoPdf({ quote, typeRow, elaborazione, dest }) {
     doc.moveDown(0.38);
     drawRule(doc, { color: COL.ruleStrong, width: 0.5, gapAfter: 0.28 });
 
+    addMainSectionVerticalGap(doc);
     sectionTitle(doc, 'Contraente / assistito', contentW);
     drawAssistitoDataBox(doc, quote, contentW);
 
@@ -591,9 +602,11 @@ function pipeRcAutoRiepilogoPdf({ quote, typeRow, elaborazione, dest }) {
         break;
       }
     }
+    addMainSectionVerticalGap(doc);
     if (hasVehicle) {
       sectionTitle(doc, 'Dati veicolo e coperture richieste', contentW);
       drawVehicleDataBox(doc, ds, typeRow, contentW);
+      addMainSectionVerticalGap(doc);
     }
 
     sectionTitle(doc, 'Garanzie e premi', contentW);
@@ -610,9 +623,11 @@ function pipeRcAutoRiepilogoPdf({ quote, typeRow, elaborazione, dest }) {
     drawTotalBox(doc, contentW, elaborazione.totalPrice);
 
     if (elaborazione.notes && String(elaborazione.notes).trim()) {
+      addMainSectionVerticalGap(doc);
       drawNotesBox(doc, contentW, String(elaborazione.notes).trim());
     }
 
+    addMainSectionVerticalGap(doc);
     drawInformativeBlock(doc, contentW);
 
     doc.end();
