@@ -20,14 +20,19 @@ export const privacyPolicySections: PrivacySectionDef[] = [
     id: 'titolare',
     title: 'Titolare del trattamento',
     paragraphs: [
-      'Il Titolare del trattamento è Tuo Broker SRLS, nella persona del legale rappresentante pro tempore, con riferimento all’attività di intermediazione assicurativa svolta in favore degli utenti del portale FIMASS by Sportello Amico.',
-      'Indirizzo, PEC e recapiti completi possono essere integrati dal Titolare nei dati di contatto indicati in calce alla presente informativa.',
+      'Il trattamento dei dati personali è effettuato da Tuo Broker SRLS, in qualità di Titolare del trattamento per le attività di intermediazione assicurativa. Sportello Amico Servizi SRLS opera in qualità di soggetto incaricato/responsabile del trattamento per la gestione del portale FIMASS e delle attività operative connesse.',
+      'Dati completi del Titolare:',
+      'Ragione sociale: Tuo Broker Srls.',
+      'Indirizzo e Sede legale: Via Monte Giberto, 29 — 00138 Roma (RM).',
+      `PEC: ${PRIVACY_CONTACT_PEC}`,
+      `Email: ${PRIVACY_CONTACT_EMAIL}`,
     ],
   },
   {
     id: 'responsabili',
     title: 'Responsabile del trattamento e soggetti coinvolti',
     paragraphs: [
+      'Il Titolare può avvalersi di fornitori tecnici e di altri soggetti che trattano dati per suo conto come responsabili o incaricati, sulla base di accordi conformi al GDPR.',
       'Ove nominati, i Responsabili del trattamento sono individuati con atto separato e comunicati agli interessati quando richiesto dalla legge.',
       'Il personale e i fornitori tecnici autorizzati possono accedere ai dati nel rispetto di istruzioni documentate e di misure di sicurezza adeguate.',
     ],
@@ -40,6 +45,7 @@ export const privacyPolicySections: PrivacySectionDef[] = [
       'Comunicazioni strumentali all’esecuzione del servizio richiesto (es. aggiornamenti di stato, messaggistica interna al portale, notifiche operative).',
       'Adempimenti di legge, contabili e fiscali connessi all’attività di intermediazione assicurativa.',
       'Previo consenso specifico e separato, invio di comunicazioni informative e promozionali relative ai servizi assicurativi.',
+      'Il consenso per finalità di marketing è facoltativo e il mancato conferimento non pregiudica l’erogazione dei servizi richiesti.',
     ],
   },
   {
@@ -70,11 +76,17 @@ export const privacyPolicySections: PrivacySectionDef[] = [
     ],
   },
   {
+    id: 'log-sicurezza',
+    title: 'Log e sicurezza',
+    paragraphs: [
+      'Per esigenze di sicurezza e prevenzione di accessi non autorizzati, il sistema può registrare log tecnici relativi agli accessi e alle operazioni effettuate dagli utenti.',
+    ],
+  },
+  {
     id: 'conservazione',
     title: 'Conservazione',
     paragraphs: [
-      'I dati sono conservati per il tempo necessario a perseguire le finalità per le quali sono stati raccolti e, successivamente, per il periodo previsto da obblighi di legge o per la tutela di diritti in sede contenziosa.',
-      'I criteri di conservazione possono essere dettagliati in documentazione interna del Titolare e aggiornati nel tempo.',
+      'I dati personali sono conservati per il tempo necessario alla gestione delle pratiche assicurative e, successivamente, per un periodo non superiore a 10 anni, salvo diversi obblighi di legge o necessità di tutela in sede giudiziaria.',
     ],
   },
   {
@@ -105,6 +117,13 @@ export const privacyPolicySections: PrivacySectionDef[] = [
     id: 'contatti',
     title: 'Contatti',
     paragraphs: [`Email: ${PRIVACY_CONTACT_EMAIL}`, `PEC: ${PRIVACY_CONTACT_PEC}`],
+  },
+  {
+    id: 'aggiornamenti',
+    title: 'Aggiornamenti dell’informativa',
+    paragraphs: [
+      'La presente informativa può essere soggetta ad aggiornamenti. Eventuali modifiche saranno pubblicate sul portale e, ove necessario, comunicate agli utenti.',
+    ],
   },
 ];
 

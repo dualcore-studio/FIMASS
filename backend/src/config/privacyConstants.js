@@ -2,9 +2,9 @@
  * Configurazione privacy centralizzata (backend).
  * Mantieni allineata a frontend/src/config/privacyConfig.ts (versione e data).
  */
-const PRIVACY_POLICY_VERSION = 'v1.0';
+const PRIVACY_POLICY_VERSION = 'v1.1';
 const PRIVACY_LAST_UPDATED = '20/04/2026';
-const PRIVACY_CONTACT_EMAIL = 'privacy@tuobroker.it';
+const PRIVACY_CONTACT_EMAIL = 'amministrazione@tuobroker.com';
 const PRIVACY_CONTACT_PEC = 'pectuobroker@pec.it';
 
 const PRIVACY_SHORT_NOTICE =

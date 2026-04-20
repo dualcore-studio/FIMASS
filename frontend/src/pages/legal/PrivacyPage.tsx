@@ -27,7 +27,6 @@ export default function PrivacyPage() {
           <h1 className="mt-2 text-3xl font-bold tracking-tight text-slate-900 sm:text-4xl">Informativa Privacy</h1>
           <p className="mt-3 max-w-2xl text-sm leading-relaxed text-slate-600">
             Documento informativo sul trattamento dei dati personali nell’ambito del portale per servizi assicurativi.
-            Testo placeholder professionale: sostituire con il testo legale definitivo dal Titolare.
           </p>
         </header>
 
