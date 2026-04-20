@@ -3,6 +3,8 @@ const bcrypt = require('bcryptjs');
 const { findOne, getById, upsertById } = require('../data/store');
 const { generateToken, authenticateToken } = require('../middleware/auth');
 const { logActivity } = require('./logs');
+const { getClientIp } = require('../lib/requestMeta');
+const { writeAuditLog, AUDIT_ACTIONS } = require('../lib/auditLog');
 
 const router = express.Router();
 
@@ -42,6 +44,14 @@ router.post('/login', (req, res) => {
       azione: 'LOGIN',
       modulo: 'auth',
       dettaglio: `Login effettuato da ${user.username}`
+    });
+    await writeAuditLog({
+      userId: user.id,
+      action: AUDIT_ACTIONS.LOGIN,
+      entityType: 'user',
+      entityId: user.id,
+      metadata: { username: user.username, role: user.role },
+      ipAddress: getClientIp(req),
     });
 
     res.json({

@@ -8,6 +8,10 @@ const { insert, getById, removeById } = require('../data/store');
 const { authenticateToken } = require('../middleware/auth');
 const { logActivity } = require('./logs');
 const { getUploadsDir, sendAttachmentDownload } = require('../lib/attachmentDownload');
+const { userCanAccessAttachment } = require('../lib/attachmentAccess');
+const { getClientIp } = require('../lib/requestMeta');
+const { writeAuditLog, AUDIT_ACTIONS } = require('../lib/auditLog');
+const { sanitizeAttachmentForClient } = require('../lib/attachmentPublicJson');
 
 const router = express.Router();
 
@@ -51,7 +55,7 @@ router.post('/upload', authenticateToken, upload.single('file'), (req, res) => {
     let storageKey = req.file.filename;
     if (process.env.BLOB_READ_WRITE_TOKEN) {
       const blob = await put(`attachments/${req.file.filename}`, fs.createReadStream(req.file.path), {
-        access: 'public',
+        access: 'private',
         addRandomSuffix: false,
         token: process.env.BLOB_READ_WRITE_TOKEN,
       });
@@ -85,11 +89,13 @@ router.post('/upload', authenticateToken, upload.single('file'), (req, res) => {
     });
 
     res.status(201).json({
-      id: result.id,
-      nome_file: storageKey,
-      nome_originale: req.file.originalname,
-      url: downloadUrl,
-      message: 'File caricato con successo'
+      ...sanitizeAttachmentForClient({
+        id: result.id,
+        nome_file: storageKey,
+        nome_originale: req.file.originalname,
+        url: downloadUrl,
+      }),
+      message: 'File caricato con successo',
     });
     } catch (err) {
       console.error('Error uploading file:', err);
@@ -104,7 +110,19 @@ router.get('/download/:id', authenticateToken, (req, res) => {
     const attachment = await getById('attachments', req.params.id);
     if (!attachment) return res.status(404).json({ error: 'Allegato non trovato' });
 
-    sendAttachmentDownload(attachment, res, {
+    const allowed = await userCanAccessAttachment(req.user, attachment);
+    if (!allowed) return res.status(403).json({ error: 'Accesso non autorizzato' });
+
+    await writeAuditLog({
+      userId: req.user.id,
+      action: AUDIT_ACTIONS.ATTACHMENT_DOWNLOAD,
+      entityType: 'attachment',
+      entityId: Number(attachment.id),
+      metadata: { nome: attachment.nome_originale, practice: attachment.entity_type },
+      ipAddress: getClientIp(req),
+    });
+
+    await sendAttachmentDownload(attachment, res, {
       downloadFilename: attachment.nome_originale,
       logPrefix: `[attachments/download id=${req.params.id}]`,
     });
@@ -120,6 +138,9 @@ router.delete('/:id', authenticateToken, (req, res) => {
     try {
     const attachment = await getById('attachments', req.params.id);
     if (!attachment) return res.status(404).json({ error: 'Allegato non trovato' });
+
+    const allowed = await userCanAccessAttachment(req.user, attachment);
+    if (!allowed) return res.status(403).json({ error: 'Accesso non autorizzato' });
 
     if (attachment.url && process.env.BLOB_READ_WRITE_TOKEN) {
       try {

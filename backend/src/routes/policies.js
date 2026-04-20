@@ -12,6 +12,9 @@ const { authenticateToken, authorizeRoles } = require('../middleware/auth');
 const { quoteAssigneeUserId, userIsAssignedToPolicy } = require('../utils/practiceAssignee');
 const { logActivity } = require('./logs');
 const { sendPolicyEmissionRequestedToOperatorMail } = require('../lib/resend');
+const { sanitizeAttachmentsList } = require('../lib/attachmentPublicJson');
+const { getClientIp } = require('../lib/requestMeta');
+const { writeAuditLog, AUDIT_ACTIONS } = require('../lib/auditLog');
 
 const router = express.Router();
 
@@ -175,7 +178,7 @@ router.get('/:id', authenticateToken, (req, res) => {
         attachments = attachments.filter((a) => a.tipo !== 'polizza_emessa');
       }
 
-      res.json({ ...policy, history, attachments });
+      res.json({ ...policy, history, attachments: sanitizeAttachmentsList(attachments) });
     } catch (err) {
       console.error('Error fetching policy:', err);
       res.status(500).json({ error: 'Errore nel recupero polizza' });
@@ -226,12 +229,15 @@ router.post('/', authenticateToken, authorizeRoles('struttura'), (req, res) => {
       riferimento_tipo: 'policy',
       dettaglio: `Creata richiesta polizza ${numero} da preventivo ${quote.numero}`,
     });
+    await writeAuditLog({
+      userId: req.user.id,
+      action: AUDIT_ACTIONS.POLICY_EMISSION_REQUEST,
+      entityType: 'policy',
+      entityId: policyId,
+      metadata: { numero, quote_id: Number(quote_id) },
+      ipAddress: getClientIp(req),
+    });
 
-    const ctx = await loadContext();
-    const type = ctx.typesById.get(Number(quote.tipo_assicurazione_id)) || {};
-    const assisted = ctx.assistedById.get(Number(quote.assistito_id)) || {};
-    const assistitoLabel = [assisted.nome, assisted.cognome].filter(Boolean).join(' ') || '—';
-    const strutturaNome = req.user.denominazione || getUserDisplayName(req.user);
     const dataRichiesta = new Date().toLocaleString('it-IT', { dateStyle: 'short', timeStyle: 'short' });
 
     const assigneeUid = quoteAssigneeUserId(quote);
@@ -246,11 +252,7 @@ router.post('/', authenticateToken, authorizeRoles('struttura'), (req, res) => {
           policyNumero: numero,
           quoteId: Number(quote_id),
           quoteNumero: quote.numero,
-          strutturaNome,
-          assistitoLabel,
-          tipoNome: type.nome || '—',
           dataRichiesta,
-          noteStruttura: note_struttura || null,
         });
       }
     }

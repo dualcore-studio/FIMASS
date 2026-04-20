@@ -3,6 +3,7 @@ import { AuthProvider, useAuth } from './context/AuthContext';
 import { UnreadMessagesProvider } from './context/UnreadMessagesContext';
 import Layout from './components/layout/Layout';
 import Login from './pages/auth/Login';
+import PrivacyPage from './pages/legal/PrivacyPage';
 import Dashboard from './pages/dashboard/Dashboard';
 import UsersList from './pages/users/UsersList';
 import UserCreate from './pages/users/UserCreate';
@@ -17,6 +18,7 @@ import AssistedList from './pages/assisted/AssistedList';
 import AssistedDetail from './pages/assisted/AssistedDetail';
 import Reports from './pages/reports/Reports';
 import ActivityLogs from './pages/logs/ActivityLogs';
+import AuditPrivacyLogs from './pages/logs/AuditPrivacyLogs';
 import Settings from './pages/settings/Settings';
 import CommissionsPage from './pages/commissions/CommissionsPage';
 import CommissionForm from './pages/commissions/CommissionForm';
@@ -55,6 +57,7 @@ function AppRoutes() {
   return (
     <Routes>
       <Route path="/login" element={<PublicRoute><Login /></PublicRoute>} />
+      <Route path="/privacy" element={<PrivacyPage />} />
 
       <Route element={<ProtectedRoute><Layout /></ProtectedRoute>}>
         <Route index element={<Dashboard />} />
@@ -101,6 +104,14 @@ function AppRoutes() {
 
         <Route path="report" element={<ProtectedRoute roles={['admin', 'supervisore', 'fornitore']}><Reports /></ProtectedRoute>} />
         <Route path="log-attivita" element={<ProtectedRoute roles={['admin', 'supervisore']}><ActivityLogs /></ProtectedRoute>} />
+        <Route
+          path="log-audit-privacy"
+          element={
+            <ProtectedRoute roles={['admin', 'supervisore']}>
+              <AuditPrivacyLogs />
+            </ProtectedRoute>
+          }
+        />
         <Route path="impostazioni" element={<ProtectedRoute roles={['admin']}><Settings /></ProtectedRoute>} />
       </Route>
 

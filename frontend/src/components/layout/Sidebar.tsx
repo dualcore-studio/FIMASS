@@ -14,6 +14,7 @@ import {
   ChevronRight,
   Banknote,
   MessageSquare,
+  ShieldCheck,
 } from 'lucide-react';
 
 const menuItems = [
@@ -26,6 +27,7 @@ const menuItems = [
   { path: '/provvigioni', label: 'Provvigioni', icon: Banknote, roles: ['admin', 'fornitore', 'struttura'] },
   { path: '/report', label: 'Report', icon: BarChart3, roles: ['admin', 'supervisore', 'fornitore'] },
   { path: '/log-attivita', label: 'Log Attività', icon: ClipboardList, roles: ['admin', 'supervisore'] },
+  { path: '/log-audit-privacy', label: 'Audit privacy', icon: ShieldCheck, roles: ['admin', 'supervisore'] },
 ];
 
 const settingsItem = {

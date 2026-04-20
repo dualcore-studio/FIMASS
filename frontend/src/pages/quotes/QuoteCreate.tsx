@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import {
   AlertCircle,
   ArrowLeft,
@@ -31,6 +31,7 @@ import {
   activeChecklistForFlow,
   mandatoryChecklistMissing,
 } from '../../utils/insuranceTypeConfig';
+import { PRIVACY_POLICY_VERSION } from '../../config/privacyConfig';
 
 const FRAZIONAMENTO_OPTS = ['Mensile', 'Semestrale', 'Annuale'] as const;
 
@@ -119,6 +120,9 @@ export default function QuoteCreate() {
   // Submit
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
+
+  const [privacyMandatory, setPrivacyMandatory] = useState(false);
+  const [marketingOptIn, setMarketingOptIn] = useState(false);
 
   // Step validation errors
   const [stepErrors, setStepErrors] = useState<string[]>([]);
@@ -227,6 +231,11 @@ export default function QuoteCreate() {
         ),
       );
     }
+    if (s === 4 && !privacyMandatory) {
+      errors.push(
+        'È necessario prestare il consenso privacy obbligatorio per inviare il preventivo.',
+      );
+    }
     return errors;
   };
 
@@ -267,7 +276,7 @@ export default function QuoteCreate() {
   const handleSubmit = async () => {
     if (!selectedType) return;
     setSubmitError(null);
-    const preSubmitErrors = [0, 1, 2, 3].flatMap((si) => validateStep(si));
+    const preSubmitErrors = [0, 1, 2, 3, 4].flatMap((si) => validateStep(si));
     if (preSubmitErrors.length) {
       setSubmitError(preSubmitErrors[0]);
       return;
@@ -309,6 +318,8 @@ export default function QuoteCreate() {
         data_decorrenza: dataDecorrenza || null,
         note_struttura: noteStruttura.trim() || null,
         note_allegati: noteAllegati.trim() || null,
+        privacy_consent_accepted: true,
+        marketing_consent: marketingOptIn,
       };
 
       const result = await api.post<{ id: number }>('/quotes', body);
@@ -344,6 +355,13 @@ export default function QuoteCreate() {
         <div>
           <h1 className="text-2xl font-bold tracking-tight text-gray-900">Nuova Richiesta Preventivo</h1>
           <p className="mt-1 text-sm text-gray-600">Compila tutti i passaggi per inviare la richiesta.</p>
+          <p className="mt-2 text-xs text-gray-500">
+            Trattamento dati:{' '}
+            <Link to="/privacy" className="font-medium text-[#0B4EA2] underline-offset-2 hover:underline" target="_blank" rel="noopener noreferrer">
+              Informativa Privacy
+            </Link>{' '}
+            (versione {PRIVACY_POLICY_VERSION}).
+          </p>
         </div>
       </header>
 
@@ -474,6 +492,10 @@ export default function QuoteCreate() {
             noteAllegati={noteAllegati}
             datiSpecifici={datiSpecifici}
             attachmentFiles={attachmentFiles}
+            privacyMandatory={privacyMandatory}
+            onPrivacyMandatoryChange={setPrivacyMandatory}
+            marketingOptIn={marketingOptIn}
+            onMarketingOptInChange={setMarketingOptIn}
           />
         )}
       </div>
@@ -1092,6 +1114,10 @@ function Step5Review({
   noteAllegati,
   datiSpecifici,
   attachmentFiles,
+  privacyMandatory,
+  onPrivacyMandatoryChange,
+  marketingOptIn,
+  onMarketingOptInChange,
 }: {
   selectedType: InsuranceType;
   assisted: AssistedForm;
@@ -1102,6 +1128,10 @@ function Step5Review({
   noteAllegati: string;
   datiSpecifici: Record<string, unknown>;
   attachmentFiles: Record<string, File | null>;
+  privacyMandatory: boolean;
+  onPrivacyMandatoryChange: (v: boolean) => void;
+  marketingOptIn: boolean;
+  onMarketingOptInChange: (v: boolean) => void;
 }) {
   const uploadCount = Object.values(attachmentFiles).filter(Boolean).length;
   const cod = String(selectedType.codice || '').toLowerCase();
@@ -1196,6 +1226,46 @@ function Step5Review({
               ))
           )}
         </ReviewSection>
+
+        <div className="rounded-lg border border-slate-200 bg-slate-50/80 p-5">
+          <h3 className="text-sm font-semibold text-gray-900">Privacy e consensi</h3>
+          <p className="mt-1 text-xs text-gray-500">
+            Obbligatorio per l’invio. Versione informativa: {PRIVACY_POLICY_VERSION}.
+          </p>
+          <label className="mt-4 flex cursor-pointer gap-3 text-sm leading-snug text-gray-800">
+            <input
+              type="checkbox"
+              checked={privacyMandatory}
+              onChange={(e) => onPrivacyMandatoryChange(e.target.checked)}
+              className="mt-0.5 h-4 w-4 shrink-0 rounded border-gray-300 text-blue-700 focus:ring-blue-600"
+            />
+            <span>
+              Dichiaro di aver letto l’
+              <Link
+                to="/privacy"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="font-semibold text-[#0B4EA2] underline-offset-2 hover:underline"
+              >
+                Informativa Privacy
+              </Link>{' '}
+              e di autorizzare il trattamento dei dati personali ai fini della gestione della richiesta di preventivo e
+              delle eventuali attività connesse.
+            </span>
+          </label>
+          <label className="mt-4 flex cursor-pointer gap-3 text-sm leading-snug text-gray-700">
+            <input
+              type="checkbox"
+              checked={marketingOptIn}
+              onChange={(e) => onMarketingOptInChange(e.target.checked)}
+              className="mt-0.5 h-4 w-4 shrink-0 rounded border-gray-300 text-blue-700 focus:ring-blue-600"
+            />
+            <span>
+              Acconsento a ricevere comunicazioni informative e promozionali relative ai servizi assicurativi
+              (facoltativo).
+            </span>
+          </label>
+        </div>
       </div>
     </div>
   );

@@ -17,6 +17,7 @@ const TABLES = [
   'conversations',
   'conversation_messages',
   'conversation_reads',
+  'audit_logs',
 ];
 
 function nowIso() {

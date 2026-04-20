@@ -388,7 +388,7 @@ export default function QuoteDetail() {
 
       {/* Tab content */}
       <div>
-        {activeTab === 'dati' && <TabDati quote={quote} />}
+        {activeTab === 'dati' && <TabDati quote={quote} viewerRole={role} />}
         {activeTab === 'allegati' && (
           <TabAllegati
             attachments={quote.attachments || []}
@@ -517,9 +517,54 @@ export default function QuoteDetail() {
 
 /* ───────────── Tab: Dati ───────────── */
 
-function TabDati({ quote }: { quote: Quote }) {
+function TabDati({ quote, viewerRole }: { quote: Quote; viewerRole?: string }) {
+  const showPrivacyPanel =
+    viewerRole === 'admin' ||
+    viewerRole === 'supervisore' ||
+    viewerRole === 'operatore' ||
+    viewerRole === 'fornitore';
+
   return (
     <div className="grid gap-6 lg:grid-cols-2">
+      {showPrivacyPanel ? (
+        <div className="card border border-slate-200/90 bg-slate-50/50 p-6 lg:col-span-2">
+          <h3 className="mb-3 text-sm font-semibold uppercase tracking-wider text-gray-500">
+            Tracciamento consensi (sola lettura)
+          </h3>
+          {quote.privacy_consent_untracked ? (
+            <p className="text-sm text-gray-600">
+              Consenso non tracciato (record precedente all’introduzione della nuova policy).
+            </p>
+          ) : (
+            <dl className="grid gap-3 text-sm sm:grid-cols-2">
+              <InfoRow
+                label="Consenso privacy"
+                value={
+                  quote.privacy_consent_required ? 'Prestato' : 'Non prestato'
+                }
+              />
+              <InfoRow
+                label="Data consenso"
+                value={quote.privacy_consent_at ? formatDateTime(quote.privacy_consent_at) : '—'}
+              />
+              <InfoRow label="Versione informativa" value={quote.privacy_policy_version || '—'} />
+              <InfoRow
+                label="Consenso marketing"
+                value={
+                  quote.marketing_consent === true ? 'Sì' : quote.marketing_consent === false ? 'No' : '—'
+                }
+              />
+              {quote.marketing_consent_at ? (
+                <InfoRow label="Data consenso marketing" value={formatDateTime(quote.marketing_consent_at)} />
+              ) : null}
+            </dl>
+          )}
+          <p className="mt-3 text-xs text-gray-400">
+            L’indirizzo IP è conservato a fini di prova lato sistema e non è mostrato qui.
+          </p>
+        </div>
+      ) : null}
+
       {/* Assistito */}
       <div className="card p-6">
         <h3 className="mb-4 text-sm font-semibold uppercase tracking-wider text-gray-500">Assistito</h3>

@@ -10,6 +10,8 @@ const {
   userIsAssignedToPolicy,
 } = require('../utils/practiceAssignee');
 const { sendPortalMessageNotificationMail } = require('../lib/resend');
+const { getClientIp } = require('../lib/requestMeta');
+const { writeAuditLog, AUDIT_ACTIONS } = require('../lib/auditLog');
 const { findConversationByEntity, findInfoConversation } = require('../services/messagingSync');
 
 const router = express.Router();
@@ -316,6 +318,17 @@ router.get('/:id', authenticateToken, (req, res) => {
         practice = p ? enrichPolicy(p, ctx) : null;
       }
       await markConversationReadForUser(id, req.user.id);
+      await writeAuditLog({
+        userId: req.user.id,
+        action: AUDIT_ACTIONS.CONVERSATION_OPEN,
+        entityType: 'conversation',
+        entityId: id,
+        metadata: {
+          practice_entity: conv.entity_type,
+          practice_id: conv.entity_type === 'info' ? null : Number(conv.entity_id),
+        },
+        ipAddress: getClientIp(req),
+      });
       res.json({
         conversation: {
           ...meta,
@@ -402,12 +415,7 @@ router.post('/', authenticateToken, (req, res) => {
             to: assigneeMail,
             recipientName: getUserDisplayName(assigneeUser),
             senderName: getUserDisplayName(req.user),
-            practiceKindIt: 'Richiesta informazioni',
-            practiceNumero: '—',
-            practiceId: null,
-            entityType: 'info',
             conversationId: convInfo.id,
-            preview: previewText(text, 400),
           });
         }
         await markConversationReadForUser(convInfo.id, req.user.id);
@@ -500,9 +508,6 @@ router.post('/', authenticateToken, (req, res) => {
         content: text,
       });
 
-      const practiceKindIt = entityType === 'quote' ? 'Preventivo' : 'Polizza';
-      const practiceNumero = row.numero;
-
       if (req.user.role === 'struttura') {
         const assigneeMail = resolved.user.email && String(resolved.user.email).trim();
         if (assigneeMail) {
@@ -510,12 +515,7 @@ router.post('/', authenticateToken, (req, res) => {
             to: assigneeMail,
             recipientName: getUserDisplayName(resolved.user),
             senderName: getUserDisplayName(req.user),
-            practiceKindIt,
-            practiceNumero,
-            practiceId: entityId,
-            entityType,
             conversationId: conv.id,
-            preview: previewText(text, 400),
           });
         }
       } else if (req.user.role === 'operatore' || req.user.role === 'fornitore') {
@@ -526,12 +526,7 @@ router.post('/', authenticateToken, (req, res) => {
             to: smail,
             recipientName: getUserDisplayName(struttura),
             senderName: getUserDisplayName(req.user),
-            practiceKindIt,
-            practiceNumero,
-            practiceId: entityId,
-            entityType,
             conversationId: conv.id,
-            preview: previewText(text, 400),
           });
         }
       } else if (req.user.role === 'admin' || req.user.role === 'supervisore') {
@@ -541,12 +536,7 @@ router.post('/', authenticateToken, (req, res) => {
             to: assigneeMail,
             recipientName: getUserDisplayName(resolved.user),
             senderName: getUserDisplayName(req.user),
-            practiceKindIt,
-            practiceNumero,
-            practiceId: entityId,
-            entityType,
             conversationId: conv.id,
-            preview: previewText(text, 400),
           });
         }
         const struttura = await getById('users', Number(row.struttura_id));
@@ -556,12 +546,7 @@ router.post('/', authenticateToken, (req, res) => {
             to: smail,
             recipientName: getUserDisplayName(struttura),
             senderName: getUserDisplayName(req.user),
-            practiceKindIt,
-            practiceNumero,
-            practiceId: entityId,
-            entityType,
             conversationId: conv.id,
-            preview: previewText(text, 400),
           });
         }
       }
@@ -638,16 +623,6 @@ router.post('/:id/messages', authenticateToken, (req, res) => {
       });
       await markConversationReadForUser(conv.id, req.user.id);
 
-      const practiceKindIt =
-        conv.entity_type === 'info'
-          ? 'Richiesta informazioni'
-          : conv.entity_type === 'quote'
-            ? 'Preventivo'
-            : 'Polizza';
-      const practiceNumero = row ? row.numero : '—';
-      const practiceIdForMail = conv.entity_type === 'info' ? null : Number(conv.entity_id);
-      const entityTypeForMail = conv.entity_type;
-
       if (req.user.role === 'struttura') {
         if (conv.entity_type === 'info') {
           const assigneeUser = await getById('users', conv.assignee_id);
@@ -657,12 +632,7 @@ router.post('/:id/messages', authenticateToken, (req, res) => {
               to: assigneeMail,
               recipientName: getUserDisplayName(assigneeUser),
               senderName: getUserDisplayName(req.user),
-              practiceKindIt,
-              practiceNumero,
-              practiceId: practiceIdForMail,
-              entityType: entityTypeForMail,
               conversationId: conv.id,
-              preview: previewText(text, 400),
             });
           }
         } else if (resolved) {
@@ -672,12 +642,7 @@ router.post('/:id/messages', authenticateToken, (req, res) => {
               to: assigneeMail,
               recipientName: getUserDisplayName(resolved.user),
               senderName: getUserDisplayName(req.user),
-              practiceKindIt,
-              practiceNumero,
-              practiceId: practiceIdForMail,
-              entityType: entityTypeForMail,
               conversationId: conv.id,
-              preview: previewText(text, 400),
             });
           }
         }
@@ -689,12 +654,7 @@ router.post('/:id/messages', authenticateToken, (req, res) => {
             to: smail,
             recipientName: getUserDisplayName(struttura),
             senderName: getUserDisplayName(req.user),
-            practiceKindIt,
-            practiceNumero,
-            practiceId: practiceIdForMail,
-            entityType: entityTypeForMail,
             conversationId: conv.id,
-            preview: previewText(text, 400),
           });
         }
       } else if (req.user.role === 'admin' || req.user.role === 'supervisore') {
@@ -706,12 +666,7 @@ router.post('/:id/messages', authenticateToken, (req, res) => {
               to: assigneeMail,
               recipientName: getUserDisplayName(assigneeUser),
               senderName: getUserDisplayName(req.user),
-              practiceKindIt,
-              practiceNumero,
-              practiceId: practiceIdForMail,
-              entityType: entityTypeForMail,
               conversationId: conv.id,
-              preview: previewText(text, 400),
             });
           }
         } else if (resolved) {
@@ -721,12 +676,7 @@ router.post('/:id/messages', authenticateToken, (req, res) => {
               to: assigneeMail,
               recipientName: getUserDisplayName(resolved.user),
               senderName: getUserDisplayName(req.user),
-              practiceKindIt,
-              practiceNumero,
-              practiceId: practiceIdForMail,
-              entityType: entityTypeForMail,
               conversationId: conv.id,
-              preview: previewText(text, 400),
             });
           }
           const struttura = await getById('users', conv.struttura_id);
@@ -736,12 +686,7 @@ router.post('/:id/messages', authenticateToken, (req, res) => {
               to: smail,
               recipientName: getUserDisplayName(struttura),
               senderName: getUserDisplayName(req.user),
-              practiceKindIt,
-              practiceNumero,
-              practiceId: practiceIdForMail,
-              entityType: entityTypeForMail,
               conversationId: conv.id,
-              preview: previewText(text, 400),
             });
           }
         }

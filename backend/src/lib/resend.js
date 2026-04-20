@@ -142,9 +142,6 @@ async function sendQuoteAssignedToOperatorMail({
   operatorName,
   quoteId,
   quoteNumero,
-  assistitoLabel,
-  tipoNome,
-  strutturaNome,
   statoCorrente,
   dataAssegnazione,
 }) {
@@ -155,14 +152,11 @@ async function sendQuoteAssignedToOperatorMail({
       : '';
     const inner = `
       <p style="margin:0 0 16px;">Gentile <strong>${escapeHtml(operatorName)}</strong>,</p>
-      <p style="margin:0 0 16px;">ti è stata assegnata una pratica preventivo su FIMASS. Di seguito il riepilogo.</p>
+      <p style="margin:0 0 16px;">ti è stata assegnata una <strong>nuova richiesta di preventivo</strong> su FIMASS. Accedi al portale per consultare i dettagli della pratica.</p>
       <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="border-collapse:collapse;">
-        ${row('ID pratica', `#${quoteId} (${quoteNumero})`)}
-        ${row('Assistito', assistitoLabel)}
-        ${row('Tipologia', tipoNome)}
-        ${row('Struttura', strutturaNome)}
-        ${row('Stato attuale', statoCorrente)}
-        ${row('Data assegnazione', dataAssegnazione)}
+        ${row('Riferimento pratica', `#${quoteId} (${quoteNumero})`)}
+        ${statoCorrente ? row('Stato', statoCorrente) : ''}
+        ${dataAssegnazione ? row('Data aggiornamento', dataAssegnazione) : ''}
       </table>
       ${linkBlock}
     `;
@@ -190,36 +184,24 @@ async function sendPolicyEmissionRequestedToOperatorMail({
   policyNumero,
   quoteId,
   quoteNumero,
-  strutturaNome,
-  assistitoLabel,
-  tipoNome,
   dataRichiesta,
-  noteStruttura,
 }) {
   try {
     const policyUrl = buildPolicyUrl(policyId);
     const practiceUrl = buildPracticeUrl(quoteId);
     const linkPolicy = policyUrl
-      ? `<p style="margin:20px 0 0;"><a href="${escapeHtml(policyUrl)}" style="display:inline-block;background:#0f172a;color:#f8fafc;text-decoration:none;padding:10px 18px;border-radius:6px;font-weight:600;">Apri la richiesta polizza</a></p>`
+      ? `<p style="margin:20px 0 0;"><a href="${escapeHtml(policyUrl)}" style="display:inline-block;background:#0f172a;color:#f8fafc;text-decoration:none;padding:10px 18px;border-radius:6px;font-weight:600;">Apri la richiesta nel portale</a></p>`
       : '';
     const linkPractice = practiceUrl
-      ? `<p style="margin:8px 0 0;"><a href="${escapeHtml(practiceUrl)}" style="color:#0f172a;font-weight:600;">Preventivo collegato</a></p>`
+      ? `<p style="margin:8px 0 0;"><a href="${escapeHtml(practiceUrl)}" style="color:#0f172a;font-weight:600;">Apri il preventivo collegato</a></p>`
       : '';
-    const noteBlock =
-      noteStruttura && String(noteStruttura).trim()
-        ? row('Note dalla struttura', String(noteStruttura).trim())
-        : '';
     const inner = `
       <p style="margin:0 0 16px;">Gentile <strong>${escapeHtml(operatorName)}</strong>,</p>
-      <p style="margin:0 0 16px;">è stata presentata una <strong>richiesta di emissione polizza</strong> collegata a un preventivo elaborato. Di seguito il riepilogo.</p>
+      <p style="margin:0 0 16px;">è stata presentata una <strong>richiesta di emissione polizza</strong> su FIMASS. Accedi al portale per i dettagli operativi e gli allegati.</p>
       <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="border-collapse:collapse;">
-        ${row('Polizza (richiesta)', `${policyNumero} (ID ${policyId})`)}
+        ${row('Richiesta polizza', `${policyNumero} (ID ${policyId})`)}
         ${row('Preventivo di origine', `${quoteNumero} (ID ${quoteId})`)}
-        ${row('Struttura richiedente', strutturaNome)}
-        ${row('Assistito', assistitoLabel)}
-        ${row('Tipologia', tipoNome)}
         ${row('Data richiesta', dataRichiesta)}
-        ${noteBlock}
       </table>
       ${linkPolicy}
       ${linkPractice}
@@ -240,8 +222,6 @@ async function sendQuoteStatusChangeToStructureMail({
   strutturaNome,
   quoteId,
   quoteNumero,
-  assistitoLabel,
-  tipoNome,
   statoPrecedente,
   statoNuovo,
   dataAggiornamento,
@@ -258,11 +238,9 @@ async function sendQuoteStatusChangeToStructureMail({
         : '';
     const inner = `
       <p style="margin:0 0 16px;">Spett.le <strong>${escapeHtml(strutturaNome)}</strong>,</p>
-      <p style="margin:0 0 16px;">lo stato di una pratica preventivo è stato aggiornato.</p>
+      <p style="margin:0 0 16px;">lo <strong>stato di una pratica preventivo</strong> è stato aggiornato su FIMASS. Accedi al portale per i dettagli.</p>
       <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="border-collapse:collapse;">
-        ${row('ID pratica', `#${quoteId} (${quoteNumero})`)}
-        ${row('Assistito', assistitoLabel)}
-        ${row('Tipologia', tipoNome)}
+        ${row('Riferimento pratica', `#${quoteId} (${quoteNumero})`)}
         ${row('Stato precedente', statoPrecedente)}
         ${row('Nuovo stato', statoNuovo)}
         ${row('Data aggiornamento', dataAggiornamento)}
@@ -291,56 +269,23 @@ async function sendPortalMessageNotificationMail({
   to,
   recipientName,
   senderName,
-  practiceKindIt,
-  practiceNumero,
-  practiceId,
-  entityType,
   conversationId,
-  preview,
 }) {
   try {
     const convUrl = buildMessagesConversationUrl(conversationId);
-    const practiceUrl =
-      entityType === 'info'
-        ? null
-        : entityType === 'policy'
-          ? buildPolicyUrl(practiceId)
-          : buildPracticeUrl(practiceId);
     const linkBlock = convUrl
       ? `<p style="margin:20px 0 0;"><a href="${escapeHtml(convUrl)}" style="display:inline-block;background:#0f172a;color:#f8fafc;text-decoration:none;padding:10px 18px;border-radius:6px;font-weight:600;">Apri la conversazione nel portale</a></p>`
       : '';
-    const practiceLink =
-      entityType === 'info' || !practiceUrl
-        ? ''
-        : `<p style="margin:8px 0 0;"><a href="${escapeHtml(practiceUrl)}" style="color:#0f172a;font-weight:600;">Apri la pratica</a></p>`;
-    const previewBlock =
-      preview && String(preview).trim()
-        ? `<p style="margin:16px 0 0;padding:12px;background:#f8fafc;border-radius:6px;border:1px solid #e2e8f0;"><strong>Anteprima</strong><br/><span style="white-space:pre-wrap;">${escapeHtml(String(preview).trim())}</span></p>`
-        : '';
-    const detailRows =
-      entityType === 'info'
-        ? `${row('Tipo', practiceKindIt)}`
-        : `${row('Tipo pratica', practiceKindIt)}
-        ${row('Numero pratica', practiceNumero)}
-        ${row('Riferimento ID', String(practiceId))}`;
     const inner = `
       <p style="margin:0 0 16px;">Gentile <strong>${escapeHtml(recipientName)}</strong>,</p>
-      <p style="margin:0 0 16px;">hai ricevuto un <strong>nuovo messaggio</strong> su FIMASS da <strong>${escapeHtml(senderName)}</strong>.</p>
-      <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="border-collapse:collapse;">
-        ${detailRows}
-      </table>
-      ${previewBlock}
+      <p style="margin:0 0 16px;">hai ricevuto un <strong>nuovo messaggio</strong> collegato a una pratica su FIMASS. Il contenuto è disponibile solo nell’area riservata del portale.</p>
+      <p style="margin:0 0 8px;font-size:14px;color:#64748b;">Mittente: ${escapeHtml(senderName)}</p>
       ${linkBlock}
-      ${practiceLink}
     `;
     const html = emailShell('Nuovo messaggio nel portale', inner);
-    const subject =
-      entityType === 'info'
-        ? 'Nuovo messaggio — Richiesta informazioni — FIMASS'
-        : `Nuovo messaggio — ${practiceKindIt} ${practiceNumero} — FIMASS`;
     await sendHtmlEmail({
       to,
-      subject,
+      subject: 'Nuovo messaggio nel portale — FIMASS',
       html,
     });
   } catch (err) {
@@ -353,8 +298,6 @@ async function sendQuotePresentedByStructureToAdminMail({
   adminName,
   quoteId,
   quoteNumero,
-  assistitoLabel,
-  tipoNome,
   strutturaNome,
   dataPresentazione,
 }) {
@@ -365,11 +308,9 @@ async function sendQuotePresentedByStructureToAdminMail({
       : '';
     const inner = `
       <p style="margin:0 0 16px;">Gentile <strong>${escapeHtml(adminName)}</strong>,</p>
-      <p style="margin:0 0 16px;">è stata presentata una <strong>nuova pratica preventivo</strong> da una struttura. Di seguito il riepilogo.</p>
+      <p style="margin:0 0 16px;">è stata presentata una <strong>nuova richiesta di preventivo</strong> su FIMASS. Accedi al portale per consultare dati e allegati.</p>
       <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="border-collapse:collapse;">
-        ${row('ID pratica', `#${quoteId} (${quoteNumero})`)}
-        ${row('Assistito', assistitoLabel)}
-        ${row('Tipologia', tipoNome)}
+        ${row('Riferimento pratica', `#${quoteId} (${quoteNumero})`)}
         ${row('Struttura', strutturaNome)}
         ${row('Stato', 'PRESENTATA')}
         ${row('Data presentazione', dataPresentazione)}

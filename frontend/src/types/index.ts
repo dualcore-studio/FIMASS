@@ -130,6 +130,13 @@ export interface Quote {
   preventivo_riepilogo_attachment_id?: number | null;
   preventivo_riepilogo_nome?: string | null;
   has_policy: number;
+  /** Record precedente all’introduzione del tracciamento consensi se true. */
+  privacy_consent_untracked?: boolean;
+  privacy_consent_required?: boolean | null;
+  privacy_consent_at?: string | null;
+  privacy_policy_version?: string | null;
+  marketing_consent?: boolean | null;
+  marketing_consent_at?: string | null;
   created_at: string;
   updated_at: string;
   assistito_nome?: string;
@@ -254,6 +261,17 @@ export interface ActivityLog {
   riferimento_id: number | null;
   riferimento_tipo: string | null;
   dettaglio: string | null;
+  created_at: string;
+}
+
+export interface AuditLogEntry {
+  id: number;
+  user_id: number | null;
+  action: string;
+  entity_type: string | null;
+  entity_id: number | null;
+  metadata_json: string | null;
+  ip_address: string | null;
   created_at: string;
 }
 

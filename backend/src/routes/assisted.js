@@ -4,6 +4,7 @@ const { loadContext } = require('../data/views');
 const { sortQuotesForList, sortPoliciesForList } = require('../utils/practiceListSort');
 const { normalizePolicyStato } = require('../utils/policyStato');
 const { authenticateToken, authorizeRoles } = require('../middleware/auth');
+const { sanitizeAttachmentsList } = require('../lib/attachmentPublicJson');
 
 const router = express.Router();
 
@@ -78,9 +79,11 @@ router.get('/:id', authenticateToken, (req, res) => {
         'desc',
         {},
       );
-      const attachments = ctx.attachments
-        .filter((a) => a.entity_type === 'assisted' && Number(a.entity_id) === Number(req.params.id))
-        .sort((a, b) => String(b.created_at || '').localeCompare(String(a.created_at || '')));
+      const attachments = sanitizeAttachmentsList(
+        ctx.attachments
+          .filter((a) => a.entity_type === 'assisted' && Number(a.entity_id) === Number(req.params.id))
+          .sort((a, b) => String(b.created_at || '').localeCompare(String(a.created_at || ''))),
+      );
       res.json({ ...person, quotes, policies, attachments });
     } catch (err) {
       console.error('Error fetching assisted detail:', err);

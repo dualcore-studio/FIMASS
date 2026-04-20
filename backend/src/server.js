@@ -25,8 +25,6 @@ function createApp() {
   app.use(cors());
   app.use(express.json({ limit: '10mb' }));
   app.use(express.urlencoded({ extended: true }));
-  app.use('/uploads', express.static(uploadsDir));
-
   app.use('/api/auth', require('./routes/auth'));
   app.use('/api/users', require('./routes/users'));
   app.use('/api/quotes', require('./routes/quotes'));
@@ -34,6 +32,7 @@ function createApp() {
   app.use('/api/assisted', require('./routes/assisted'));
   app.use('/api/reports', require('./routes/reports'));
   app.use('/api/logs', require('./routes/logs'));
+  app.use('/api/audit-logs', require('./routes/auditLogs'));
   app.use('/api/settings', require('./routes/settings'));
   app.use('/api/attachments', require('./routes/attachments'));
   app.use('/api/commissions', require('./routes/commissions'));

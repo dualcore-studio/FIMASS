@@ -1,4 +1,5 @@
 import { useState, type FormEvent } from 'react';
+import { Link } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { PortalBackgroundLayers } from '../../components/layout/PortalBackground';
 import { PasswordInput } from '../../components/common/PasswordInput';
@@ -126,6 +127,14 @@ export default function Login() {
             className="mt-2 shrink-0 pt-2 text-center sm:mt-3 sm:pt-3"
             role="contentinfo"
           >
+            <p className="mx-auto mb-2 max-w-2xl text-[11px] text-slate-500/95 sm:text-xs">
+              <Link
+                to="/privacy"
+                className="font-medium text-[#0B4EA2] underline-offset-2 hover:underline"
+              >
+                Informativa Privacy
+              </Link>
+            </p>
             <p className="mx-auto max-w-2xl px-1 text-[11px] leading-relaxed text-slate-500/90 sm:text-xs sm:leading-relaxed [text-wrap:pretty] break-words">
               {LOGIN_BROKER_DISCLAIMER}
             </p>

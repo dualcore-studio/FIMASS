@@ -27,7 +27,7 @@ async function persistQuoteAttachmentFromDisk({
 
   if (process.env.BLOB_READ_WRITE_TOKEN) {
     const blob = await put(`attachments/${storageKey}`, fs.createReadStream(abs), {
-      access: 'public',
+      access: 'private',
       addRandomSuffix: false,
       token: process.env.BLOB_READ_WRITE_TOKEN,
     });

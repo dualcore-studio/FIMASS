@@ -335,6 +335,55 @@ function initializeDatabase() {
 
   migrateCommissionTypeEnumsIfNeeded();
   migrateFornitoreAndMessagingSqliteIfNeeded();
+  migratePrivacyGdprSqliteIfNeeded();
+}
+
+/** Colonne consensi privacy su preventivi + tabella audit GDPR (SQLite locale / seed). */
+function migratePrivacyGdprSqliteIfNeeded() {
+  try {
+    const qcols = db.prepare('PRAGMA table_info(quotes)').all();
+    const qNames = new Set(Array.isArray(qcols) ? qcols.map((c) => c.name) : []);
+    if (!qNames.has('privacy_consent_required')) {
+      db.exec('ALTER TABLE quotes ADD COLUMN privacy_consent_required INTEGER');
+    }
+    if (!qNames.has('privacy_consent_at')) {
+      db.exec('ALTER TABLE quotes ADD COLUMN privacy_consent_at TEXT');
+    }
+    if (!qNames.has('privacy_consent_ip')) {
+      db.exec('ALTER TABLE quotes ADD COLUMN privacy_consent_ip TEXT');
+    }
+    if (!qNames.has('privacy_policy_version')) {
+      db.exec('ALTER TABLE quotes ADD COLUMN privacy_policy_version TEXT');
+    }
+    if (!qNames.has('marketing_consent')) {
+      db.exec('ALTER TABLE quotes ADD COLUMN marketing_consent INTEGER');
+    }
+    if (!qNames.has('marketing_consent_at')) {
+      db.exec('ALTER TABLE quotes ADD COLUMN marketing_consent_at TEXT');
+    }
+  } catch (e) {
+    console.error('migrate quotes privacy columns:', e);
+  }
+
+  try {
+    db.exec(`
+      CREATE TABLE IF NOT EXISTS audit_logs (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        user_id INTEGER,
+        action TEXT NOT NULL,
+        entity_type TEXT,
+        entity_id INTEGER,
+        metadata_json TEXT,
+        ip_address TEXT,
+        created_at TEXT DEFAULT (datetime('now'))
+      );
+      CREATE INDEX IF NOT EXISTS idx_audit_logs_created ON audit_logs(created_at);
+      CREATE INDEX IF NOT EXISTS idx_audit_logs_user ON audit_logs(user_id);
+      CREATE INDEX IF NOT EXISTS idx_audit_logs_action ON audit_logs(action);
+    `);
+  } catch (e) {
+    console.error('ensure audit_logs table:', e);
+  }
 }
 
 /** SQLite: estende i CHECK su enum provvigioni per DB creati prima di SPORTELLO_AMICO. */

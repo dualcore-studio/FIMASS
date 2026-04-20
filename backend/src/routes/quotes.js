@@ -28,6 +28,10 @@ const {
 } = require('../lib/rcAutoGaranzie');
 const { pipeRcAutoRiepilogoPdf, RC_AUTO_RIEPILOGO_PDF_TEMPLATE_VERSION } = require('../lib/rcAutoRiepilogoPdf');
 const { persistQuoteAttachmentFromDisk, tempPdfPath } = require('../lib/persistQuoteAttachmentFromDisk');
+const { getClientIp } = require('../lib/requestMeta');
+const { writeAuditLog, AUDIT_ACTIONS } = require('../lib/auditLog');
+const { sanitizeAttachmentsList } = require('../lib/attachmentPublicJson');
+const { PRIVACY_POLICY_VERSION } = require('../config/privacyConstants');
 
 const ALLOWED_QUOTE_STATI = new Set(['PRESENTATA', 'ASSEGNATA', 'IN LAVORAZIONE', 'STANDBY', 'ELABORATA']);
 
@@ -599,7 +603,15 @@ router.get('/:id/preventivo-finale', authenticateToken, (req, res) => {
         }
         const latestRiep = latestQuoteAttachment(ctx, quoteId, 'preventivo_riepilogo_rc');
         if (latestRiep) {
-          sendAttachmentDownload(latestRiep, res, {
+          await writeAuditLog({
+            userId: req.user.id,
+            action: AUDIT_ACTIONS.ATTACHMENT_DOWNLOAD,
+            entityType: 'quote',
+            entityId: quoteId,
+            metadata: { attachment_id: latestRiep.id, tipo: 'preventivo_finale_riepilogo' },
+            ipAddress: getClientIp(req),
+          });
+          await sendAttachmentDownload(latestRiep, res, {
             downloadFilename:
               latestRiep.nome_originale || rcAutoSistemaPreventivoPdfName(quote.numero, quoteId),
             logPrefix: `[preventivo-finale riepilogo-rc quote=${quoteId} attachment=${latestRiep.id}]`,
@@ -613,7 +625,15 @@ router.get('/:id/preventivo-finale', authenticateToken, (req, res) => {
         return res.status(404).json({ error: 'Nessun documento preventivo disponibile per questa pratica' });
       }
 
-      sendAttachmentDownload(latest, res, {
+      await writeAuditLog({
+        userId: req.user.id,
+        action: AUDIT_ACTIONS.ATTACHMENT_DOWNLOAD,
+        entityType: 'quote',
+        entityId: quoteId,
+        metadata: { attachment_id: latest.id, tipo: 'preventivo_finale' },
+        ipAddress: getClientIp(req),
+      });
+      await sendAttachmentDownload(latest, res, {
         downloadFilename: latest.nome_originale || `preventivo-${quote.numero || quoteId}.pdf`,
         logPrefix: `[preventivo-finale quote=${quoteId} attachment=${latest.id}]`,
       });
@@ -690,7 +710,7 @@ router.post(
           let storageKey = req.file.filename;
           if (process.env.BLOB_READ_WRITE_TOKEN) {
             const blob = await put(`attachments/${req.file.filename}`, fs.createReadStream(req.file.path), {
-              access: 'public',
+              access: 'private',
               addRandomSuffix: false,
               token: process.env.BLOB_READ_WRITE_TOKEN,
             });
@@ -770,7 +790,6 @@ router.post(
 
         const ctxAfter = await loadContext();
         const enrichedAfter = enrichQuote(await getById('quotes', quoteId), ctxAfter);
-        const assistitoLabel = [enrichedAfter.assistito_nome, enrichedAfter.assistito_cognome].filter(Boolean).join(' ').trim() || '—';
         const dataAggiornamento = enrichedAfter.updated_at || elaboratedAt;
         const strutturaMail = enrichedAfter.struttura_email && String(enrichedAfter.struttura_email).trim();
         if (strutturaMail) {
@@ -779,8 +798,6 @@ router.post(
             strutturaNome: enrichedAfter.struttura_nome || 'Struttura',
             quoteId: enrichedAfter.id,
             quoteNumero: enrichedAfter.numero,
-            assistitoLabel,
-            tipoNome: enrichedAfter.tipo_nome || '—',
             statoPrecedente: prevStato,
             statoNuovo: 'ELABORATA',
             dataAggiornamento,
@@ -837,6 +854,14 @@ router.get('/:id', authenticateToken, (req, res) => {
       if (req.user.role === 'struttura' && Number(quote.struttura_id) !== Number(req.user.id)) return res.status(403).json({ error: 'Accesso non autorizzato' });
       if (req.user.role === 'operatore' && Number(quote.operatore_id) !== Number(req.user.id)) return res.status(403).json({ error: 'Accesso non autorizzato' });
       /* fornitore: visibilità elenco completa, dettaglio su tutte le pratiche */
+      await writeAuditLog({
+        userId: req.user.id,
+        action: AUDIT_ACTIONS.QUOTE_VIEW,
+        entityType: 'quote',
+        entityId: Number(row.id),
+        metadata: { numero: quote.numero },
+        ipAddress: getClientIp(req),
+      });
       const history = ctx.quote_status_history
         .filter((h) => Number(h.quote_id) === Number(row.id))
         .map((h) => {
@@ -854,15 +879,32 @@ router.get('/:id', authenticateToken, (req, res) => {
         .filter((n) => Number(n.quote_id) === Number(row.id))
         .map((n) => ({ ...n, ...ctx.usersById.get(Number(n.utente_id)) }))
         .sort((a, b) => String(b.created_at || '').localeCompare(String(a.created_at || '')));
-      const attachments = ctx.attachments
-        .filter((a) => a.entity_type === 'quote' && Number(a.entity_id) === Number(row.id))
-        .map((a) => ({ ...a, caricato_nome: ctx.usersById.get(Number(a.caricato_da))?.nome, caricato_cognome: ctx.usersById.get(Number(a.caricato_da))?.cognome, caricato_denominazione: ctx.usersById.get(Number(a.caricato_da))?.denominazione }))
-        .sort((a, b) => String(b.created_at || '').localeCompare(String(a.created_at || '')));
+      const attachments = sanitizeAttachmentsList(
+        ctx.attachments
+          .filter((a) => a.entity_type === 'quote' && Number(a.entity_id) === Number(row.id))
+          .map((a) => ({
+            ...a,
+            caricato_nome: ctx.usersById.get(Number(a.caricato_da))?.nome,
+            caricato_cognome: ctx.usersById.get(Number(a.caricato_da))?.cognome,
+            caricato_denominazione: ctx.usersById.get(Number(a.caricato_da))?.denominazione,
+          }))
+          .sort((a, b) => String(b.created_at || '').localeCompare(String(a.created_at || ''))),
+      );
       const policy = ctx.policies.find((p) => Number(p.quote_id) === Number(row.id));
       const latestPrev = latestQuoteAttachment(ctx, row.id, 'preventivo_elaborato');
       const latestRiep = latestQuoteAttachment(ctx, row.id, 'preventivo_riepilogo_rc');
+      const privacyConsentUntracked =
+        row.privacy_consent_at == null && row.privacy_policy_version == null;
+      const { privacy_consent_ip: _omitIp, ...quoteRest } = quote;
       res.json({
-        ...quote,
+        ...quoteRest,
+        privacy_consent_required:
+          row.privacy_consent_required == null ? null : Boolean(Number(row.privacy_consent_required)),
+        privacy_consent_at: row.privacy_consent_at || null,
+        privacy_policy_version: row.privacy_policy_version || null,
+        marketing_consent: row.marketing_consent == null ? null : Boolean(Number(row.marketing_consent)),
+        marketing_consent_at: row.marketing_consent_at || null,
+        privacy_consent_untracked: privacyConsentUntracked,
         history,
         notes,
         attachments,
@@ -882,8 +924,22 @@ router.get('/:id', authenticateToken, (req, res) => {
 router.post('/', authenticateToken, authorizeRoles('struttura'), (req, res) => {
   (async () => {
     const {
-      tipo_assicurazione_id, assistito, dati_specifici, data_decorrenza, note_struttura, note_allegati,
+      tipo_assicurazione_id,
+      assistito,
+      dati_specifici,
+      data_decorrenza,
+      note_struttura,
+      note_allegati,
+      privacy_consent_accepted: privacyAcceptedRaw,
+      marketing_consent: marketingConsentRaw,
     } = req.body;
+
+    if (privacyAcceptedRaw !== true) {
+      return res.status(400).json({
+        error:
+          'Per inviare il preventivo è necessario prestare il consenso al trattamento dei dati personali come indicato nell’Informativa Privacy.',
+      });
+    }
 
     if (!tipo_assicurazione_id || !assistito) {
       return res.status(400).json({ error: 'Dati obbligatori mancanti' });
@@ -943,6 +999,9 @@ router.post('/', authenticateToken, authorizeRoles('struttura'), (req, res) => {
     const noteAllegatiVal = note_allegati != null && String(note_allegati).trim() !== ''
       ? String(note_allegati).trim()
       : null;
+    const marketingOn = marketingConsentRaw === true;
+    const consentAt = new Date().toISOString().slice(0, 19).replace('T', ' ');
+    const consentIp = getClientIp(req);
     const result = await insert('quotes', {
       numero,
       assistito_id,
@@ -954,6 +1013,12 @@ router.post('/', authenticateToken, authorizeRoles('struttura'), (req, res) => {
       note_allegati: noteAllegatiVal,
       dati_specifici: dati_specifici || null,
       has_policy: 0,
+      privacy_consent_required: 1,
+      privacy_consent_at: consentAt,
+      privacy_consent_ip: consentIp,
+      privacy_policy_version: PRIVACY_POLICY_VERSION,
+      marketing_consent: marketingOn ? 1 : 0,
+      marketing_consent_at: marketingOn ? consentAt : null,
     });
     const quoteId = result.id;
     await insert('quote_status_history', { quote_id: quoteId, stato_nuovo: 'PRESENTATA', utente_id: req.user.id });
@@ -965,15 +1030,19 @@ router.post('/', authenticateToken, authorizeRoles('struttura'), (req, res) => {
       modulo: 'preventivi',
       riferimento_id: quoteId,
       riferimento_tipo: 'quote',
-      dettaglio: `Creato preventivo ${numero} - ${assistito.nome} ${assistito.cognome}`
+      dettaglio: `Creato preventivo ${numero}`,
+    });
+    await writeAuditLog({
+      userId: req.user.id,
+      action: AUDIT_ACTIONS.QUOTE_CREATE,
+      entityType: 'quote',
+      entityId: quoteId,
+      metadata: { numero, privacy_version: PRIVACY_POLICY_VERSION },
+      ipAddress: consentIp,
     });
 
     const ctxPresented = await loadContext();
     const enrichedPresented = enrichQuote(await getById('quotes', quoteId), ctxPresented);
-    const assistitoLabelPresented = [enrichedPresented.assistito_nome, enrichedPresented.assistito_cognome]
-      .filter(Boolean)
-      .join(' ')
-      .trim() || '—';
     const dataPresentazione =
       enrichedPresented.created_at
       || enrichedPresented.updated_at
@@ -998,8 +1067,6 @@ router.post('/', authenticateToken, authorizeRoles('struttura'), (req, res) => {
         adminName,
         quoteId,
         quoteNumero: numero,
-        assistitoLabel: assistitoLabelPresented,
-        tipoNome: enrichedPresented.tipo_nome || insType.nome || '—',
         strutturaNome: strutturaNomePresented,
         dataPresentazione,
       });
@@ -1088,7 +1155,6 @@ router.put('/:id/assign', authenticateToken, authorizeRoles('supervisore', 'admi
 
     const ctxAssign = await loadContext();
     const enrichedAssign = enrichQuote(await getById('quotes', req.params.id), ctxAssign);
-    const assistitoLabelAssign = [enrichedAssign.assistito_nome, enrichedAssign.assistito_cognome].filter(Boolean).join(' ').trim() || '—';
     const dataAssegnazione = enrichedAssign.updated_at || new Date().toISOString().slice(0, 19).replace('T', ' ');
     const opMail = assignUser.email && String(assignUser.email).trim();
     if (!opMail) {
@@ -1103,9 +1169,6 @@ router.put('/:id/assign', authenticateToken, authorizeRoles('supervisore', 'admi
         operatorName: assigneeLabel,
         quoteId: enrichedAssign.id,
         quoteNumero: enrichedAssign.numero,
-        assistitoLabel: assistitoLabelAssign,
-        tipoNome: enrichedAssign.tipo_nome || '—',
-        strutturaNome: enrichedAssign.struttura_nome || '—',
         statoCorrente: enrichedAssign.stato,
         dataAssegnazione,
       });
@@ -1120,8 +1183,6 @@ router.put('/:id/assign', authenticateToken, authorizeRoles('supervisore', 'admi
           strutturaNome: enrichedAssign.struttura_nome || 'Struttura',
           quoteId: enrichedAssign.id,
           quoteNumero: enrichedAssign.numero,
-          assistitoLabel: assistitoLabelAssign,
-          tipoNome: enrichedAssign.tipo_nome || '—',
           statoPrecedente: prevStato,
           statoNuovo: newStato,
           dataAggiornamento: dataAssegnazione,
@@ -1223,10 +1284,17 @@ router.put('/:id/status', authenticateToken, (req, res) => {
       riferimento_tipo: 'quote',
       dettaglio: `Preventivo ${quote.numero}: ${prevStato} → ${statoNormalized}${motivoToStore ? ` (Motivo: ${motivoToStore})` : ''}`
     });
+    await writeAuditLog({
+      userId: req.user.id,
+      action: AUDIT_ACTIONS.QUOTE_STATUS_UPDATE,
+      entityType: 'quote',
+      entityId: Number(req.params.id),
+      metadata: { numero: quote.numero, da: prevStato, a: statoNormalized },
+      ipAddress: getClientIp(req),
+    });
 
     const ctxStatus = await loadContext();
     const enrichedStatus = enrichQuote(await getById('quotes', req.params.id), ctxStatus);
-    const assistitoLabelStatus = [enrichedStatus.assistito_nome, enrichedStatus.assistito_cognome].filter(Boolean).join(' ').trim() || '—';
     const dataAggiornamento = enrichedStatus.updated_at || new Date().toISOString().slice(0, 19).replace('T', ' ');
     const strutturaMailStatus = enrichedStatus.struttura_email && String(enrichedStatus.struttura_email).trim();
     if (!strutturaMailStatus) {
@@ -1237,8 +1305,6 @@ router.put('/:id/status', authenticateToken, (req, res) => {
         strutturaNome: enrichedStatus.struttura_nome || 'Struttura',
         quoteId: enrichedStatus.id,
         quoteNumero: enrichedStatus.numero,
-        assistitoLabel: assistitoLabelStatus,
-        tipoNome: enrichedStatus.tipo_nome || '—',
         statoPrecedente: prevStato,
         statoNuovo: statoNormalized,
         dataAggiornamento,

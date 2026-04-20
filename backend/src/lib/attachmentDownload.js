@@ -134,16 +134,57 @@ function pipeRemoteUrlToResponse(urlString, res, downloadFilename, redirectCount
 }
 
 /**
- * Invia il file (locale o remoto) come download. In caso di errore risponde con JSON e non lancia.
+ * Invia il file (locale, Vercel Blob con token, o URL legacy) come download.
  * @param {object} attachment — riga tabella attachments
  * @param {import('express').Response} res
  * @param {{ downloadFilename?: string, logPrefix?: string }} [opts]
  */
-function sendAttachmentDownload(attachment, res, opts = {}) {
+async function sendAttachmentDownload(attachment, res, opts = {}) {
   const downloadName = opts.downloadFilename || attachment.nome_originale || 'file';
   const logPrefix = opts.logPrefix || '[attachment-download]';
-
   const urlVal = attachment.url != null ? String(attachment.url).trim() : '';
+
+  const disk = resolveLocalDiskPath(attachment);
+  if (disk.path) {
+    return new Promise((resolve) => {
+      res.download(disk.path, downloadName, (err) => {
+        if (err && !res.headersSent) {
+          console.error(`${logPrefix} res.download`, err);
+          res.status(500).json({ error: 'Errore nell\'invio del file' });
+        }
+        resolve();
+      });
+    });
+  }
+
+  const token = process.env.BLOB_READ_WRITE_TOKEN;
+  const rawPath = attachment.nome_file != null ? String(attachment.nome_file).trim() : '';
+  const pathnameSafe =
+    rawPath && !rawPath.includes('..') && !/^https?:\/\//i.test(rawPath) ? rawPath : null;
+
+  if (token && pathnameSafe) {
+    try {
+      const { get } = require('@vercel/blob');
+      for (const access of ['private', 'public']) {
+        try {
+          /* eslint-disable no-await-in-loop */
+          const result = await get(pathnameSafe, { access, token });
+          if (result && result.statusCode === 200 && result.stream) {
+            const ct = result.headers.get('content-type') || 'application/octet-stream';
+            const safeName = String(downloadName || 'allegato').replace(/[\r\n"]/g, '_');
+            res.setHeader('Content-Type', ct);
+            res.setHeader('Content-Disposition', `attachment; filename*=UTF-8''${encodeURIComponent(safeName)}`);
+            result.stream.pipe(res);
+            return;
+          }
+        } catch {
+          /* prova access alternato */
+        }
+      }
+    } catch (e) {
+      console.warn(`${logPrefix} blob get id=${attachment.id}`, e.message);
+    }
+  }
 
   if (isHttpUrl(urlVal)) {
     pipeRemoteUrlToResponse(
@@ -164,18 +205,7 @@ function sendAttachmentDownload(attachment, res, opts = {}) {
     return;
   }
 
-  const disk = resolveLocalDiskPath(attachment);
-  if (disk.path) {
-    res.download(disk.path, downloadName, (err) => {
-      if (err && !res.headersSent) {
-        console.error(`${logPrefix} res.download`, err);
-        res.status(500).json({ error: 'Errore nell\'invio del file' });
-      }
-    });
-    return;
-  }
-
-  console.warn(`${logPrefix} file non trovato in locale`, disk.debug);
+  console.warn(`${logPrefix} file non trovato`, disk.debug);
   if (!res.headersSent) {
     res.status(404).json({
       error:
