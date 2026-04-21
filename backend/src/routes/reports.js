@@ -1,5 +1,4 @@
 const express = require('express');
-const { list } = require('../data/store');
 const { loadContext, enrichPolicy } = require('../data/views');
 const { authenticateToken, authorizeRoles } = require('../middleware/auth');
 const {
@@ -40,7 +39,7 @@ function baseFilteredSets(ctx, filters) {
 router.get('/overview', authenticateToken, authorizeRoles('admin', 'supervisore', 'fornitore'), (req, res) => {
   (async () => {
     try {
-      const filters = parseReportFilters(req.query);
+      const filters = parseReportFilters(req.query, req.user);
       const ctx = await loadContext();
       const { quotes, policies } = baseFilteredSets(ctx, filters);
       const quoteCounts = countQuotesByStato(quotes);
@@ -66,7 +65,7 @@ router.get('/overview', authenticateToken, authorizeRoles('admin', 'supervisore'
 router.get('/by-type', authenticateToken, authorizeRoles('admin', 'supervisore', 'fornitore'), (req, res) => {
   (async () => {
     try {
-      const filters = parseReportFilters(req.query);
+      const filters = parseReportFilters(req.query, req.user);
       const ctx = await loadContext();
       const { quotes } = baseFilteredSets(ctx, filters);
       const byType = ctx.insurance_types
@@ -92,7 +91,7 @@ router.get('/by-type', authenticateToken, authorizeRoles('admin', 'supervisore',
 router.get('/preventivi-by-structure', authenticateToken, authorizeRoles('admin', 'supervisore', 'fornitore'), (req, res) => {
   (async () => {
     try {
-      const filters = parseReportFilters(req.query);
+      const filters = parseReportFilters(req.query, req.user);
       const ctx = await loadContext();
       const { quotes: allQ } = baseFilteredSets(ctx, filters);
       const strutture = ctx.users.filter((u) => u.role === 'struttura');
@@ -124,7 +123,7 @@ router.get('/preventivi-by-structure', authenticateToken, authorizeRoles('admin'
 router.get('/polizze-by-structure', authenticateToken, authorizeRoles('admin', 'supervisore', 'fornitore'), (req, res) => {
   (async () => {
     try {
-      const filters = parseReportFilters(req.query);
+      const filters = parseReportFilters(req.query, req.user);
       const ctx = await loadContext();
       const { policies: allP } = baseFilteredSets(ctx, filters);
       const strutture = ctx.users.filter((u) => u.role === 'struttura');
@@ -154,7 +153,7 @@ router.get('/polizze-by-structure', authenticateToken, authorizeRoles('admin', '
 router.get('/user-activity', authenticateToken, authorizeRoles('admin', 'supervisore', 'fornitore'), (req, res) => {
   (async () => {
     try {
-      const filters = parseReportFilters(req.query);
+      const filters = parseReportFilters(req.query, req.user);
       const ctx = await loadContext();
       const { quotes, policies } = baseFilteredSets(ctx, filters);
       const policiesEnr = policies.map((p) => enrichPolicy(p, ctx));
@@ -206,7 +205,7 @@ router.get('/user-activity', authenticateToken, authorizeRoles('admin', 'supervi
 router.get('/timeline', authenticateToken, authorizeRoles('admin', 'supervisore', 'fornitore'), (req, res) => {
   (async () => {
     try {
-      const filters = parseReportFilters(req.query);
+      const filters = parseReportFilters(req.query, req.user);
       const ctx = await loadContext();
       const { quotes, policies } = baseFilteredSets(ctx, filters);
 
@@ -238,8 +237,8 @@ router.get('/timeline', authenticateToken, authorizeRoles('admin', 'supervisore'
         });
         return [...m.entries()].sort((a, b) => a[0].localeCompare(b[0])).map(([data, conteggio]) => ({ data, conteggio }));
       };
-      const quoteTimeline = groupSince(await list('quotes'));
-      const policyTimeline = groupSince(await list('policies'));
+      const quoteTimeline = groupSince(quotes);
+      const policyTimeline = groupSince(policies);
       res.json({ quoteTimeline, policyTimeline });
     } catch (err) {
       console.error('Error:', err);
@@ -251,7 +250,7 @@ router.get('/timeline', authenticateToken, authorizeRoles('admin', 'supervisore'
 router.get('/export', authenticateToken, authorizeRoles('admin', 'supervisore', 'fornitore'), (req, res) => {
   (async () => {
     try {
-      const filters = parseReportFilters(req.query);
+      const filters = parseReportFilters(req.query, req.user);
       const ctx = await loadContext();
       const { quotes, policies } = baseFilteredSets(ctx, filters);
       const quoteCounts = countQuotesByStato(quotes);
@@ -283,19 +282,22 @@ router.get('/export', authenticateToken, authorizeRoles('admin', 'supervisore', 
         })
         .filter((r) => r[4] > 0);
 
-      let staff = ctx.users.filter((u) => ['admin', 'supervisore', 'operatore'].includes(u.role));
+      let staff = ctx.users.filter((u) => ['admin', 'supervisore', 'operatore', 'fornitore'].includes(u.role));
       if (filters.operatore_id != null) {
         staff = staff.filter((u) => Number(u.id) === Number(filters.operatore_id));
       }
+      if (filters.fornitore_id != null) {
+        staff = staff.filter((u) => Number(u.id) === Number(filters.fornitore_id));
+      }
       const userRows = staff
         .map((u) => {
-          const qUser = quotes.filter((x) => Number(x.operatore_id) === Number(u.id));
+          const qUser = quotes.filter((x) => quoteAssigneeUserId(x) === Number(u.id));
           const presiInCarico = qUser.filter((x) => {
             const s = quoteStatoNorm(x);
             return s && s !== 'PRESENTATA';
           }).length;
           const elaborati = qUser.filter((x) => quoteStatoNorm(x) === 'ELABORATA').length;
-          const polUser = enrichedPolicies.filter((x) => Number(x.operatore_id) === Number(u.id));
+          const polUser = enrichedPolicies.filter((x) => quoteAssigneeUserId(x) === Number(u.id));
           const strutturaId = dominantStrutturaId([...qUser, ...polUser]);
           const strutturaNome = strutturaId != null ? structureLabel(ctx.usersById.get(Number(strutturaId)) || {}) : '—';
           return [
@@ -368,7 +370,7 @@ router.get('/export', authenticateToken, authorizeRoles('admin', 'supervisore', 
 router.get('/by-structure', authenticateToken, authorizeRoles('admin', 'supervisore', 'fornitore'), (req, res) => {
   (async () => {
     try {
-      const filters = parseReportFilters(req.query);
+      const filters = parseReportFilters(req.query, req.user);
       const ctx = await loadContext();
       const { quotes } = baseFilteredSets(ctx, filters);
       const rows = ctx.users
@@ -395,7 +397,7 @@ router.get('/by-structure', authenticateToken, authorizeRoles('admin', 'supervis
 router.get('/by-operator', authenticateToken, authorizeRoles('admin', 'supervisore', 'fornitore'), (req, res) => {
   (async () => {
     try {
-      const filters = parseReportFilters(req.query);
+      const filters = parseReportFilters(req.query, req.user);
       const ctx = await loadContext();
       const { quotes } = baseFilteredSets(ctx, filters);
       const rows = ctx.users
@@ -422,12 +424,22 @@ router.get('/by-operator', authenticateToken, authorizeRoles('admin', 'superviso
 router.get('/alerts', authenticateToken, authorizeRoles('admin', 'supervisore', 'fornitore'), (req, res) => {
   (async () => {
     try {
-      const quotes = await list('quotes');
-      const daysAgo = (d) => new Date(Date.now() - d * 86400000).toISOString().slice(0, 19).replace('T', ' ');
-      const unassigned = quotes.filter((q) => quoteStatoNorm(q) === 'PRESENTATA' && !practiceHasAssignee(q)).length;
-      const standbyLong = quotes.filter((q) => quoteStatoNorm(q) === 'STANDBY' && String(q.updated_at || '') <= daysAgo(7)).length;
       const ctx = await loadContext();
-      const enriched = ctx.policies.map((p) => enrichPolicy(p, ctx));
+      let quotes = ctx.quotes;
+      if (req.user.role === 'fornitore') {
+        quotes = quotes.filter((q) => Number(q.fornitore_id) === Number(req.user.id));
+      }
+      const daysAgo = (d) => new Date(Date.now() - d * 86400000).toISOString().slice(0, 19).replace('T', ' ');
+      const unassigned =
+        req.user.role === 'fornitore'
+          ? 0
+          : quotes.filter((q) => quoteStatoNorm(q) === 'PRESENTATA' && !practiceHasAssignee(q)).length;
+      const standbyLong = quotes.filter((q) => quoteStatoNorm(q) === 'STANDBY' && String(q.updated_at || '') <= daysAgo(7)).length;
+      let policiesForStale = ctx.policies;
+      if (req.user.role === 'fornitore') {
+        policiesForStale = policiesForStale.filter((p) => Number(p.fornitore_id) === Number(req.user.id));
+      }
+      const enriched = policiesForStale.map((p) => enrichPolicy(p, ctx));
       const stalePolicies = enriched.filter(
         (p) => ['RICHIESTA PRESENTATA', 'IN EMISSIONE'].includes(p.stato) && String(p.updated_at || '') <= daysAgo(5),
       ).length;

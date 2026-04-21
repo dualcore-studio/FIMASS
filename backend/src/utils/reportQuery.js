@@ -9,15 +9,27 @@ function parseOptionalId(value) {
   return Number.isFinite(n) ? n : null;
 }
 
-function parseReportFilters(query) {
+/**
+ * @param {Record<string, unknown>} query
+ * @param {{ id?: number; role?: string } | null | undefined} user
+ */
+function parseReportFilters(query, user) {
   const data_da = query.data_da != null ? String(query.data_da).trim() : '';
   const data_a = query.data_a != null ? String(query.data_a).trim() : '';
+  let struttura_id = parseOptionalId(query.struttura_id);
+  let operatore_id = parseOptionalId(query.operatore_id);
+  let fornitore_id = parseOptionalId(query.fornitore_id);
+  if (user && user.role === 'fornitore') {
+    struttura_id = null;
+    operatore_id = null;
+    fornitore_id = user.id != null ? Number(user.id) : null;
+  }
   return {
     data_da,
     data_a,
-    struttura_id: parseOptionalId(query.struttura_id),
-    operatore_id: parseOptionalId(query.operatore_id),
-    fornitore_id: parseOptionalId(query.fornitore_id),
+    struttura_id,
+    operatore_id,
+    fornitore_id,
   };
 }
 

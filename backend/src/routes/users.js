@@ -75,12 +75,12 @@ router.get('/operators', authenticateToken, authorizeRoles('admin', 'supervisore
 
 /**
  * Operatori e fornitori attivi (possibili incaricati).
- * Usato per filtri elenco, messaggistica e — solo da admin/supervisore — modali di assegnazione lato UI.
+ * Solo admin/supervisore (assegnazione) e struttura (richieste info in messaggistica).
  */
 router.get(
   '/assignees',
   authenticateToken,
-  authorizeRoles('admin', 'supervisore', 'fornitore', 'struttura'),
+  authorizeRoles('admin', 'supervisore', 'struttura'),
   (req, res) => {
   (async () => {
     const assignees = (await list('users', (u) => (u.role === 'operatore' || u.role === 'fornitore') && u.stato === 'attivo'))

@@ -1,4 +1,5 @@
 const { getById, list } = require('../data/store');
+const { userIsAssignedToQuote, userIsAssignedToPolicy } = require('../utils/practiceAssignee');
 
 /**
  * Verifica se l'utente può accedere all'allegato in base a entity_type / entity_id.
@@ -15,8 +16,7 @@ async function userCanAccessAttachment(user, attachment) {
     const quote = await getById('quotes', eid);
     if (!quote) return false;
     if (role === 'struttura') return Number(quote.struttura_id) === Number(user.id);
-    if (role === 'operatore') return Number(quote.operatore_id) === Number(user.id);
-    if (role === 'fornitore') return true;
+    if (role === 'operatore' || role === 'fornitore') return userIsAssignedToQuote(user, quote);
     return false;
   }
 
@@ -24,8 +24,7 @@ async function userCanAccessAttachment(user, attachment) {
     const policy = await getById('policies', eid);
     if (!policy) return false;
     if (role === 'struttura') return Number(policy.struttura_id) === Number(user.id);
-    if (role === 'operatore') return Number(policy.operatore_id) === Number(user.id);
-    if (role === 'fornitore') return true;
+    if (role === 'operatore' || role === 'fornitore') return userIsAssignedToPolicy(user, policy);
     return false;
   }
 
@@ -51,8 +50,15 @@ async function userCanAccessAttachment(user, attachment) {
       return qOk.length > 0 || pOk.length > 0;
     }
     if (role === 'fornitore') {
-      const quotes = await list('quotes', (q) => Number(q.assistito_id) === eid);
-      return quotes.length > 0;
+      const qOk = await list(
+        'quotes',
+        (q) => Number(q.assistito_id) === eid && Number(q.fornitore_id) === Number(user.id),
+      );
+      const pOk = await list(
+        'policies',
+        (p) => Number(p.assistito_id) === eid && Number(p.fornitore_id) === Number(user.id),
+      );
+      return qOk.length > 0 || pOk.length > 0;
     }
     return false;
   }

@@ -322,6 +322,7 @@ router.get('/', authenticateToken, (req, res) => {
       let quotes = ctx.quotes.map((q) => enrichQuote(q, ctx));
       if (req.user.role === 'struttura') quotes = quotes.filter((q) => Number(q.struttura_id) === Number(req.user.id));
       else if (req.user.role === 'operatore') quotes = quotes.filter((q) => Number(q.operatore_id) === Number(req.user.id));
+      else if (req.user.role === 'fornitore') quotes = quotes.filter((q) => Number(q.fornitore_id) === Number(req.user.id));
       if (stato) quotes = quotes.filter((q) => q.stato === stato);
       if (tipo_assicurazione_id) quotes = quotes.filter((q) => Number(q.tipo_assicurazione_id) === Number(tipo_assicurazione_id));
       if (struttura_id) quotes = quotes.filter((q) => Number(q.struttura_id) === Number(struttura_id));
@@ -556,7 +557,9 @@ router.get('/:id/summary-pdf', authenticateToken, (req, res) => {
           return res.status(403).json({ error: 'Accesso non autorizzato' });
         }
       } else if (req.user.role === 'fornitore') {
-        /* stesso accesso analitico del supervisore al PDF riepilogo */
+        if (Number(quote.fornitore_id) !== Number(req.user.id)) {
+          return res.status(403).json({ error: 'Accesso non autorizzato' });
+        }
       } else if (req.user.role !== 'admin' && req.user.role !== 'supervisore') {
         return res.status(403).json({ error: 'Accesso non autorizzato' });
       }
@@ -857,7 +860,9 @@ router.get('/:id', authenticateToken, (req, res) => {
       const quote = enrichQuote(row, ctx);
       if (req.user.role === 'struttura' && Number(quote.struttura_id) !== Number(req.user.id)) return res.status(403).json({ error: 'Accesso non autorizzato' });
       if (req.user.role === 'operatore' && Number(quote.operatore_id) !== Number(req.user.id)) return res.status(403).json({ error: 'Accesso non autorizzato' });
-      /* fornitore: visibilità elenco completa, dettaglio su tutte le pratiche */
+      if (req.user.role === 'fornitore' && Number(quote.fornitore_id) !== Number(req.user.id)) {
+        return res.status(403).json({ error: 'Accesso non autorizzato' });
+      }
       await writeAuditLog({
         userId: req.user.id,
         action: AUDIT_ACTIONS.QUOTE_VIEW,

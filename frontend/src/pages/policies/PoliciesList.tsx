@@ -96,8 +96,10 @@ export default function PoliciesList() {
 
   useEffect(() => {
     api.get<InsuranceType[]>('/settings/insurance-types/active').then(setInsuranceTypes).catch(() => {});
-       if (role === 'admin' || role === 'supervisore' || role === 'fornitore') {
+    if (role === 'admin' || role === 'supervisore' || role === 'fornitore') {
       api.get<StructureOption[]>('/users/structures').then(setStructures).catch(() => {});
+    }
+    if (role === 'admin' || role === 'supervisore') {
       api.get<User[]>('/users/assignees').then(setAssignees).catch(() => {});
     }
   }, [role]);
@@ -177,7 +179,7 @@ export default function PoliciesList() {
   useSyncPageToTotalPages(page, result?.totalPages, setPage);
 
   const rows = result?.data ?? [];
-  const canFilterStruttura = role === 'admin' || role === 'supervisore' || role === 'fornitore';
+  const canFilterStruttura = role === 'admin' || role === 'supervisore';
 
   const tf = 'input-field h-9 w-full min-w-0 py-1.5 text-sm';
 

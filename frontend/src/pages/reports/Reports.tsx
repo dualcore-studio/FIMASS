@@ -20,6 +20,7 @@ import {
   ResponsiveContainer,
 } from 'recharts';
 import { api, ApiError } from '../../utils/api';
+import { useAuth } from '../../context/AuthContext';
 import KPICard from '../../components/common/KPICard';
 import TablePagination from '../../components/common/TablePagination';
 import SortableTh from '../../components/common/SortableTh';
@@ -148,6 +149,8 @@ function buildReportQuery(
 }
 
 export default function Reports() {
+  const { user } = useAuth();
+  const reportsScopeFornitore = user?.role === 'fornitore';
   const [preset, setPreset] = useState<PeriodPreset>('ultimi_30');
   const [customDa, setCustomDa] = useState('');
   const [customA, setCustomA] = useState('');
@@ -182,18 +185,21 @@ export default function Reports() {
   useEffect(() => {
     (async () => {
       try {
-        const [strRes, asRes] = await Promise.all([
-          api.get<{ id: number; denominazione: string }[]>('/users/structures'),
-          api.get<{ id: number; nome: string; cognome: string; role: string }[]>('/users/assignees'),
-        ]);
+        const strRes = await api.get<{ id: number; denominazione: string }[]>('/users/structures');
         setStructures(strRes);
+        if (user?.role === 'fornitore') {
+          setOperators([]);
+          setFornitori([]);
+          return;
+        }
+        const asRes = await api.get<{ id: number; nome: string; cognome: string; role: string }[]>('/users/assignees');
         setOperators(asRes.filter((u) => u.role === 'operatore'));
         setFornitori(asRes.filter((u) => u.role === 'fornitore'));
       } catch {
         /* filtri opzionali */
       }
     })();
-  }, []);
+  }, [user?.role]);
 
   const getEffectiveDates = useCallback(() => {
     if (preset === 'personalizzato') {
@@ -601,62 +607,68 @@ export default function Reports() {
           )}
         </div>
 
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          <div>
-            <label htmlFor="filtro-struttura" className="mb-1 block text-xs font-medium text-gray-500">
-              Struttura
-            </label>
-            <select
-              id="filtro-struttura"
-              value={strutturaId}
-              onChange={(e) => setStrutturaId(e.target.value)}
-              className="input-field w-full"
-            >
-              <option value="">Tutte le strutture</option>
-              {structures.map((s) => (
-                <option key={s.id} value={String(s.id)}>
-                  {s.denominazione || `Struttura #${s.id}`}
-                </option>
-              ))}
-            </select>
+        {reportsScopeFornitore ? (
+          <p className="text-xs text-gray-600">
+            I dati mostrati si riferiscono alle sole pratiche preventivi e polizze assegnate al tuo profilo fornitore.
+          </p>
+        ) : (
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            <div>
+              <label htmlFor="filtro-struttura" className="mb-1 block text-xs font-medium text-gray-500">
+                Struttura
+              </label>
+              <select
+                id="filtro-struttura"
+                value={strutturaId}
+                onChange={(e) => setStrutturaId(e.target.value)}
+                className="input-field w-full"
+              >
+                <option value="">Tutte le strutture</option>
+                {structures.map((s) => (
+                  <option key={s.id} value={String(s.id)}>
+                    {s.denominazione || `Struttura #${s.id}`}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label htmlFor="filtro-operatore" className="mb-1 block text-xs font-medium text-gray-500">
+                Operatore
+              </label>
+              <select
+                id="filtro-operatore"
+                value={operatoreId}
+                onChange={(e) => setOperatoreId(e.target.value)}
+                className="input-field w-full"
+              >
+                <option value="">Tutti gli operatori</option>
+                {operators.map((o) => (
+                  <option key={o.id} value={String(o.id)}>
+                    {`${o.cognome || ''} ${o.nome || ''}`.trim() || `Operatore #${o.id}`}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label htmlFor="filtro-fornitore" className="mb-1 block text-xs font-medium text-gray-500">
+                Fornitore
+              </label>
+              <select
+                id="filtro-fornitore"
+                value={fornitoreId}
+                onChange={(e) => setFornitoreId(e.target.value)}
+                className="input-field w-full"
+              >
+                <option value="">Tutti i fornitori</option>
+                {fornitori.map((o) => (
+                  <option key={o.id} value={String(o.id)}>
+                    {`${o.cognome || ''} ${o.nome || ''}`.trim() || `Fornitore #${o.id}`}
+                  </option>
+                ))}
+              </select>
+            </div>
           </div>
-          <div>
-            <label htmlFor="filtro-operatore" className="mb-1 block text-xs font-medium text-gray-500">
-              Operatore
-            </label>
-            <select
-              id="filtro-operatore"
-              value={operatoreId}
-              onChange={(e) => setOperatoreId(e.target.value)}
-              className="input-field w-full"
-            >
-              <option value="">Tutti gli operatori</option>
-              {operators.map((o) => (
-                <option key={o.id} value={String(o.id)}>
-                  {`${o.cognome || ''} ${o.nome || ''}`.trim() || `Operatore #${o.id}`}
-                </option>
-              ))}
-            </select>
-          </div>
-          <div>
-            <label htmlFor="filtro-fornitore" className="mb-1 block text-xs font-medium text-gray-500">
-              Fornitore
-            </label>
-            <select
-              id="filtro-fornitore"
-              value={fornitoreId}
-              onChange={(e) => setFornitoreId(e.target.value)}
-              className="input-field w-full"
-            >
-              <option value="">Tutti i fornitori</option>
-              {fornitori.map((o) => (
-                <option key={o.id} value={String(o.id)}>
-                  {`${o.cognome || ''} ${o.nome || ''}`.trim() || `Fornitore #${o.id}`}
-                </option>
-              ))}
-            </select>
-          </div>
-        </div>
+        )}
       </div>
 
       {customIncomplete ? (
@@ -676,8 +688,8 @@ export default function Reports() {
         <>
           {!hasAnyData ? (
             <div className="card p-8 text-center text-sm text-gray-600">
-              Nessun dato disponibile per i filtri selezionati. Provare un altro intervallo o rimuovere i filtri su
-              struttura e operatore.
+              Nessun dato disponibile per i filtri selezionati. Provare un altro intervallo
+              {reportsScopeFornitore ? '.' : ' o rivedere struttura e incaricati.'}
             </div>
           ) : null}
 

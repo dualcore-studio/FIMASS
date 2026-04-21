@@ -192,6 +192,8 @@ export default function QuotesList() {
     api.get<InsuranceType[]>('/settings/insurance-types/active').then(setInsuranceTypes).catch(() => {});
     if (role === 'admin' || role === 'supervisore' || role === 'fornitore') {
       api.get<StructureOption[]>('/users/structures').then(setStructures).catch(() => {});
+    }
+    if (role === 'admin' || role === 'supervisore') {
       api.get<User[]>('/users/assignees').then(setAssignees).catch(() => {});
     }
   }, [role]);
@@ -375,7 +377,7 @@ export default function QuotesList() {
     role === 'fornitore' ||
     role === 'struttura' ||
     role === 'operatore';
-  const canFilterStruttura = role === 'admin' || role === 'supervisore' || role === 'fornitore';
+  const canFilterStruttura = role === 'admin' || role === 'supervisore';
 
   const assignTargetRow = assignQuoteId != null ? rows.find((r) => r.id === assignQuoteId) : undefined;
   const assignModalTitle =

@@ -70,6 +70,7 @@ router.get('/', authenticateToken, (req, res) => {
       let policies = ctx.policies.map((p) => enrichPolicy(p, ctx));
       if (req.user.role === 'struttura') policies = policies.filter((p) => Number(p.struttura_id) === Number(req.user.id));
       else if (req.user.role === 'operatore') policies = policies.filter((p) => Number(p.operatore_id) === Number(req.user.id));
+      else if (req.user.role === 'fornitore') policies = policies.filter((p) => Number(p.fornitore_id) === Number(req.user.id));
       if (stato) policies = policies.filter((p) => p.stato === stato);
       if (tipo_assicurazione_id) policies = policies.filter((p) => Number(p.tipo_assicurazione_id) === Number(tipo_assicurazione_id));
       if (struttura_id) policies = policies.filter((p) => Number(p.struttura_id) === Number(struttura_id));
@@ -152,7 +153,9 @@ router.get('/:id', authenticateToken, (req, res) => {
       if (req.user.role === 'operatore' && Number(policy.operatore_id) !== Number(req.user.id)) {
         return res.status(403).json({ error: 'Accesso non autorizzato' });
       }
-      /* fornitore: lettura su tutte le polizze (coordinamento), come elenco */
+      if (req.user.role === 'fornitore' && Number(policy.fornitore_id) !== Number(req.user.id)) {
+        return res.status(403).json({ error: 'Accesso non autorizzato' });
+      }
 
       const history = ctx.policy_status_history
         .filter((h) => Number(h.policy_id) === Number(req.params.id))
