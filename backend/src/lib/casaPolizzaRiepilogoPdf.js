@@ -32,7 +32,9 @@ function buildCasaPolizzaRiepilogoPdfBuffer(pkg) {
     doc.moveDown(1);
 
     doc.fontSize(12).fillColor('#1e3a5f').text(`Pacchetto: ${pkg.nome || '—'}`, { align: 'left' });
-    doc.moveDown(0.9);
+    doc.moveDown(0.5);
+    doc.fontSize(10).fillColor('#334155').text('Garanzie incluse e massimali', { align: 'left' });
+    doc.moveDown(0.7);
 
     const righe = Array.isArray(pkg.righe) ? pkg.righe : [];
     const margin = 50;
@@ -41,7 +43,7 @@ function buildCasaPolizzaRiepilogoPdfBuffer(pkg) {
     const colValW = tableW - colLabelW;
     let y = doc.y;
 
-    doc.fontSize(9).fillColor('#64748b').text('Garanzia / massimale', margin, y, { width: colLabelW });
+    doc.fontSize(9).fillColor('#64748b').text('Voce', margin, y, { width: colLabelW });
     doc.text('Valore', margin + colLabelW, y, { width: colValW, align: 'right' });
     y = doc.y + 4;
     doc.moveTo(margin, y).lineTo(margin + tableW, y).strokeColor('#cbd5e1').lineWidth(0.5).stroke();

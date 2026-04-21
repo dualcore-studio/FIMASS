@@ -25,6 +25,7 @@ function canonicalPacchettoSnapshot(pkg) {
     nome: pkg.nome,
     premio_finale_euro: pkg.premio_finale_euro,
     righe: Array.isArray(pkg.righe) ? pkg.righe.map((r) => ({ label: r.label, valore: r.valore })) : [],
+    da_pacchetto_predefinito: true,
   };
 }
 

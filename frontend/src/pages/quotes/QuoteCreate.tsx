@@ -193,9 +193,6 @@ export default function QuoteCreate() {
     if (s === 0 && !selectedType) {
       errors.push('Seleziona una tipologia assicurativa.');
     }
-    if (s === 0 && selectedType && String(selectedType.codice || '').toLowerCase() === 'casa' && !casaPackage) {
-      errors.push('Seleziona un pacchetto Polizza Casa per proseguire.');
-    }
     if (s === 1) {
       if (!assisted.nome.trim()) errors.push('Il nome è obbligatorio.');
       if (!assisted.cognome.trim()) errors.push('Il cognome è obbligatorio.');
@@ -313,8 +310,13 @@ export default function QuoteCreate() {
       if (cod === 'rc_prof' && indirizzoStudioProfessionale.trim()) {
         mergedDati = { ...mergedDati, indirizzo_studio_professionale: indirizzoStudioProfessionale.trim() };
       }
-      if (cod === 'casa' && casaPackage) {
-        mergedDati = { ...mergedDati, pacchetto_casa: { id: casaPackage.id } };
+      if (cod === 'casa') {
+        const { pacchetto_casa: _pc, casa_preventivo: _cp, ...restDati } = mergedDati;
+        if (casaPackage) {
+          mergedDati = { ...restDati, pacchetto_casa: { id: casaPackage.id } };
+        } else {
+          mergedDati = { ...restDati, casa_preventivo: { personalizzato: true } };
+        }
       }
 
       const body = {
@@ -471,13 +473,19 @@ export default function QuoteCreate() {
         )}
         {step === 0 && selectedType && String(selectedType.codice || '').toLowerCase() === 'casa' && (
           <CasaPolizzaPackageStep
+            committedPackageId={casaPackage?.id ?? null}
             onBackToTipologie={() => {
               setSelectedType(null);
               setCasaPackage(null);
               setStepErrors([]);
             }}
-            onSelectPackageContinue={(pkg) => {
+            onContinueWithPackage={(pkg) => {
               setCasaPackage(pkg);
+              setStepErrors([]);
+              setStep(1);
+            }}
+            onContinuePersonalized={() => {
+              setCasaPackage(null);
               setStepErrors([]);
               setStep(1);
             }}
@@ -1188,7 +1196,10 @@ function Step5Review({
     ([k]) =>
       !String(k).startsWith('_')
       && !skipDatiKeys.has(k)
-      && !(String(selectedType.codice || '').toLowerCase() === 'casa' && k === 'pacchetto_casa'),
+      && !(
+        String(selectedType.codice || '').toLowerCase() === 'casa'
+        && (k === 'pacchetto_casa' || k === 'casa_preventivo')
+      ),
   );
   const codTipo = String(selectedType.codice || '').toLowerCase();
 
@@ -1210,7 +1221,7 @@ function Step5Review({
         {codTipo === 'casa' && casaPackage && (
           <ReviewSection title="Pacchetto Polizza Casa">
             <div className="sm:col-span-2">
-              <ReviewItem label="Pacchetto" value={casaPackage.nome} />
+              <ReviewItem label="Pacchetto predefinito" value={casaPackage.nome} />
             </div>
             {casaPackage.righe.map((r) => (
               <ReviewItem key={r.label} label={r.label} value={r.valore} />
@@ -1218,6 +1229,17 @@ function Step5Review({
             <div className="sm:col-span-2 rounded-lg border border-sky-100 bg-sky-50/80 px-4 py-3">
               <p className="text-xs font-medium uppercase tracking-wide text-sky-800">Premio finale (cliente)</p>
               <p className="text-lg font-bold text-[#0B4EA2]">{formatPremioCasaIt(casaPackage.premio_finale_euro)}</p>
+            </div>
+          </ReviewSection>
+        )}
+
+        {codTipo === 'casa' && !casaPackage && (
+          <ReviewSection title="Polizza Casa">
+            <div className="sm:col-span-2 rounded-lg border border-amber-100 bg-amber-50/60 px-4 py-3 text-sm text-amber-950">
+              <p className="font-medium">Preventivo personalizzato</p>
+              <p className="mt-1 text-amber-900/90">
+                Nessun pacchetto predefinito selezionato. La richiesta verrà gestita come preventivo su misura.
+              </p>
             </div>
           </ReviewSection>
         )}

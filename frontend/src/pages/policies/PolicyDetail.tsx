@@ -220,6 +220,17 @@ function TabDati({ policy }: { policy: Policy }) {
         })
       : null;
 
+  const casaPreventivoRaw =
+    policy.tipo_codice === 'casa' && policy.dati_specifici && typeof policy.dati_specifici === 'object'
+      ? (policy.dati_specifici as Record<string, unknown>).casa_preventivo
+      : null;
+  const isCasaPersonalizzato = Boolean(
+    policy.tipo_codice === 'casa'
+    && casaPreventivoRaw
+    && typeof casaPreventivoRaw === 'object'
+    && (casaPreventivoRaw as { personalizzato?: unknown }).personalizzato === true,
+  );
+
   return (
     <div className="grid gap-6 lg:grid-cols-2">
       <div className="card p-6">
@@ -257,6 +268,18 @@ function TabDati({ policy }: { policy: Policy }) {
           <InfoRow label="Ultimo Aggiornamento" value={formatDateTime(policy.updated_at)} />
         </dl>
       </div>
+
+      {isCasaPersonalizzato && !casaPacchettoObj?.id && (
+        <div className="card border border-amber-100 bg-amber-50/50 p-6 lg:col-span-2">
+          <h3 className="mb-3 text-sm font-semibold uppercase tracking-wider text-amber-900/90">
+            Polizza Casa
+          </h3>
+          <p className="text-sm font-medium text-amber-950">Preventivo personalizzato</p>
+          <p className="mt-2 text-sm text-amber-900/85">
+            Richiesta senza pacchetto predefinito: la pratica è stata avviata come preventivo su misura.
+          </p>
+        </div>
+      )}
 
       {casaPacchettoObj?.id && (
         <div className="card border border-sky-100 bg-sky-50/40 p-6 lg:col-span-2">
@@ -307,7 +330,10 @@ function TabDati({ policy }: { policy: Policy }) {
           <h3 className="mb-4 text-sm font-semibold uppercase tracking-wider text-gray-500">Dati Specifici</h3>
           <dl className="space-y-3 text-sm">
             {Object.entries(policy.dati_specifici)
-              .filter(([key]) => !String(key).startsWith('_') && key !== 'pacchetto_casa')
+              .filter(
+                ([key]) =>
+                  !String(key).startsWith('_') && key !== 'pacchetto_casa' && key !== 'casa_preventivo',
+              )
               .map(([key, value]) => (
                 <InfoRow
                   key={key}

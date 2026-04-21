@@ -1049,19 +1049,22 @@ router.post('/', authenticateToken, authorizeRoles('struttura'), (req, res) => {
     const tipoCodice = String(insType.codice || '').toLowerCase();
     if (tipoCodice === 'casa') {
       const pkg = getCasaPackageById(mergedDati.pacchetto_casa?.id);
-      if (!pkg) {
-        return res.status(400).json({
-          error:
-            'Per la Polizza Casa è obbligatorio selezionare un pacchetto valido prima di inviare la richiesta.',
-        });
+      if (pkg) {
+        const { pacchetto_casa: _dropPc, casa_preventivo: _dropCp, ...rest } = mergedDati;
+        mergedDati = {
+          ...rest,
+          pacchetto_casa: {
+            ...canonicalPacchettoSnapshot(pkg),
+            riepilogo_pdf_version: CASA_RIEPILOGO_PDF_VERSION,
+          },
+        };
+      } else {
+        const { pacchetto_casa: _omitPc, casa_preventivo: _omitCp, ...rest } = mergedDati;
+        mergedDati = {
+          ...rest,
+          casa_preventivo: { personalizzato: true },
+        };
       }
-      mergedDati = {
-        ...mergedDati,
-        pacchetto_casa: {
-          ...canonicalPacchettoSnapshot(pkg),
-          riepilogo_pdf_version: CASA_RIEPILOGO_PDF_VERSION,
-        },
-      };
     }
 
     const result = await insert('quotes', {
