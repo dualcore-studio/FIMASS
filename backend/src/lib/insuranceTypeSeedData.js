@@ -48,7 +48,7 @@ module.exports.INSURANCE_TYPES_FORM_DEFINITIONS = [
     ],
   },
   {
-    nome: 'Casa',
+    nome: 'Polizza Casa',
     codice: 'casa',
     ordine: 2,
     stato: 'attivo',

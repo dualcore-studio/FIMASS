@@ -1,0 +1,62 @@
+[
+  {
+    "id": "start_rct_casa",
+    "nome": "START RCT CASA",
+    "premio_finale_euro": 102,
+    "righe": [
+      { "label": "RCT", "valore": "€ 1.000.000" },
+      { "label": "Danni da acqua a terzi", "valore": "COMPRESI" },
+      { "label": "Incendio contenuto", "valore": "Non incluso" },
+      { "label": "Furto", "valore": "Non incluso" },
+      { "label": "Assistenza casa", "valore": "COMPRESA" }
+    ]
+  },
+  {
+    "id": "base_appartamento",
+    "nome": "BASE APPARTAMENTO",
+    "premio_finale_euro": 222,
+    "righe": [
+      { "label": "RCT", "valore": "€ 1.000.000" },
+      { "label": "Danni da acqua a terzi", "valore": "COMPRESI" },
+      { "label": "Incendio contenuto", "valore": "€ 20.000" },
+      { "label": "Furto", "valore": "€ 5.000" },
+      { "label": "Assistenza casa", "valore": "COMPRESA" }
+    ]
+  },
+  {
+    "id": "medium_villa_schiera",
+    "nome": "MEDIUM VILLA A SCHIERA",
+    "premio_finale_euro": 246,
+    "righe": [
+      { "label": "RCT", "valore": "€ 1.000.000" },
+      { "label": "Danni da acqua a terzi", "valore": "COMPRESI" },
+      { "label": "Incendio contenuto", "valore": "€ 20.000" },
+      { "label": "Furto", "valore": "€ 5.000" },
+      { "label": "Assistenza casa", "valore": "COMPRESA" }
+    ]
+  },
+  {
+    "id": "premium_villa_singola",
+    "nome": "PREMIUM VILLA SINGOLA",
+    "premio_finale_euro": 276,
+    "righe": [
+      { "label": "RCT", "valore": "€ 1.000.000" },
+      { "label": "Danni da acqua a terzi", "valore": "COMPRESI" },
+      { "label": "Incendio contenuto", "valore": "€ 20.000" },
+      { "label": "Furto", "valore": "€ 5.000" },
+      { "label": "Assistenza casa", "valore": "COMPRESA" }
+    ]
+  },
+  {
+    "id": "top_plus",
+    "nome": "TOP PLUS",
+    "premio_finale_euro": 384,
+    "righe": [
+      { "label": "RCT", "valore": "€ 1.000.000" },
+      { "label": "Danni da acqua a terzi", "valore": "COMPRESI" },
+      { "label": "Incendio contenuto", "valore": "€ 40.000" },
+      { "label": "Furto", "valore": "€ 10.000" },
+      { "label": "Assistenza casa", "valore": "COMPRESA" }
+    ]
+  }
+]

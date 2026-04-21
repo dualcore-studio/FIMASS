@@ -25,5 +25,5 @@
     "noFallthroughCasesInSwitch": true,
     "noUncheckedSideEffectImports": true
   },
-  "include": ["src", "../shared/rcAutoGuaranteeFields.json"]
+  "include": ["src", "../shared/rcAutoGuaranteeFields.json", "../shared/casaPolizzaPackages.json"]
 }

@@ -33,6 +33,11 @@ const { getClientIp } = require('../lib/requestMeta');
 const { writeAuditLog, AUDIT_ACTIONS } = require('../lib/auditLog');
 const { sanitizeAttachmentsList } = require('../lib/attachmentPublicJson');
 const { PRIVACY_POLICY_VERSION } = require('../config/privacyConstants');
+const { getCasaPackageById, canonicalPacchettoSnapshot } = require('../lib/casaPolizzaPackages');
+const { buildCasaPolizzaRiepilogoPdfBuffer, CASA_RIEPILOGO_PDF_VERSION } = require('../lib/casaPolizzaRiepilogoPdf');
+
+/** Utenti che possono scaricare il PDF riepilogo pacchetti Casa (allineato ai ruoli con accesso ai preventivi). */
+const CASA_RIEPILOGO_PDF_ROLES = ['struttura', 'admin', 'supervisore', 'operatore', 'fornitore'];
 
 const ALLOWED_QUOTE_STATI = new Set(['PRESENTATA', 'ASSEGNATA', 'IN LAVORAZIONE', 'STANDBY', 'ELABORATA']);
 
@@ -851,6 +856,33 @@ router.post('/:id/rigenera-riepilogo-rc-auto', authenticateToken, (req, res) => 
   })();
 });
 
+/** PDF riepilogo pacchetto Polizza Casa (solo contenuti cliente: garanzie, massimali, premio finale). */
+router.get('/casa-pacchetti/:packageId/riepilogo-pdf', authenticateToken, (req, res, next) => {
+  if (!CASA_RIEPILOGO_PDF_ROLES.includes(req.user.role)) {
+    return res.status(403).json({ error: 'Accesso non autorizzato' });
+  }
+  next();
+}, (req, res) => {
+  (async () => {
+    const packageId = req.params.packageId != null ? String(req.params.packageId).trim() : '';
+    const pkg = getCasaPackageById(packageId);
+    if (!pkg) {
+      return res.status(404).json({ error: 'Pacchetto non trovato' });
+    }
+    const buf = await buildCasaPolizzaRiepilogoPdfBuffer(pkg);
+    const safeBase = String(pkg.nome || 'pacchetto')
+      .replace(/[/\\?%*:|"<>]/g, '-')
+      .replace(/\s+/g, '_')
+      .slice(0, 120);
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `attachment; filename="Riepilogo-${safeBase}.pdf"`);
+    res.send(buf);
+  })().catch((err) => {
+    console.error('Error casa-pacchetti riepilogo PDF:', err);
+    if (!res.headersSent) res.status(500).json({ error: 'Errore nella generazione del PDF' });
+  });
+});
+
 router.get('/:id', authenticateToken, (req, res) => {
   (async () => {
     try {
@@ -1011,6 +1043,27 @@ router.post('/', authenticateToken, authorizeRoles('struttura'), (req, res) => {
     const marketingOn = marketingConsentRaw === true;
     const consentAt = new Date().toISOString().slice(0, 19).replace('T', ' ');
     const consentIp = getClientIp(req);
+
+    let mergedDati =
+      dati_specifici != null && typeof dati_specifici === 'object' ? { ...dati_specifici } : {};
+    const tipoCodice = String(insType.codice || '').toLowerCase();
+    if (tipoCodice === 'casa') {
+      const pkg = getCasaPackageById(mergedDati.pacchetto_casa?.id);
+      if (!pkg) {
+        return res.status(400).json({
+          error:
+            'Per la Polizza Casa è obbligatorio selezionare un pacchetto valido prima di inviare la richiesta.',
+        });
+      }
+      mergedDati = {
+        ...mergedDati,
+        pacchetto_casa: {
+          ...canonicalPacchettoSnapshot(pkg),
+          riepilogo_pdf_version: CASA_RIEPILOGO_PDF_VERSION,
+        },
+      };
+    }
+
     const result = await insert('quotes', {
       numero,
       assistito_id,
@@ -1020,7 +1073,7 @@ router.post('/', authenticateToken, authorizeRoles('struttura'), (req, res) => {
       data_decorrenza,
       note_struttura,
       note_allegati: noteAllegatiVal,
-      dati_specifici: dati_specifici || null,
+      dati_specifici: Object.keys(mergedDati).length ? mergedDati : null,
       has_policy: 0,
       privacy_consent_required: 1,
       privacy_consent_at: consentAt,

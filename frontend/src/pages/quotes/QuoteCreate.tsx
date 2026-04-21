@@ -32,6 +32,8 @@ import {
   mandatoryChecklistMissing,
 } from '../../utils/insuranceTypeConfig';
 import { PRIVACY_POLICY_VERSION } from '../../config/privacyConfig';
+import CasaPolizzaPackageStep from '../../components/quotes/CasaPolizzaPackageStep';
+import { formatPremioCasaIt, type CasaPackageDef } from '../../config/casaPolizzaPackages';
 
 const FRAZIONAMENTO_OPTS = ['Mensile', 'Semestrale', 'Annuale'] as const;
 
@@ -127,6 +129,9 @@ export default function QuoteCreate() {
   // Step validation errors
   const [stepErrors, setStepErrors] = useState<string[]>([]);
 
+  /** Scelto nello step intermedio Polizza Casa (codice `casa`). */
+  const [casaPackage, setCasaPackage] = useState<CasaPackageDef | null>(null);
+
   useEffect(() => {
     setTypesLoading(true);
     setTypesError(null);
@@ -187,6 +192,9 @@ export default function QuoteCreate() {
     const errors: string[] = [];
     if (s === 0 && !selectedType) {
       errors.push('Seleziona una tipologia assicurativa.');
+    }
+    if (s === 0 && selectedType && String(selectedType.codice || '').toLowerCase() === 'casa' && !casaPackage) {
+      errors.push('Seleziona un pacchetto Polizza Casa per proseguire.');
     }
     if (s === 1) {
       if (!assisted.nome.trim()) errors.push('Il nome è obbligatorio.');
@@ -251,6 +259,11 @@ export default function QuoteCreate() {
 
   const goPrev = () => {
     setStepErrors([]);
+    if (step === 0 && selectedType && String(selectedType.codice || '').toLowerCase() === 'casa') {
+      setSelectedType(null);
+      setCasaPackage(null);
+      return;
+    }
     setStep((s) => Math.max(s - 1, 0));
   };
 
@@ -299,6 +312,9 @@ export default function QuoteCreate() {
       }
       if (cod === 'rc_prof' && indirizzoStudioProfessionale.trim()) {
         mergedDati = { ...mergedDati, indirizzo_studio_professionale: indirizzoStudioProfessionale.trim() };
+      }
+      if (cod === 'casa' && casaPackage) {
+        mergedDati = { ...mergedDati, pacchetto_casa: { id: casaPackage.id } };
       }
 
       const body = {
@@ -427,7 +443,7 @@ export default function QuoteCreate() {
 
       {/* Step content */}
       <div className="card p-6">
-        {step === 0 && (
+        {step === 0 && !(selectedType && String(selectedType.codice || '').toLowerCase() === 'casa') && (
           <Step1Types
             types={insuranceTypes}
             loading={typesLoading}
@@ -442,6 +458,26 @@ export default function QuoteCreate() {
               setIndirizzoStudioProfessionale('');
               setNoteStruttura('');
               setNoteAllegati('');
+              setStepErrors([]);
+              setCasaPackage(null);
+              const cod = String(t.codice || '').toLowerCase();
+              if (cod === 'casa') {
+                setStep(0);
+              } else {
+                setStep(1);
+              }
+            }}
+          />
+        )}
+        {step === 0 && selectedType && String(selectedType.codice || '').toLowerCase() === 'casa' && (
+          <CasaPolizzaPackageStep
+            onBackToTipologie={() => {
+              setSelectedType(null);
+              setCasaPackage(null);
+              setStepErrors([]);
+            }}
+            onSelectPackageContinue={(pkg) => {
+              setCasaPackage(pkg);
               setStepErrors([]);
               setStep(1);
             }}
@@ -496,6 +532,7 @@ export default function QuoteCreate() {
             onPrivacyMandatoryChange={setPrivacyMandatory}
             marketingOptIn={marketingOptIn}
             onMarketingOptInChange={setMarketingOptIn}
+            casaPackage={casaPackage}
           />
         )}
       </div>
@@ -505,7 +542,7 @@ export default function QuoteCreate() {
         <button
           type="button"
           onClick={goPrev}
-          disabled={step === 0}
+          disabled={step === 0 && !(selectedType && String(selectedType.codice || '').toLowerCase() === 'casa')}
           className="btn-secondary disabled:opacity-40"
         >
           <ArrowLeft className="h-4 w-4" />
@@ -1118,6 +1155,7 @@ function Step5Review({
   onPrivacyMandatoryChange,
   marketingOptIn,
   onMarketingOptInChange,
+  casaPackage,
 }: {
   selectedType: InsuranceType;
   assisted: AssistedForm;
@@ -1132,6 +1170,7 @@ function Step5Review({
   onPrivacyMandatoryChange: (v: boolean) => void;
   marketingOptIn: boolean;
   onMarketingOptInChange: (v: boolean) => void;
+  casaPackage: CasaPackageDef | null;
 }) {
   const uploadCount = Object.values(attachmentFiles).filter(Boolean).length;
   const cod = String(selectedType.codice || '').toLowerCase();
@@ -1146,8 +1185,12 @@ function Step5Review({
   if (CON_FRAZIONAMENTO_ASSISTITO.has(cod)) skipDatiKeys.add('frazionamento');
   if (cod === 'rc_prof') skipDatiKeys.add('indirizzo_studio_professionale');
   const datiEntries = Object.entries(mergedDati).filter(
-    ([k]) => !String(k).startsWith('_') && !skipDatiKeys.has(k),
+    ([k]) =>
+      !String(k).startsWith('_')
+      && !skipDatiKeys.has(k)
+      && !(String(selectedType.codice || '').toLowerCase() === 'casa' && k === 'pacchetto_casa'),
   );
+  const codTipo = String(selectedType.codice || '').toLowerCase();
 
   return (
     <div>
@@ -1163,6 +1206,21 @@ function Step5Review({
             value={selectedType.descrizione?.trim() ? selectedType.descrizione.trim() : '-'}
           />
         </ReviewSection>
+
+        {codTipo === 'casa' && casaPackage && (
+          <ReviewSection title="Pacchetto Polizza Casa">
+            <div className="sm:col-span-2">
+              <ReviewItem label="Pacchetto" value={casaPackage.nome} />
+            </div>
+            {casaPackage.righe.map((r) => (
+              <ReviewItem key={r.label} label={r.label} value={r.valore} />
+            ))}
+            <div className="sm:col-span-2 rounded-lg border border-sky-100 bg-sky-50/80 px-4 py-3">
+              <p className="text-xs font-medium uppercase tracking-wide text-sky-800">Premio finale (cliente)</p>
+              <p className="text-lg font-bold text-[#0B4EA2]">{formatPremioCasaIt(casaPackage.premio_finale_euro)}</p>
+            </div>
+          </ReviewSection>
+        )}
 
         {/* Assistito */}
         <ReviewSection title="Dati Assistito">
