@@ -279,7 +279,10 @@ function OperatorRcAutoElaborataModal({
 }
 
 export function OperatorElaborataModal({ isOpen, onClose, quoteId, quote, onCompleted, onError }: ElaborataProps) {
-  const isRc = quote != null && String(quote.tipo_codice || '').toLowerCase() === 'rc_auto';
+  const tipoCodiceNorm = String(quote?.tipo_codice ?? '')
+    .trim()
+    .toLowerCase();
+  const isRc = quote != null && tipoCodiceNorm === 'rc_auto';
   if (isRc && quote) {
     return (
       <OperatorRcAutoElaborataModal

@@ -59,7 +59,9 @@ function getRcGaranzieSelezionate(datiSpecifici) {
 }
 
 function isRcAutoTipoCodice(codice) {
-  return String(codice || '').trim().toLowerCase() === 'rc_auto';
+  return String(codice ?? '')
+    .trim()
+    .toLowerCase() === 'rc_auto';
 }
 
 /**

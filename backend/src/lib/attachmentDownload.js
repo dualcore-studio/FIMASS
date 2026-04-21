@@ -165,7 +165,7 @@ async function sendAttachmentDownload(attachment, res, opts = {}) {
   if (token && pathnameSafe) {
     try {
       const { get } = require('@vercel/blob');
-      for (const access of ['private', 'public']) {
+      for (const access of ['public', 'private']) {
         try {
           /* eslint-disable no-await-in-loop */
           const result = await get(pathnameSafe, { access, token });
