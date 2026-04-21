@@ -205,8 +205,39 @@ export interface Policy {
   preventivo_id?: number;
   ricevuta_pagamento_attachment_id?: number | null;
   polizza_emessa_attachment_id?: number | null;
+  data_emissione?: string | null;
+  data_scadenza?: string | null;
+  rinnovata?: number | boolean;
   history?: StatusHistory[];
   attachments?: Attachment[];
+}
+
+export type StatoScadenza = 'Da rinnovare' | 'Scaduta' | 'Rinnovata';
+
+export interface ScadenzaPolicyRow {
+  id: number;
+  struttura_id?: number;
+  incaricato_user_id?: number | null;
+  contraente: string;
+  tipologia: string;
+  compagnia: string | null;
+  struttura: string;
+  operatore: string;
+  data_emissione: string | null;
+  data_scadenza: string | null;
+  rinnovata: boolean;
+  stato_scadenza: StatoScadenza;
+}
+
+export interface ScadenzeApiResponse {
+  month: string;
+  items: ScadenzaPolicyRow[];
+  summary: {
+    totale: number;
+    daRinnovare: number;
+    scadute: number;
+    rinnovate: number;
+  };
 }
 
 export interface StatusHistory {

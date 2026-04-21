@@ -127,6 +127,9 @@ function initializeDatabase() {
       dati_specifici TEXT,
       note_struttura TEXT,
       note_interne TEXT,
+      data_emissione TEXT,
+      data_scadenza TEXT,
+      rinnovata INTEGER NOT NULL DEFAULT 0,
       created_at TEXT DEFAULT (datetime('now')),
       updated_at TEXT DEFAULT (datetime('now'))
     );
@@ -336,6 +339,53 @@ function initializeDatabase() {
   migrateCommissionTypeEnumsIfNeeded();
   migrateFornitoreAndMessagingSqliteIfNeeded();
   migratePrivacyGdprSqliteIfNeeded();
+  migratePoliciesScadenzeSqliteIfNeeded();
+}
+
+/** Colonne scadenze / rinnovo su polizze emesse (SQLite locale / seed). */
+function migratePoliciesScadenzeSqliteIfNeeded() {
+  try {
+    const pcols = db.prepare('PRAGMA table_info(policies)').all();
+    const names = new Set(Array.isArray(pcols) ? pcols.map((c) => c.name) : []);
+    if (!names.has('data_emissione')) {
+      db.exec('ALTER TABLE policies ADD COLUMN data_emissione TEXT');
+    }
+    if (!names.has('data_scadenza')) {
+      db.exec('ALTER TABLE policies ADD COLUMN data_scadenza TEXT');
+    }
+    if (!names.has('rinnovata')) {
+      db.exec('ALTER TABLE policies ADD COLUMN rinnovata INTEGER NOT NULL DEFAULT 0');
+    }
+
+    const {
+      calculatePolicyExpiryDate,
+      toIsoDateTime,
+      parseDbDateTime,
+    } = require('../utils/policyDates');
+    const { normalizePolicyStato } = require('../utils/policyStato');
+    const histStmt = db.prepare(
+      'SELECT stato_nuovo, created_at FROM policy_status_history WHERE policy_id = ? ORDER BY created_at ASC',
+    );
+    const rows = db
+      .prepare(`SELECT id, stato, created_at, updated_at, data_emissione, data_scadenza FROM policies WHERE stato = 'EMESSA'`)
+      .all();
+    const updBoth = db.prepare('UPDATE policies SET data_emissione = ?, data_scadenza = ? WHERE id = ?');
+    const updScad = db.prepare('UPDATE policies SET data_scadenza = ? WHERE id = ?');
+    for (const row of rows) {
+      if (!row.data_emissione) {
+        const hist = histStmt.all(row.id);
+        const firstEmessa = hist.find((h) => normalizePolicyStato(h.stato_nuovo) === 'EMESSA');
+        const em = firstEmessa?.created_at || row.updated_at || row.created_at;
+        const exp = calculatePolicyExpiryDate(parseDbDateTime(em) || new Date());
+        updBoth.run(em, toIsoDateTime(exp), row.id);
+      } else if (!row.data_scadenza) {
+        const exp = calculatePolicyExpiryDate(parseDbDateTime(row.data_emissione));
+        if (exp) updScad.run(toIsoDateTime(exp), row.id);
+      }
+    }
+  } catch (e) {
+    console.error('migratePoliciesScadenzeSqliteIfNeeded:', e);
+  }
 }
 
 /** Colonne consensi privacy su preventivi + tabella audit GDPR (SQLite locale / seed). */

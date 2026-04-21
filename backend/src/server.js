@@ -15,9 +15,11 @@ if (!fs.existsSync(uploadsDir)) {
 }
 
 initializeDatabase();
-bootstrapDatabaseIfEmpty().catch((err) => {
-  console.error('Bootstrap error:', err);
-});
+bootstrapDatabaseIfEmpty()
+  .then(() => require('./migrate/policyExpiryBackfill').migratePoliciesExpiryBackfillIfNeeded())
+  .catch((err) => {
+    console.error('Bootstrap error:', err);
+  });
 
 function createApp() {
   const app = express();
@@ -29,6 +31,7 @@ function createApp() {
   app.use('/api/users', require('./routes/users'));
   app.use('/api/quotes', require('./routes/quotes'));
   app.use('/api/policies', require('./routes/policies'));
+  app.use('/api/scadenze', require('./routes/scadenze'));
   app.use('/api/assisted', require('./routes/assisted'));
   app.use('/api/reports', require('./routes/reports'));
   app.use('/api/logs', require('./routes/logs'));

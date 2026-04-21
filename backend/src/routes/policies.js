@@ -1,5 +1,6 @@
 const express = require('express');
-const { list, getById, insert, upsertById, like, paginate } = require('../data/store');
+const { list, getById, insert, upsertById, like, paginate, nowIso } = require('../data/store');
+const { calculatePolicyExpiryDate, toIsoDateTime, parseDbDateTime } = require('../utils/policyDates');
 const { loadContext, enrichPolicy } = require('../data/views');
 const { sortPoliciesForList } = require('../utils/practiceListSort');
 const { normalizeQuoteStato } = require('../utils/quoteStato');
@@ -138,6 +139,43 @@ router.get('/stats', authenticateToken, (req, res) => {
       res.status(500).json({ error: 'Errore nel recupero statistiche polizze' });
     }
   })();
+});
+
+router.patch('/:id/rinnovata', authenticateToken, authorizeRoles('admin', 'supervisore', 'operatore', 'fornitore', 'struttura'), (req, res) => {
+  (async () => {
+    const { rinnovata } = req.body;
+    if (typeof rinnovata !== 'boolean') {
+      return res.status(400).json({ error: 'Campo rinnovata (boolean) richiesto' });
+    }
+    const policy = await getById('policies', req.params.id);
+    if (!policy) return res.status(404).json({ error: 'Polizza non trovata' });
+    if (normalizePolicyStato(policy.stato) !== 'EMESSA') {
+      return res.status(400).json({ error: 'Solo polizze emesse possono essere segnate come rinnovate' });
+    }
+    if (req.user.role === 'struttura' && Number(policy.struttura_id) !== Number(req.user.id)) {
+      return res.status(403).json({ error: 'Accesso non autorizzato' });
+    }
+    if (req.user.role === 'operatore' || req.user.role === 'fornitore') {
+      if (!userIsAssignedToPolicy(req.user, policy)) {
+        return res.status(403).json({ error: 'Accesso non autorizzato' });
+      }
+    }
+    await upsertById('policies', req.params.id, { rinnovata: rinnovata ? 1 : 0 });
+    await logActivity({
+      utente_id: req.user.id,
+      utente_nome: getUserDisplayName(req.user),
+      ruolo: req.user.role,
+      azione: 'RINNOVA_POLIZZA_FLAG',
+      modulo: 'polizze',
+      riferimento_id: parseInt(req.params.id, 10),
+      riferimento_tipo: 'policy',
+      dettaglio: `Polizza ${policy.numero}: rinnovata=${rinnovata ? 'sì' : 'no'}`,
+    });
+    res.json({ message: 'Flag rinnovata aggiornato', rinnovata: rinnovata ? 1 : 0 });
+  })().catch((err) => {
+    console.error('Error updating rinnovata:', err);
+    res.status(500).json({ error: "Errore nell'aggiornamento del flag rinnovata" });
+  });
 });
 
 router.get('/:id', authenticateToken, (req, res) => {
@@ -296,7 +334,15 @@ router.put('/:id/status', authenticateToken, authorizeRoles('admin', 'supervisor
       }
     }
 
-    await upsertById('policies', req.params.id, { stato });
+    const patch = { stato };
+    if (stato === 'EMESSA' && !policy.data_emissione) {
+      const emission = nowIso();
+      patch.data_emissione = emission;
+      const exp = calculatePolicyExpiryDate(parseDbDateTime(emission));
+      if (exp) patch.data_scadenza = toIsoDateTime(exp);
+    }
+
+    await upsertById('policies', req.params.id, patch);
     await insert('policy_status_history', {
       policy_id: Number(req.params.id),
       stato_precedente: normalizePolicyStato(policy.stato),

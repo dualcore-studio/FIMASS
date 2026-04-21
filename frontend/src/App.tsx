@@ -14,6 +14,7 @@ import QuoteDetail from './pages/quotes/QuoteDetail';
 import PoliciesList from './pages/policies/PoliciesList';
 import PolicyDetail from './pages/policies/PolicyDetail';
 import PolicyRequest from './pages/policies/PolicyRequest';
+import ScadenzePage from './pages/scadenze/ScadenzePage';
 import AssistedList from './pages/assisted/AssistedList';
 import AssistedDetail from './pages/assisted/AssistedDetail';
 import Reports from './pages/reports/Reports';
@@ -73,6 +74,14 @@ function AppRoutes() {
         <Route path="polizze" element={<PoliciesList />} />
         <Route path="polizze/nuova" element={<ProtectedRoute roles={['struttura']}><PolicyRequest /></ProtectedRoute>} />
         <Route path="polizze/:id" element={<PolicyDetail />} />
+        <Route
+          path="scadenze"
+          element={
+            <ProtectedRoute roles={['admin', 'supervisore', 'operatore', 'struttura']}>
+              <ScadenzePage />
+            </ProtectedRoute>
+          }
+        />
 
         <Route path="assistiti" element={<AssistedList />} />
         <Route path="assistiti/:id" element={<AssistedDetail />} />
