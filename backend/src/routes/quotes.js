@@ -762,7 +762,7 @@ router.post(
             let storageKey = req.file.filename;
             if (process.env.BLOB_READ_WRITE_TOKEN) {
               const blob = await put(`attachments/${req.file.filename}`, fs.createReadStream(req.file.path), {
-                access: 'private',
+                access: 'public',
                 addRandomSuffix: false,
                 token: process.env.BLOB_READ_WRITE_TOKEN,
               });
