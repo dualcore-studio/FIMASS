@@ -1,13 +1,17 @@
 const PDFDocument = require('pdfkit');
 
 /** Incrementare quando cambia il layout del PDF (rigenerazione snapshot pratiche). */
-const CASA_RIEPILOGO_PDF_VERSION = 3;
+const CASA_RIEPILOGO_PDF_VERSION = 4;
 
 const PAGE_W = 595.28;
 const PAGE_H = 841.89;
 const MARGIN = 36;
 /** Spazio minimo tra ultimo contenuto e linea del footer. */
 const GAP_BEFORE_FOOTER = 14;
+/** Spazio minimo tra box info e blocco “Per accettazione” (~20–30px equivalente). */
+const SIGN_GAP_AFTER_INFO_MIN = 26;
+/** Spazio tra le due colonne (Data | Firma cliente). */
+const SIGN_COL_GUTTER = 28;
 const COL_GUTTER = 12;
 /** Più respiro tra le due colonne del footer (privacy / intermediazione). */
 const FOOTER_COL_GUTTER = 16;
@@ -39,7 +43,10 @@ const FS_TABLE_HEAD = 8.5;
 const FS_TABLE_ROW = 8.5;
 const FS_INFO = 8;
 const FS_SIGN_TITLE = 9.5;
-const FS_SIGN_LINE = 9;
+/** Etichette Data / Firma leggermente più piccole della riga. */
+const FS_SIGN_LABEL = 8;
+const SIGN_UNDERLINE_WIDTH = 0.65;
+const SIGN_UNDERLINE_COLOR = '#64748b';
 
 /** Moltiplicatori di scale: coerenti tra misura e disegno. */
 const GAP = {
@@ -55,7 +62,6 @@ const GAP = {
   infoPadY: 10,
   afterInfoBox: 18,
   signAfterTitle: 8,
-  signBetweenLines: 7,
 };
 
 const INTRO =
@@ -104,10 +110,30 @@ function measureFooterTotalHeight(doc, innerW, scale) {
 }
 
 /**
- * Altezza stimata del corpo principale (da MARGIN in giù), allineata al rendering.
+ * Altezza del blocco firma: titolo “Per accettazione” + una riga Data | Firma cliente.
+ * Deve coincidere con {@link drawSignBlock} (stesse larghezze colonna e offset linea).
  * @param {PDFKit.PDFDocument} doc
  */
-function measureMainBodyHeight(doc, pkg, innerW, scale) {
+function measureSignBlockHeight(doc, innerW, scale) {
+  const s = scale;
+  const colW = (innerW - SIGN_COL_GUTTER) / 2;
+  doc.font('Helvetica-Bold').fontSize(FS_SIGN_TITLE * s);
+  const hTitle = doc.heightOfString('Per accettazione', { width: innerW });
+  doc.font('Helvetica').fontSize(FS_SIGN_LABEL * s);
+  const hRow = Math.max(
+    doc.heightOfString('Data', { width: colW }),
+    doc.heightOfString('Firma cliente', { width: colW, align: 'right' }),
+  );
+  const lineW = Math.max(0.5, SIGN_UNDERLINE_WIDTH * Math.min(1, s + 0.15));
+  const lineYOffset = 1.25 * s;
+  return hTitle + GAP.signAfterTitle * s + hRow - lineYOffset + lineW / 2;
+}
+
+/**
+ * Altezza del corpo fino al box info incluso (dopo GAP.afterInfoBox), senza blocco firma.
+ * @param {PDFKit.PDFDocument} doc
+ */
+function measureYAfterInfoBox(doc, pkg, innerW, scale) {
   const righe = Array.isArray(pkg.righe) ? pkg.righe : [];
   const s = scale;
   const colLabelW = innerW * 0.53;
@@ -208,15 +234,68 @@ function measureMainBodyHeight(doc, pkg, innerW, scale) {
     GAP.infoPadY * s +
     GAP.afterInfoBox * s;
 
-  doc.font('Helvetica-Bold').fontSize(FS_SIGN_TITLE * s);
-  y += doc.heightOfString('Per accettazione', { width: innerW }) + GAP.signAfterTitle * s;
-  doc.font('Helvetica').fontSize(FS_SIGN_LINE * s);
-  y +=
-    doc.heightOfString('Firma cliente ____________________________', { width: innerW }) +
-    GAP.signBetweenLines * s;
-  y += doc.heightOfString('Data ____________________________', { width: innerW });
-
   return y;
+}
+
+/**
+ * Altezza stimata del corpo principale (da MARGIN in giù): contenuto + blocco firma ancorato sopra il footer.
+ * @param {PDFKit.PDFDocument} doc
+ */
+function measureMainBodyHeight(doc, pkg, innerW, scale, footerSeparatorY) {
+  const s = scale;
+  const yAfterInfo = measureYAfterInfoBox(doc, pkg, innerW, scale);
+  const sigH = measureSignBlockHeight(doc, innerW, scale);
+  /** Allineato al check in computeLayoutScale (margine di sicurezza sotto il contenuto). */
+  const signatureBottomAbs = footerSeparatorY - GAP_BEFORE_FOOTER - 2;
+  const gapFlex = signatureBottomAbs - MARGIN - yAfterInfo - sigH;
+  if (gapFlex < SIGN_GAP_AFTER_INFO_MIN * s) return Number.POSITIVE_INFINITY;
+  return yAfterInfo + gapFlex + sigH;
+}
+
+/**
+ * Titolo “Per accettazione” + riga Data (sinistra) e Firma cliente (destra) con sottolineatura.
+ * @param {PDFKit.PDFDocument} doc
+ */
+function drawSignBlock(doc, marginLeft, yStart, innerW, scale) {
+  const s = scale;
+  const colW = (innerW - SIGN_COL_GUTTER) / 2;
+  const titleFs = FS_SIGN_TITLE * s;
+  const labelFs = FS_SIGN_LABEL * s;
+  const lineW = Math.max(0.5, SIGN_UNDERLINE_WIDTH * Math.min(1, s + 0.15));
+
+  doc.font('Helvetica-Bold').fontSize(titleFs).fillColor('#0f172a');
+  doc.text('Per accettazione', marginLeft, yStart, { width: innerW });
+  let y =
+    yStart +
+    doc.heightOfString('Per accettazione', { width: innerW }) +
+    GAP.signAfterTitle * s;
+
+  doc.font('Helvetica').fontSize(labelFs).fillColor('#475569');
+  const hRow = Math.max(
+    doc.heightOfString('Data', { width: colW }),
+    doc.heightOfString('Firma cliente', { width: colW, align: 'right' }),
+  );
+  const lineY = y + hRow - 1.25 * s;
+
+  doc.text('Data', marginLeft, y, { width: colW, align: 'left' });
+  doc.font('Helvetica').fontSize(labelFs);
+  const wData = doc.widthOfString('Data') + 4 * s;
+  const leftLineFrom = Math.min(marginLeft + wData, marginLeft + colW - 12 * s);
+  doc
+    .moveTo(leftLineFrom, lineY)
+    .lineTo(marginLeft + colW, lineY)
+    .strokeColor(SIGN_UNDERLINE_COLOR)
+    .lineWidth(lineW)
+    .stroke();
+
+  const rightX = marginLeft + colW + SIGN_COL_GUTTER;
+  doc.text('Firma cliente', rightX, y, { width: colW, align: 'right' });
+  doc
+    .moveTo(rightX, lineY)
+    .lineTo(rightX + colW, lineY)
+    .strokeColor(SIGN_UNDERLINE_COLOR)
+    .lineWidth(lineW)
+    .stroke();
 }
 
 /**
@@ -237,10 +316,10 @@ function computeLayoutScale(pkg) {
   while (scale >= minScale - 1e-6) {
     const doc = measureDoc();
     const footerH = measureFooterTotalHeight(doc, innerW, scale);
-    const mainH = measureMainBodyHeight(doc, pkg, innerW, scale);
     const footerSeparatorY = PAGE_H - MARGIN - footerH;
+    const mainH = measureMainBodyHeight(doc, pkg, innerW, scale, footerSeparatorY);
     const maxMainBottom = footerSeparatorY - GAP_BEFORE_FOOTER;
-    if (MARGIN + mainH <= maxMainBottom - 2) {
+    if (Number.isFinite(mainH) && MARGIN + mainH <= maxMainBottom - 2) {
       return { scale, footerSeparatorY };
     }
     scale -= 0.025;
@@ -453,17 +532,23 @@ function buildCasaPolizzaRiepilogoPdfBuffer(pkg) {
     doc.text(INFO_BOX, MARGIN + infoPadX, infoTop + infoPadY, { width: infoTextW, lineGap: 1.15 });
     y = infoTop + infoH + GAP.afterInfoBox * s;
 
-    doc.font('Helvetica-Bold').fontSize(FS_SIGN_TITLE * s).fillColor('#0f172a');
-    doc.text('Per accettazione', MARGIN, y, { width: innerW });
-    y += doc.heightOfString('Per accettazione', { width: innerW }) + GAP.signAfterTitle * s;
+    const sigH = measureSignBlockHeight(doc, innerW, s);
+    const signatureBottomAbs = footerSeparatorY - GAP_BEFORE_FOOTER - 2;
+    const ySignStart = signatureBottomAbs - sigH;
+    const gapFlex = ySignStart - y;
+    if (gapFlex < SIGN_GAP_AFTER_INFO_MIN * s) {
+      console.warn(
+        '[casaPolizzaRiepilogoPdf] Spazio ridotto tra box informazioni e blocco firma (layout al limite).',
+      );
+    }
+    if (ySignStart < y - 0.5) {
+      console.warn(
+        '[casaPolizzaRiepilogoPdf] Layout overflow: contenuto oltre area riservata al blocco firma.',
+      );
+    }
 
-    doc.font('Helvetica').fontSize(FS_SIGN_LINE * s).fillColor('#1e293b');
-    doc.text('Firma cliente ____________________________', MARGIN, y, { width: innerW });
-    y +=
-      doc.heightOfString('Firma cliente ____________________________', { width: innerW }) +
-      GAP.signBetweenLines * s;
-    doc.text('Data ____________________________', MARGIN, y, { width: innerW });
-    y += doc.heightOfString('Data ____________________________', { width: innerW });
+    drawSignBlock(doc, MARGIN, ySignStart, innerW, s);
+    y = signatureBottomAbs;
 
     if (y > footerSeparatorY - GAP_BEFORE_FOOTER) {
       console.warn(
