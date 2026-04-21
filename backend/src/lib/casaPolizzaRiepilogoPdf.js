@@ -32,16 +32,39 @@ function buildCasaPolizzaRiepilogoPdfBuffer(pkg) {
     doc.moveDown(1);
 
     doc.fontSize(12).fillColor('#1e3a5f').text(`Pacchetto: ${pkg.nome || '—'}`, { align: 'left' });
-    doc.moveDown(0.8);
+    doc.moveDown(0.9);
 
     const righe = Array.isArray(pkg.righe) ? pkg.righe : [];
+    const margin = 50;
+    const tableW = doc.page.width - margin * 2;
+    const colLabelW = tableW * 0.48;
+    const colValW = tableW - colLabelW;
+    let y = doc.y;
+
+    doc.fontSize(9).fillColor('#64748b').text('Garanzia / massimale', margin, y, { width: colLabelW });
+    doc.text('Valore', margin + colLabelW, y, { width: colValW, align: 'right' });
+    y = doc.y + 4;
+    doc.moveTo(margin, y).lineTo(margin + tableW, y).strokeColor('#cbd5e1').lineWidth(0.5).stroke();
+    y += 10;
+
     doc.fontSize(10).fillColor('#0f172a');
     righe.forEach((r) => {
       const label = r.label != null ? String(r.label) : '';
       const valore = r.valore != null ? String(r.valore) : '';
-      doc.text(`${label}: ${valore}`);
-      doc.moveDown(0.4);
+      const hLabel = doc.heightOfString(label, { width: colLabelW - 8 });
+      const hVal = doc.heightOfString(valore, { width: colValW - 8, align: 'right' });
+      const rowH = Math.max(hLabel, hVal, 14) + 6;
+      if (y + rowH > doc.page.height - margin - 80) {
+        doc.addPage();
+        y = margin;
+      }
+      doc.text(label, margin + 4, y, { width: colLabelW - 8 });
+      doc.text(valore, margin + colLabelW, y, { width: colValW - 8, align: 'right' });
+      y += rowH;
+      doc.moveTo(margin, y - 2).lineTo(margin + tableW, y - 2).strokeColor('#e2e8f0').lineWidth(0.35).stroke();
     });
+
+    doc.y = y + 8;
 
     doc.moveDown(0.6);
     doc.fillColor('#1e3a5f')
@@ -55,9 +78,9 @@ function buildCasaPolizzaRiepilogoPdfBuffer(pkg) {
     );
 
     doc.moveDown(2);
-    doc.fillColor('#0f172a').fontSize(10).text('Firma cliente _________________________________', { align: 'left' });
+    doc.fillColor('#0f172a').fontSize(10).text('Firma cliente _____________________', { align: 'left' });
     doc.moveDown(0.8);
-    doc.text('Data __________________________________________', { align: 'left' });
+    doc.text('Data _____________________', { align: 'left' });
 
     doc.end();
   });

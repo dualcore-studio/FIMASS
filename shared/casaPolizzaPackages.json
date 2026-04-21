@@ -6,8 +6,8 @@
     "righe": [
       { "label": "RCT", "valore": "€ 1.000.000" },
       { "label": "Danni da acqua a terzi", "valore": "COMPRESI" },
-      { "label": "Incendio contenuto", "valore": "Non incluso" },
-      { "label": "Furto", "valore": "Non incluso" },
+      { "label": "Incendio contenuto", "valore": "non incluso" },
+      { "label": "Furto", "valore": "non incluso" },
       { "label": "Assistenza casa", "valore": "COMPRESA" }
     ]
   },

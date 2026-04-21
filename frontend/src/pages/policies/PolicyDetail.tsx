@@ -12,6 +12,7 @@ import {
   ExternalLink,
 } from 'lucide-react';
 import { api, ApiError } from '../../utils/api';
+import { formatPremioCasaIt } from '../../config/casaPolizzaPackages';
 import type { Policy, Attachment, StatusHistory } from '../../types';
 import { formatDate, formatDateTime, formatFileSize } from '../../utils/helpers';
 import { useAuth } from '../../context/AuthContext';
@@ -205,6 +206,20 @@ export default function PolicyDetail() {
 /* ───────────── Tab: Dati ───────────── */
 
 function TabDati({ policy }: { policy: Policy }) {
+  const casaPacchetto =
+    policy.tipo_codice === 'casa' && policy.dati_specifici && typeof policy.dati_specifici === 'object'
+      ? (policy.dati_specifici as Record<string, unknown>).pacchetto_casa
+      : null;
+  const casaPacchettoObj =
+    casaPacchetto && typeof casaPacchetto === 'object'
+      ? (casaPacchetto as {
+          id?: string;
+          nome?: string;
+          premio_finale_euro?: number;
+          righe?: { label?: string; valore?: string }[];
+        })
+      : null;
+
   return (
     <div className="grid gap-6 lg:grid-cols-2">
       <div className="card p-6">
@@ -243,6 +258,32 @@ function TabDati({ policy }: { policy: Policy }) {
         </dl>
       </div>
 
+      {casaPacchettoObj?.id && (
+        <div className="card border border-sky-100 bg-sky-50/40 p-6 lg:col-span-2">
+          <h3 className="mb-4 text-sm font-semibold uppercase tracking-wider text-sky-900/90">
+            Pacchetto Polizza Casa
+          </h3>
+          <dl className="space-y-2 text-sm">
+            <InfoRow label="Nome pacchetto" value={casaPacchettoObj.nome || '—'} />
+            {typeof casaPacchettoObj.premio_finale_euro === 'number' ? (
+              <InfoRow label="Premio finale" value={formatPremioCasaIt(casaPacchettoObj.premio_finale_euro)} />
+            ) : null}
+            {Array.isArray(casaPacchettoObj.righe) && casaPacchettoObj.righe.length > 0
+              ? casaPacchettoObj.righe.map((r, i) => (
+                  <InfoRow
+                    key={i}
+                    label={r.label || '—'}
+                    value={r.valore != null ? String(r.valore) : '—'}
+                  />
+                ))
+              : null}
+          </dl>
+          <div className="mt-4">
+            <PolicyCasaPacchettoPdfDownload packageId={casaPacchettoObj.id} nomePacchetto={casaPacchettoObj.nome} />
+          </div>
+        </div>
+      )}
+
       <div className="card p-6 lg:col-span-2">
         <h3 className="mb-3 text-sm font-semibold uppercase tracking-wider text-gray-500">Note della Struttura</h3>
         {policy.note_struttura?.trim() ? (
@@ -266,7 +307,7 @@ function TabDati({ policy }: { policy: Policy }) {
           <h3 className="mb-4 text-sm font-semibold uppercase tracking-wider text-gray-500">Dati Specifici</h3>
           <dl className="space-y-3 text-sm">
             {Object.entries(policy.dati_specifici)
-              .filter(([key]) => !String(key).startsWith('_'))
+              .filter(([key]) => !String(key).startsWith('_') && key !== 'pacchetto_casa')
               .map(([key, value]) => (
                 <InfoRow
                   key={key}
@@ -284,6 +325,38 @@ function TabDati({ policy }: { policy: Policy }) {
         </div>
       )}
     </div>
+  );
+}
+
+function PolicyCasaPacchettoPdfDownload({ packageId, nomePacchetto }: { packageId: string; nomePacchetto?: string }) {
+  const [busy, setBusy] = useState(false);
+  const safeName = (nomePacchetto || 'pacchetto')
+    .replace(/[/\\?%*:|"<>]/g, '-')
+    .replace(/\s+/g, '_')
+    .slice(0, 100);
+
+  return (
+    <button
+      type="button"
+      disabled={busy}
+      onClick={async () => {
+        setBusy(true);
+        try {
+          await api.download(
+            `/quotes/casa-pacchetti/${encodeURIComponent(packageId)}/riepilogo-pdf`,
+            `Riepilogo-${safeName}.pdf`,
+          );
+        } catch (e) {
+          window.alert(e instanceof ApiError ? e.message : 'Download non riuscito.');
+        } finally {
+          setBusy(false);
+        }
+      }}
+      className="inline-flex items-center gap-2 rounded-lg border border-sky-200 bg-white px-4 py-2 text-sm font-medium text-sky-900 shadow-sm transition hover:bg-sky-50 disabled:opacity-60"
+    >
+      <Download className={`h-4 w-4 ${busy ? 'animate-pulse' : ''}`} />
+      {busy ? 'Preparazione…' : 'Scarica PDF riepilogo pacchetto (cliente)'}
+    </button>
   );
 }
 
