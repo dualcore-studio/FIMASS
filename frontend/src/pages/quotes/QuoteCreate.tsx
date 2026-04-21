@@ -34,6 +34,7 @@ import {
 import { PRIVACY_POLICY_VERSION } from '../../config/privacyConfig';
 import CasaPolizzaPackageStep from '../../components/quotes/CasaPolizzaPackageStep';
 import { formatPremioCasaIt, type CasaPackageDef } from '../../config/casaPolizzaPackages';
+import { CASA_PREVENTIVO_FIRMATO_TIPO, labelForQuoteAttachmentTipo } from '../../config/casaQuoteFlow';
 
 const FRAZIONAMENTO_OPTS = ['Mensile', 'Semestrale', 'Annuale'] as const;
 
@@ -509,6 +510,8 @@ export default function QuoteCreate() {
         )}
         {step === 2 && selectedType && (
           <Step3DatiSpecifici
+            tipoCodice={String(selectedType.codice || '').toLowerCase()}
+            casaPackage={casaPackage}
             fields={activeCampiForFlow(selectedType.campi_specifici, datiSpecifici)}
             values={datiSpecifici}
             onChange={updateDatiSpecifici}
@@ -516,6 +519,7 @@ export default function QuoteCreate() {
         )}
         {step === 3 && selectedType && (
           <Step4Attachments
+            tipoCodice={String(selectedType.codice || '').toLowerCase()}
             noteStruttura={noteStruttura}
             onNoteStrutturaChange={setNoteStruttura}
             noteAllegati={noteAllegati}
@@ -811,19 +815,53 @@ function FormInput({
 
 /* ───────────── Step 3: Dynamic Fields ───────────── */
 
+function CasaSpecsPackageBox({ pkg }: { pkg: CasaPackageDef }) {
+  return (
+    <div className="mb-6 rounded-lg border border-sky-200/80 bg-sky-50/50 p-4 shadow-sm">
+      <h3 className="text-sm font-semibold text-sky-950">Pacchetto selezionato</h3>
+      <p className="mt-1 text-sm font-medium text-gray-900">{pkg.nome}</p>
+      <ul className="mt-3 space-y-1.5 text-sm text-gray-700">
+        {pkg.righe.map((r) => (
+          <li key={r.label} className="flex flex-wrap gap-x-2 gap-y-0.5">
+            <span className="text-gray-500">{r.label}:</span>
+            <span>{r.valore}</span>
+          </li>
+        ))}
+      </ul>
+      <div className="mt-4 rounded-md border border-sky-100 bg-white/90 px-3 py-2">
+        <p className="text-xs font-medium uppercase tracking-wide text-sky-800">Premio finale</p>
+        <p className="text-lg font-bold text-[#0B4EA2]">{formatPremioCasaIt(pkg.premio_finale_euro)}</p>
+      </div>
+      <p className="mt-3 text-xs text-gray-500">Riepilogo informativo della scelta effettuata nello step precedente.</p>
+    </div>
+  );
+}
+
 function Step3DatiSpecifici({
+  tipoCodice,
+  casaPackage,
   fields,
   values,
   onChange,
 }: {
+  tipoCodice: string;
+  casaPackage: CasaPackageDef | null;
   fields: FormField[];
   values: Record<string, unknown>;
   onChange: (nome: string, value: unknown) => void;
 }) {
+  const showCasaHeader = tipoCodice === 'casa';
+
   if (!fields || fields.length === 0) {
     return (
       <div>
         <h2 className="mb-1 text-lg font-semibold text-gray-900">Dati Specifici</h2>
+        {showCasaHeader && casaPackage && <CasaSpecsPackageBox pkg={casaPackage} />}
+        {showCasaHeader && !casaPackage && (
+          <div className="mb-6 rounded-lg border border-gray-200 bg-gray-50/80 px-4 py-3 text-sm text-gray-700">
+            Richiesta personalizzata senza pacchetto predefinito
+          </div>
+        )}
         <p className="py-8 text-center text-sm text-gray-500">
           Nessun dato specifico richiesto per questa tipologia.
         </p>
@@ -834,6 +872,12 @@ function Step3DatiSpecifici({
   return (
     <div>
       <h2 className="mb-1 text-lg font-semibold text-gray-900">Dati Specifici</h2>
+      {showCasaHeader && casaPackage && <CasaSpecsPackageBox pkg={casaPackage} />}
+      {showCasaHeader && !casaPackage && (
+        <div className="mb-6 rounded-lg border border-gray-200 bg-gray-50/80 px-4 py-3 text-sm text-gray-700">
+          Richiesta personalizzata senza pacchetto predefinito
+        </div>
+      )}
       <p className="mb-6 text-sm text-gray-500">Compila i campi richiesti per la tipologia selezionata.</p>
       <div className="grid gap-4 sm:grid-cols-2">
         {fields.map((field) => {
@@ -1032,6 +1076,7 @@ function DynamicField({
 /* ───────────── Step 4: Attachments ───────────── */
 
 function Step4Attachments({
+  tipoCodice,
   noteStruttura,
   onNoteStrutturaChange,
   noteAllegati,
@@ -1040,6 +1085,7 @@ function Step4Attachments({
   files,
   onChange,
 }: {
+  tipoCodice: string;
   noteStruttura: string;
   onNoteStrutturaChange: (v: string) => void;
   noteAllegati: string;
@@ -1048,6 +1094,9 @@ function Step4Attachments({
   files: Record<string, File | null>;
   onChange: (nome: string, file: File | null) => void;
 }) {
+  const showCasaPreventivoFirmato = tipoCodice === 'casa';
+  const filePreventivoFirmato = files[CASA_PREVENTIVO_FIRMATO_TIPO];
+
   return (
     <div>
       <h2 className="mb-1 text-lg font-semibold text-gray-900">Allegati</h2>
@@ -1084,9 +1133,47 @@ function Step4Attachments({
         </div>
       </div>
 
+      {showCasaPreventivoFirmato && (
+        <div className="mb-6 rounded-lg border border-dashed border-gray-300 bg-gray-50/50 p-4">
+          <h4 className="mb-1 text-sm font-semibold text-gray-800">Documento facoltativo</h4>
+          <div className="flex items-start justify-between gap-4">
+            <div className="flex items-start gap-3">
+              <div
+                className={`mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-xs font-bold ${
+                  filePreventivoFirmato ? 'bg-emerald-100 text-emerald-700' : 'bg-gray-100 text-gray-400'
+                }`}
+              >
+                {filePreventivoFirmato ? <Check className="h-3.5 w-3.5" /> : <Paperclip className="h-3.5 w-3.5" />}
+              </div>
+              <div>
+                <span className="text-sm font-medium text-gray-900">Preventivo firmato</span>
+                <p className="mt-1 text-xs text-gray-600">
+                  Allega il PDF riepilogativo firmato dal cliente, se disponibile. Campo facoltativo.
+                </p>
+                {filePreventivoFirmato && (
+                  <p className="mt-0.5 text-xs text-gray-500">
+                    {filePreventivoFirmato.name} ({(filePreventivoFirmato.size / 1024).toFixed(1)} KB)
+                  </p>
+                )}
+              </div>
+            </div>
+            <label className="btn-secondary cursor-pointer py-1.5 px-3 text-xs">
+              <Paperclip className="h-3.5 w-3.5" />
+              {filePreventivoFirmato ? 'Sostituisci' : 'Scegli file'}
+              <input
+                type="file"
+                accept="application/pdf,.pdf"
+                className="sr-only"
+                onChange={(e) => onChange(CASA_PREVENTIVO_FIRMATO_TIPO, e.target.files?.[0] || null)}
+              />
+            </label>
+          </div>
+        </div>
+      )}
+
       {(!checklist || checklist.length === 0) ? (
         <p className="py-8 text-center text-sm text-gray-500">
-          Nessun allegato richiesto per questa tipologia. Puoi procedere.
+          Nessun allegato obbligatorio richiesto per questa tipologia. Puoi procedere.
         </p>
       ) : (
         <div className="space-y-4">
@@ -1219,15 +1306,15 @@ function Step5Review({
         </ReviewSection>
 
         {codTipo === 'casa' && casaPackage && (
-          <ReviewSection title="Pacchetto Polizza Casa">
+          <ReviewSection title="Pacchetto selezionato">
             <div className="sm:col-span-2">
-              <ReviewItem label="Pacchetto predefinito" value={casaPackage.nome} />
+              <ReviewItem label="Nome pacchetto" value={casaPackage.nome} />
             </div>
             {casaPackage.righe.map((r) => (
               <ReviewItem key={r.label} label={r.label} value={r.valore} />
             ))}
             <div className="sm:col-span-2 rounded-lg border border-sky-100 bg-sky-50/80 px-4 py-3">
-              <p className="text-xs font-medium uppercase tracking-wide text-sky-800">Premio finale (cliente)</p>
+              <p className="text-xs font-medium uppercase tracking-wide text-sky-800">Premio finale</p>
               <p className="text-lg font-bold text-[#0B4EA2]">{formatPremioCasaIt(casaPackage.premio_finale_euro)}</p>
             </div>
           </ReviewSection>
@@ -1300,7 +1387,7 @@ function Step5Review({
               .map(([nome, file]) => (
                 <ReviewItem
                   key={nome}
-                  label={nome}
+                  label={labelForQuoteAttachmentTipo(nome)}
                   value={file!.name}
                 />
               ))

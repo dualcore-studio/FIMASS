@@ -22,6 +22,7 @@ import {
 } from 'lucide-react';
 import { api, ApiError } from '../../utils/api';
 import { formatPremioCasaIt } from '../../config/casaPolizzaPackages';
+import { labelForQuoteAttachmentTipo } from '../../config/casaQuoteFlow';
 import { downloadPreventivoFinale } from '../../utils/downloadPreventivoFinale';
 import { rcPreventivoPdfDownloadFilename } from '../../utils/rcPreventivoPdfFilename';
 import { userCanRegenerateRcRiepilogoPdf } from '../../utils/rcAutoElaboration';
@@ -833,7 +834,7 @@ function TabAllegati({ attachments, uploadFile, setUploadFile, uploadTipo, setUp
                 {attachments.map((a) => (
                   <tr key={a.id}>
                     <td className="px-4 py-3 font-medium text-gray-900">{a.nome_originale}</td>
-                    <td className="px-4 py-3 text-gray-600 capitalize">{a.tipo.replace(/_/g, ' ')}</td>
+                    <td className="px-4 py-3 text-gray-600 capitalize">{labelForQuoteAttachmentTipo(a.tipo)}</td>
                     <td className="px-4 py-3 text-gray-600">{formatFileSize(a.dimensione)}</td>
                     <td className="px-4 py-3 text-gray-600">
                       {displayUserName({ nome: a.caricato_nome, cognome: a.caricato_cognome, denominazione: a.caricato_denominazione })}
