@@ -36,8 +36,8 @@ const { PRIVACY_POLICY_VERSION } = require('../config/privacyConstants');
 const { getCasaPackageById, canonicalPacchettoSnapshot } = require('../lib/casaPolizzaPackages');
 const { buildCasaPolizzaRiepilogoPdfBuffer, CASA_RIEPILOGO_PDF_VERSION } = require('../lib/casaPolizzaRiepilogoPdf');
 
-/** Con pacchetto Casa predefinito, non persistere RCT/garanzie manuali (fonte: pacchetto). */
-const CASA_MANUAL_GUARANTEE_KEYS = ['massimale_rct', 'garanzie_casa'];
+/** Con pacchetto Casa predefinito, non persistere RCT/garanzie manuali (fonte: pacchetto). Allineato al cutoff dopo indirizzo immobile. */
+const CASA_MANUAL_GUARANTEE_KEYS = ['massimale_rct', 'garanzie_casa', '_info_garanzie_casa'];
 
 /** Utenti che possono scaricare il PDF riepilogo pacchetti Casa (allineato ai ruoli con accesso ai preventivi). */
 const CASA_RIEPILOGO_PDF_ROLES = ['struttura', 'admin', 'supervisore', 'operatore', 'fornitore'];

@@ -36,9 +36,9 @@ import CasaPolizzaPackageStep from '../../components/quotes/CasaPolizzaPackageSt
 import { formatPremioCasaIt, type CasaPackageDef } from '../../config/casaPolizzaPackages';
 import {
   CASA_PREVENTIVO_FIRMATO_TIPO,
-  filterCasaCampiHideManualGuarantees,
+  filterCasaCampiForPackageSelected,
   labelForQuoteAttachmentTipo,
-  omitCasaManualGuaranteeFields,
+  omitCasaDatiAfterIndirizzoImmobile,
 } from '../../config/casaQuoteFlow';
 
 const FRAZIONAMENTO_OPTS = ['Mensile', 'Semestrale', 'Annuale'] as const;
@@ -99,7 +99,7 @@ const emptyAssisted: AssistedForm = {
   citta: '',
 };
 
-/** Campi specifici attivi per lo step Dati Specifici (Casa + pacchetto: senza garanzie manuali). */
+/** Campi specifici per lo step Dati Specifici: con pacchetto Casa solo fino a indirizzo immobile. */
 function activeCampiSpecificiQuoteStep(
   tipo: InsuranceType | null,
   datiSpecifici: Record<string, unknown>,
@@ -107,8 +107,10 @@ function activeCampiSpecificiQuoteStep(
 ): FormField[] {
   if (!tipo) return [];
   const base = activeCampiForFlow(tipo.campi_specifici, datiSpecifici);
-  const cod = String(tipo.codice || '').toLowerCase();
-  return filterCasaCampiHideManualGuarantees(base, cod === 'casa' && casaPackage != null);
+  const hasSelectedCasaPackage =
+    String(tipo.codice || '').toLowerCase() === 'casa' && casaPackage != null;
+  if (!hasSelectedCasaPackage) return base;
+  return filterCasaCampiForPackageSelected(base);
 }
 
 export default function QuoteCreate() {
@@ -147,8 +149,10 @@ export default function QuoteCreate() {
   // Step validation errors
   const [stepErrors, setStepErrors] = useState<string[]>([]);
 
-  /** Scelto nello step intermedio Polizza Casa (codice `casa`). */
+  /** Scelto nello step iniziale Polizza Casa (codice `casa`): abilita il flusso ridotto nei dati specifici. */
   const [casaPackage, setCasaPackage] = useState<CasaPackageDef | null>(null);
+  const hasSelectedCasaPackage =
+    Boolean(selectedType && String(selectedType.codice || '').toLowerCase() === 'casa' && casaPackage);
 
   useEffect(() => {
     setTypesLoading(true);
@@ -330,7 +334,7 @@ export default function QuoteCreate() {
       }
       if (cod === 'casa') {
         if (casaPackage) {
-          mergedDati = omitCasaManualGuaranteeFields(mergedDati);
+          mergedDati = omitCasaDatiAfterIndirizzoImmobile(mergedDati, selectedType.campi_specifici);
         }
         const { pacchetto_casa: _pc, casa_preventivo: _cp, ...restDati } = mergedDati;
         if (casaPackage) {
@@ -502,7 +506,11 @@ export default function QuoteCreate() {
             }}
             onContinueWithPackage={(pkg) => {
               setCasaPackage(pkg);
-              setDatiSpecifici((prev) => omitCasaManualGuaranteeFields(prev));
+              setDatiSpecifici((prev) =>
+                selectedType
+                  ? omitCasaDatiAfterIndirizzoImmobile(prev, selectedType.campi_specifici)
+                  : prev,
+              );
               setStepErrors([]);
               setStep(1);
             }}
@@ -532,6 +540,7 @@ export default function QuoteCreate() {
         {step === 2 && selectedType && (
           <Step3DatiSpecifici
             tipoCodice={String(selectedType.codice || '').toLowerCase()}
+            hasSelectedCasaPackage={hasSelectedCasaPackage}
             casaPackage={casaPackage}
             fields={activeCampiSpecificiQuoteStep(selectedType, datiSpecifici, casaPackage)}
             values={datiSpecifici}
@@ -860,12 +869,14 @@ function CasaSpecsPackageBox({ pkg }: { pkg: CasaPackageDef }) {
 
 function Step3DatiSpecifici({
   tipoCodice,
+  hasSelectedCasaPackage,
   casaPackage,
   fields,
   values,
   onChange,
 }: {
   tipoCodice: string;
+  hasSelectedCasaPackage: boolean;
   casaPackage: CasaPackageDef | null;
   fields: FormField[];
   values: Record<string, unknown>;
@@ -877,8 +888,8 @@ function Step3DatiSpecifici({
     return (
       <div>
         <h2 className="mb-1 text-lg font-semibold text-gray-900">Dati Specifici</h2>
-        {showCasaHeader && casaPackage && <CasaSpecsPackageBox pkg={casaPackage} />}
-        {showCasaHeader && !casaPackage && (
+        {showCasaHeader && hasSelectedCasaPackage && casaPackage && <CasaSpecsPackageBox pkg={casaPackage} />}
+        {showCasaHeader && !hasSelectedCasaPackage && (
           <div className="mb-6 rounded-lg border border-gray-200 bg-gray-50/80 px-4 py-3 text-sm text-gray-700">
             Richiesta personalizzata senza pacchetto predefinito
           </div>
@@ -893,17 +904,17 @@ function Step3DatiSpecifici({
   return (
     <div>
       <h2 className="mb-1 text-lg font-semibold text-gray-900">Dati Specifici</h2>
-      {showCasaHeader && casaPackage && <CasaSpecsPackageBox pkg={casaPackage} />}
-      {showCasaHeader && !casaPackage && (
+      {showCasaHeader && hasSelectedCasaPackage && casaPackage && <CasaSpecsPackageBox pkg={casaPackage} />}
+      {showCasaHeader && !hasSelectedCasaPackage && (
         <div className="mb-6 rounded-lg border border-gray-200 bg-gray-50/80 px-4 py-3 text-sm text-gray-700">
           Richiesta personalizzata senza pacchetto predefinito
         </div>
       )}
-        <p className="mb-6 text-sm text-gray-500">
-          {showCasaHeader && casaPackage
-            ? "Compila i dati dell'immobile. Le garanzie e il massimale RCT sono quelli indicati nel pacchetto selezionato sopra."
-            : 'Compila i campi richiesti per la tipologia selezionata.'}
-        </p>
+      <p className="mb-6 text-sm text-gray-500">
+        {showCasaHeader && hasSelectedCasaPackage
+          ? "Compila i dati dell'immobile fino all'indirizzo. Coperture e massimali sono quelli del pacchetto: non compariranno opzioni manuali aggiuntive in questa schermata."
+          : 'Compila i campi richiesti per la tipologia selezionata.'}
+      </p>
       <div className="grid gap-4 sm:grid-cols-2">
         {fields.map((field) => {
           const fullRow =
@@ -1302,7 +1313,7 @@ function Step5Review({
     mergedDati.indirizzo_studio_professionale = indirizzoStudioProfessionale.trim();
   }
   if (cod === 'casa' && casaPackage) {
-    mergedDati = omitCasaManualGuaranteeFields(mergedDati);
+    mergedDati = omitCasaDatiAfterIndirizzoImmobile(mergedDati, selectedType.campi_specifici);
   }
   const skipDatiKeys = new Set<string>();
   if (CON_FRAZIONAMENTO_ASSISTITO.has(cod)) skipDatiKeys.add('frazionamento');
