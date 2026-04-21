@@ -36,6 +36,9 @@ const { PRIVACY_POLICY_VERSION } = require('../config/privacyConstants');
 const { getCasaPackageById, canonicalPacchettoSnapshot } = require('../lib/casaPolizzaPackages');
 const { buildCasaPolizzaRiepilogoPdfBuffer, CASA_RIEPILOGO_PDF_VERSION } = require('../lib/casaPolizzaRiepilogoPdf');
 
+/** Con pacchetto Casa predefinito, non persistere RCT/garanzie manuali (fonte: pacchetto). */
+const CASA_MANUAL_GUARANTEE_KEYS = ['massimale_rct', 'garanzie_casa'];
+
 /** Utenti che possono scaricare il PDF riepilogo pacchetti Casa (allineato ai ruoli con accesso ai preventivi). */
 const CASA_RIEPILOGO_PDF_ROLES = ['struttura', 'admin', 'supervisore', 'operatore', 'fornitore'];
 
@@ -1051,6 +1054,9 @@ router.post('/', authenticateToken, authorizeRoles('struttura'), (req, res) => {
       const pkg = getCasaPackageById(mergedDati.pacchetto_casa?.id);
       if (pkg) {
         const { pacchetto_casa: _dropPc, casa_preventivo: _dropCp, ...rest } = mergedDati;
+        for (const k of CASA_MANUAL_GUARANTEE_KEYS) {
+          if (Object.prototype.hasOwnProperty.call(rest, k)) delete rest[k];
+        }
         mergedDati = {
           ...rest,
           pacchetto_casa: {

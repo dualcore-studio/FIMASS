@@ -34,7 +34,12 @@ import {
 import { PRIVACY_POLICY_VERSION } from '../../config/privacyConfig';
 import CasaPolizzaPackageStep from '../../components/quotes/CasaPolizzaPackageStep';
 import { formatPremioCasaIt, type CasaPackageDef } from '../../config/casaPolizzaPackages';
-import { CASA_PREVENTIVO_FIRMATO_TIPO, labelForQuoteAttachmentTipo } from '../../config/casaQuoteFlow';
+import {
+  CASA_PREVENTIVO_FIRMATO_TIPO,
+  filterCasaCampiHideManualGuarantees,
+  labelForQuoteAttachmentTipo,
+  omitCasaManualGuaranteeFields,
+} from '../../config/casaQuoteFlow';
 
 const FRAZIONAMENTO_OPTS = ['Mensile', 'Semestrale', 'Annuale'] as const;
 
@@ -93,6 +98,18 @@ const emptyAssisted: AssistedForm = {
   cap: '',
   citta: '',
 };
+
+/** Campi specifici attivi per lo step Dati Specifici (Casa + pacchetto: senza garanzie manuali). */
+function activeCampiSpecificiQuoteStep(
+  tipo: InsuranceType | null,
+  datiSpecifici: Record<string, unknown>,
+  casaPackage: CasaPackageDef | null,
+): FormField[] {
+  if (!tipo) return [];
+  const base = activeCampiForFlow(tipo.campi_specifici, datiSpecifici);
+  const cod = String(tipo.codice || '').toLowerCase();
+  return filterCasaCampiHideManualGuarantees(base, cod === 'casa' && casaPackage != null);
+}
 
 export default function QuoteCreate() {
   const navigate = useNavigate();
@@ -214,7 +231,7 @@ export default function QuoteCreate() {
       }
     }
     if (s === 2 && selectedType) {
-      for (const field of activeCampiForFlow(selectedType.campi_specifici, datiSpecifici)) {
+      for (const field of activeCampiSpecificiQuoteStep(selectedType, datiSpecifici, casaPackage)) {
         if (field.tipo === 'heading' || field.tipo === 'info') continue;
         if (field.obbligatorio) {
           const val = datiSpecifici[field.nome];
@@ -312,6 +329,9 @@ export default function QuoteCreate() {
         mergedDati = { ...mergedDati, indirizzo_studio_professionale: indirizzoStudioProfessionale.trim() };
       }
       if (cod === 'casa') {
+        if (casaPackage) {
+          mergedDati = omitCasaManualGuaranteeFields(mergedDati);
+        }
         const { pacchetto_casa: _pc, casa_preventivo: _cp, ...restDati } = mergedDati;
         if (casaPackage) {
           mergedDati = { ...restDati, pacchetto_casa: { id: casaPackage.id } };
@@ -482,6 +502,7 @@ export default function QuoteCreate() {
             }}
             onContinueWithPackage={(pkg) => {
               setCasaPackage(pkg);
+              setDatiSpecifici((prev) => omitCasaManualGuaranteeFields(prev));
               setStepErrors([]);
               setStep(1);
             }}
@@ -512,7 +533,7 @@ export default function QuoteCreate() {
           <Step3DatiSpecifici
             tipoCodice={String(selectedType.codice || '').toLowerCase()}
             casaPackage={casaPackage}
-            fields={activeCampiForFlow(selectedType.campi_specifici, datiSpecifici)}
+            fields={activeCampiSpecificiQuoteStep(selectedType, datiSpecifici, casaPackage)}
             values={datiSpecifici}
             onChange={updateDatiSpecifici}
           />
@@ -878,7 +899,11 @@ function Step3DatiSpecifici({
           Richiesta personalizzata senza pacchetto predefinito
         </div>
       )}
-      <p className="mb-6 text-sm text-gray-500">Compila i campi richiesti per la tipologia selezionata.</p>
+        <p className="mb-6 text-sm text-gray-500">
+          {showCasaHeader && casaPackage
+            ? "Compila i dati dell'immobile. Le garanzie e il massimale RCT sono quelli indicati nel pacchetto selezionato sopra."
+            : 'Compila i campi richiesti per la tipologia selezionata.'}
+        </p>
       <div className="grid gap-4 sm:grid-cols-2">
         {fields.map((field) => {
           const fullRow =
@@ -1269,12 +1294,15 @@ function Step5Review({
 }) {
   const uploadCount = Object.values(attachmentFiles).filter(Boolean).length;
   const cod = String(selectedType.codice || '').toLowerCase();
-  const mergedDati: Record<string, unknown> = { ...datiSpecifici };
+  let mergedDati: Record<string, unknown> = { ...datiSpecifici };
   if (CON_FRAZIONAMENTO_ASSISTITO.has(cod) && frazionamento.trim()) {
     mergedDati.frazionamento = frazionamento.trim();
   }
   if (cod === 'rc_prof' && indirizzoStudioProfessionale.trim()) {
     mergedDati.indirizzo_studio_professionale = indirizzoStudioProfessionale.trim();
+  }
+  if (cod === 'casa' && casaPackage) {
+    mergedDati = omitCasaManualGuaranteeFields(mergedDati);
   }
   const skipDatiKeys = new Set<string>();
   if (CON_FRAZIONAMENTO_ASSISTITO.has(cod)) skipDatiKeys.add('frazionamento');
