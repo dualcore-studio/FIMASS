@@ -1,13 +1,18 @@
 const PDFDocument = require('pdfkit');
 
 /** Incrementare quando cambia il layout del PDF (rigenerazione snapshot pratiche). */
-const CASA_RIEPILOGO_PDF_VERSION = 4;
+const CASA_RIEPILOGO_PDF_VERSION = 5;
 
 const PAGE_W = 595.28;
 const PAGE_H = 841.89;
 const MARGIN = 36;
-/** Spazio minimo tra ultimo contenuto e linea del footer. */
-const GAP_BEFORE_FOOTER = 14;
+/** Spazio minimo tra ultimo contenuto (sottolineatura firma) e linea del footer. */
+const GAP_BEFORE_FOOTER = 22;
+/**
+ * Margine inferiore dello “slot” firma: la base del blocco non può scendere sotto
+ * footerSeparatorY - questo valore (aria visibile sopra la linea del footer).
+ */
+const SIGN_SLOT_BOTTOM_OFFSET = GAP_BEFORE_FOOTER + 4;
 /** Spazio minimo tra box info e blocco “Per accettazione” (~20–30px equivalente). */
 const SIGN_GAP_AFTER_INFO_MIN = 26;
 /** Spazio tra le due colonne (Data | Firma cliente). */
@@ -61,7 +66,8 @@ const GAP = {
   infoPadX: 11,
   infoPadY: 10,
   afterInfoBox: 18,
-  signAfterTitle: 8,
+  /** Tra “Per accettazione” e la riga Data / Firma cliente. */
+  signAfterTitle: 14,
 };
 
 const INTRO =
@@ -238,18 +244,21 @@ function measureYAfterInfoBox(doc, pkg, innerW, scale) {
 }
 
 /**
- * Altezza stimata del corpo principale (da MARGIN in giù): contenuto + blocco firma ancorato sopra il footer.
+ * Altezza stimata del corpo principale (da MARGIN in giù): contenuto + blocco firma centrato nello slot sopra il footer.
  * @param {PDFKit.PDFDocument} doc
  */
 function measureMainBodyHeight(doc, pkg, innerW, scale, footerSeparatorY) {
   const s = scale;
   const yAfterInfo = measureYAfterInfoBox(doc, pkg, innerW, scale);
   const sigH = measureSignBlockHeight(doc, innerW, scale);
-  /** Allineato al check in computeLayoutScale (margine di sicurezza sotto il contenuto). */
-  const signatureBottomAbs = footerSeparatorY - GAP_BEFORE_FOOTER - 2;
-  const gapFlex = signatureBottomAbs - MARGIN - yAfterInfo - sigH;
-  if (gapFlex < SIGN_GAP_AFTER_INFO_MIN * s) return Number.POSITIVE_INFINITY;
-  return yAfterInfo + gapFlex + sigH;
+  const slotTop = MARGIN + yAfterInfo;
+  const slotBottom = footerSeparatorY - SIGN_SLOT_BOTTOM_OFFSET;
+  const slotH = slotBottom - slotTop;
+  /** Con centratura verticale, sopra e sotto il blocco ciascuno (slotH - sigH) / 2. */
+  const minSlotH = sigH + 2 * SIGN_GAP_AFTER_INFO_MIN * s;
+  if (slotH < minSlotH) return Number.POSITIVE_INFINITY;
+  const sigBottomAbs = slotTop + (slotH + sigH) / 2;
+  return sigBottomAbs - MARGIN;
 }
 
 /**
@@ -533,22 +542,26 @@ function buildCasaPolizzaRiepilogoPdfBuffer(pkg) {
     y = infoTop + infoH + GAP.afterInfoBox * s;
 
     const sigH = measureSignBlockHeight(doc, innerW, s);
-    const signatureBottomAbs = footerSeparatorY - GAP_BEFORE_FOOTER - 2;
-    const ySignStart = signatureBottomAbs - sigH;
-    const gapFlex = ySignStart - y;
-    if (gapFlex < SIGN_GAP_AFTER_INFO_MIN * s) {
+    const slotTop = y;
+    const slotBottom = footerSeparatorY - SIGN_SLOT_BOTTOM_OFFSET;
+    const slotH = slotBottom - slotTop;
+    const minSlotH = sigH + 2 * SIGN_GAP_AFTER_INFO_MIN * s;
+    const ySignStart = slotTop + Math.max(0, (slotH - sigH) / 2);
+    const sigBottomAbs = ySignStart + sigH;
+
+    if (slotH < minSlotH) {
       console.warn(
         '[casaPolizzaRiepilogoPdf] Spazio ridotto tra box informazioni e blocco firma (layout al limite).',
       );
     }
-    if (ySignStart < y - 0.5) {
+    if (ySignStart < slotTop - 0.5 || sigBottomAbs > slotBottom + 0.5) {
       console.warn(
         '[casaPolizzaRiepilogoPdf] Layout overflow: contenuto oltre area riservata al blocco firma.',
       );
     }
 
     drawSignBlock(doc, MARGIN, ySignStart, innerW, s);
-    y = signatureBottomAbs;
+    y = sigBottomAbs;
 
     if (y > footerSeparatorY - GAP_BEFORE_FOOTER) {
       console.warn(
