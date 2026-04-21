@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import { useNavigate, useLocation, Link } from 'react-router-dom';
 import {
   Search,
   Pencil,
@@ -38,6 +38,7 @@ import SortableTh from '../../components/common/SortableTh';
 
 export default function UsersList() {
   const navigate = useNavigate();
+  const location = useLocation();
   const { user: currentUser } = useAuth();
 
   const [page, setPage] = useState(1);
@@ -49,6 +50,7 @@ export default function UsersList() {
   const [loading, setLoading] = useState(true);
   const [listError, setListError] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
+  const [saveSuccess, setSaveSuccess] = useState<string | null>(null);
 
   const [resetUserId, setResetUserId] = useState<number | null>(null);
   const [resetPassword, setResetPassword] = useState('');
@@ -135,6 +137,15 @@ export default function UsersList() {
     fetchUsers();
   }, [fetchUsers]);
 
+  useEffect(() => {
+    const msg = (location.state as { userUpdated?: string } | null)?.userUpdated;
+    if (!msg) return;
+    setSaveSuccess(msg);
+    setRoleCountsBump((n) => n + 1);
+    void fetchUsers();
+    navigate(`${location.pathname}${location.search}`, { replace: true, state: {} });
+  }, [location.state, location.pathname, location.search, fetchUsers, navigate]);
+
   const totalPages = result?.totalPages ?? 1;
   useSyncPageToTotalPages(page, result?.totalPages, setPage);
 
@@ -220,6 +231,12 @@ export default function UsersList() {
           Nuovo Utente
         </button>
       </header>
+
+      {saveSuccess ? (
+        <div className="rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-900">
+          {saveSuccess}
+        </div>
+      ) : null}
 
       {actionError ? (
         <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">

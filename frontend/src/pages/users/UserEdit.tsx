@@ -3,6 +3,7 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { ArrowLeft } from 'lucide-react';
 import { api, ApiError } from '../../utils/api';
 import { normalizeCommissionStructureType } from '../../utils/helpers';
+import { useAuth } from '../../context/AuthContext';
 import type { CommissionStructureType, InsuranceType, User } from '../../types';
 
 type UserRole = User['role'];
@@ -27,6 +28,7 @@ function tipologieAreAll(
 export default function UserEdit() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const { user: sessionUser, refreshUser } = useAuth();
   const userId = id ? Number(id) : NaN;
 
   const [loading, setLoading] = useState(true);
@@ -136,7 +138,9 @@ export default function UserEdit() {
       if (!denominazione.trim()) fe.denominazione = 'Obbligatorio.';
       if (!email.trim()) fe.email = 'Obbligatorio.';
       if (!telefono.trim()) fe.telefono = 'Obbligatorio.';
-      if (!username.trim()) fe.username = 'Obbligatorio.';
+      if (!username.trim()) {
+        fe.username = 'Inserisci uno username valido (non può essere vuoto o solo spazi).';
+      }
       if (!tutteTipologie && tipologieSelezionate.size === 0) {
         fe.tipologie = 'Seleziona almeno una tipologia oppure "Tutte le tipologie".';
       }
@@ -144,12 +148,16 @@ export default function UserEdit() {
       if (!nome.trim()) fe.nome = 'Obbligatorio.';
       if (!cognome.trim()) fe.cognome = 'Obbligatorio.';
       if (!email.trim()) fe.email = 'Obbligatorio.';
-      if (!username.trim()) fe.username = 'Obbligatorio.';
+      if (!username.trim()) {
+        fe.username = 'Inserisci uno username valido (non può essere vuoto o solo spazi).';
+      }
     } else {
       if (!nome.trim()) fe.nome = 'Obbligatorio.';
       if (!cognome.trim()) fe.cognome = 'Obbligatorio.';
       if (!email.trim()) fe.email = 'Obbligatorio.';
-      if (!username.trim()) fe.username = 'Obbligatorio.';
+      if (!username.trim()) {
+        fe.username = 'Inserisci uno username valido (non può essere vuoto o solo spazi).';
+      }
     }
 
     setFieldErrors(fe);
@@ -204,9 +212,17 @@ export default function UserEdit() {
     setError(null);
     try {
       await api.put(`/users/${userId}`, body);
-      navigate('/utenti');
+      if (sessionUser?.id === userId) {
+        await refreshUser();
+      }
+      navigate('/utenti', { state: { userUpdated: 'Utente aggiornato con successo.' } });
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'Aggiornamento non riuscito.');
+      if (err instanceof ApiError && err.status === 409) {
+        setFieldErrors((prev) => ({ ...prev, username: 'Questo username è già in uso.' }));
+        setError(err.message);
+      } else {
+        setError(err instanceof ApiError ? err.message : 'Aggiornamento non riuscito.');
+      }
     } finally {
       setSubmitting(false);
     }

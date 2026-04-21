@@ -186,11 +186,29 @@ router.post('/', authenticateToken, authorizeRoles('admin'), (req, res) => {
 
 router.put('/:id', authenticateToken, authorizeRoles('admin'), (req, res) => {
   (async () => {
-    const { nome, cognome, denominazione, email, telefono, stato, enabled_types, role, commission_type } = req.body;
+    const { nome, cognome, denominazione, email, telefono, stato, enabled_types, role, commission_type, username } =
+      req.body;
     const userId = req.params.id;
 
     const user = await getById('users', userId);
     if (!user) return res.status(404).json({ error: 'Utente non trovato' });
+
+    let nextUsername = user.username;
+    if (username !== undefined && username !== null) {
+      nextUsername = String(username).trim();
+      if (!nextUsername) {
+        return res.status(400).json({ error: 'Lo username non può essere vuoto.' });
+      }
+    }
+    if (nextUsername !== user.username) {
+      const taken = await findOne(
+        'users',
+        (u) => u.username === nextUsername && Number(u.id) !== Number(userId),
+      );
+      if (taken) {
+        return res.status(409).json({ error: 'Username già in uso' });
+      }
+    }
     const nextRole = role !== undefined && role !== null && role !== '' ? role : user.role;
     let nextCommissionType = null;
     if (nextRole === 'struttura') {
@@ -213,6 +231,7 @@ router.put('/:id', authenticateToken, authorizeRoles('admin'), (req, res) => {
     }
 
     await upsertById('users', userId, {
+      username: nextUsername,
       nome: nome || null,
       cognome: cognome || null,
       denominazione: denominazione || null,
@@ -232,7 +251,7 @@ router.put('/:id', authenticateToken, authorizeRoles('admin'), (req, res) => {
       modulo: 'utenti',
       riferimento_id: parseInt(userId),
       riferimento_tipo: 'user',
-      dettaglio: `Modificato utente ${user.username}`
+      dettaglio: `Modificato utente ${nextUsername}`
     });
 
     res.json({ message: 'Utente aggiornato con successo' });
