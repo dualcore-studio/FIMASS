@@ -3,6 +3,7 @@
 /**
  * Assegnazione preventivo/polizza: un solo incaricato, operatore O fornitore.
  * `operatore_id` e `fornitore_id` sono mutuamente esclusivi (lato applicazione).
+ * Chi può assegnare è definito in `rolePermissions.js` (solo admin e supervisore).
  */
 
 function quoteAssigneeUserId(quote) {

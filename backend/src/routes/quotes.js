@@ -19,6 +19,7 @@ const { pipeQuoteSummaryPdf } = require('../lib/quoteSummaryPdf');
 const { sendAttachmentDownload, resolveLocalDiskPath, isHttpUrl } = require('../lib/attachmentDownload');
 const { isInsuranceTypeActive, strutturaCanUseInsuranceType } = require('../lib/insuranceTypes');
 const { quoteAssigneeUserId, userIsAssignedToQuote, practiceHasAssignee } = require('../utils/practiceAssignee');
+const { canBeAssigneePreventivi } = require('../utils/rolePermissions');
 const { syncConversationsForQuoteAssignment, syncConversationsForPolicyAssignment } = require('../services/messagingSync');
 const {
   getRcGaranzieSelezionate,
@@ -414,9 +415,12 @@ router.get('/in-progress', authenticateToken, authorizeRoles('admin', 'superviso
             id: q.id,
             numero: q.numero,
             operatore_id: q.operatore_id,
+            fornitore_id: q.fornitore_id,
             updated_at: q.updated_at,
             operatore_nome: ctx.usersById.get(Number(q.operatore_id))?.nome,
             operatore_cognome: ctx.usersById.get(Number(q.operatore_id))?.cognome,
+            fornitore_nome: ctx.usersById.get(Number(q.fornitore_id))?.nome,
+            fornitore_cognome: ctx.usersById.get(Number(q.fornitore_id))?.cognome,
             in_lavorazione_dal: hist?.created_at || q.updated_at,
           };
         })
@@ -448,7 +452,7 @@ async function insertQuoteReminder(quoteId, req, res) {
       riferimento_tipo: 'quote',
       dettaglio: `Sollecito inviato per preventivo ${quote.numero}`,
     });
-    return res.status(201).json({ message: 'Sollecito inviato all\'operatore' });
+    return res.status(201).json({ message: 'Sollecito inviato all\'incaricato' });
   } catch (err) {
     console.error('Error creating quote reminder:', err);
     return res.status(500).json({ error: 'Errore nell\'invio del sollecito' });
@@ -1079,7 +1083,7 @@ router.post('/', authenticateToken, authorizeRoles('struttura'), (req, res) => {
   });
 });
 
-router.put('/:id/assign', authenticateToken, authorizeRoles('supervisore', 'admin', 'fornitore'), (req, res) => {
+router.put('/:id/assign', authenticateToken, authorizeRoles('supervisore', 'admin'), (req, res) => {
   (async () => {
     let assigneeIdNum =
       req.body.assigned_user_id != null && req.body.assigned_user_id !== ''
@@ -1106,13 +1110,10 @@ router.put('/:id/assign', authenticateToken, authorizeRoles('supervisore', 'admi
 
     const assignUser = await getById('users', assigneeIdNum);
     if (!assignUser || assignUser.stato !== 'attivo') return res.status(400).json({ error: 'Utente non valido' });
-    if (assignUser.role !== 'operatore' && assignUser.role !== 'fornitore') {
-      return res.status(400).json({ error: 'L\'assegnatario deve essere un operatore o un fornitore' });
-    }
-    if (req.user.role === 'fornitore') {
-      if (assignUser.role === 'fornitore' && Number(assignUser.id) !== Number(req.user.id)) {
-        return res.status(403).json({ error: 'Puoi assegnare solo a te stesso o a un operatore' });
-      }
+    if (!canBeAssigneePreventivi(assignUser.role)) {
+      return res.status(400).json({
+        error: 'L’assegnatario deve essere un utente con ruolo operatore o fornitore.',
+      });
     }
 
     const prevStato = quote.stato;

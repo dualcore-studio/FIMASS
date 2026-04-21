@@ -99,7 +99,7 @@ export default function SupervisorDashboard() {
 
   const operativitaRows = [
     { label: 'Preventivi in attesa di assegnazione (stato Presentata)', value: quoteStats.PRESENTATA },
-    { label: 'Già assegnati agli operatori', value: quoteStats.ASSEGNATA },
+    { label: 'Già assegnati agli incaricati', value: quoteStats.ASSEGNATA },
     { label: 'In lavorazione attiva', value: quoteStats['IN LAVORAZIONE'] },
     { label: 'In stand-by', value: quoteStats.STANDBY },
     { label: 'Elaborati', value: quoteStats.ELABORATA },
@@ -245,7 +245,7 @@ export default function SupervisorDashboard() {
       <section aria-label="Ultime pratiche">
         <DashboardPanel
           title="Ultime pratiche — richieste presentate"
-          description="Preventivi in stato Presentata: assegna un operatore dalla scheda dettaglio."
+          description="Preventivi in stato Presentata: assegna un operatore o un fornitore dalla scheda dettaglio (supervisore o amministratore)."
         >
           <div className="overflow-x-auto">
             <table className="portal-table min-w-full text-sm">

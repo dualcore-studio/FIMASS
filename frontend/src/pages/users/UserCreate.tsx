@@ -45,7 +45,8 @@ const ROLE_CARDS: {
   {
     role: 'fornitore',
     title: 'Fornitore',
-    description: 'Coordina pratiche, assegnazioni, report e provvigioni con permessi operativi dedicati.',
+    description:
+      'Lavora i preventivi e le polizze assegnati dall’amministratore o dal supervisore; gestisce le provvigioni. Non assegna pratiche ad altri utenti.',
     icon: UserCog,
     accent: 'from-sky-500/10 to-cyan-600/5 ring-sky-200',
   },

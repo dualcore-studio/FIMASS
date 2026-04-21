@@ -73,7 +73,10 @@ router.get('/operators', authenticateToken, authorizeRoles('admin', 'supervisore
   })();
 });
 
-/** Operatori e fornitori attivi — per assegnazione preventivi. */
+/**
+ * Operatori e fornitori attivi (possibili incaricati).
+ * Usato per filtri elenco, messaggistica e — solo da admin/supervisore — modali di assegnazione lato UI.
+ */
 router.get(
   '/assignees',
   authenticateToken,

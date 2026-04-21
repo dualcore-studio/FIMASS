@@ -26,6 +26,7 @@ import { rcPreventivoPdfDownloadFilename } from '../../utils/rcPreventivoPdfFile
 import { userCanRegenerateRcRiepilogoPdf } from '../../utils/rcAutoElaboration';
 import type { Quote, User, Attachment, QuoteNote, StatusHistory } from '../../types';
 import { formatDate, formatDateTime, getUserDisplayName, isQuoteClosedForAssignment } from '../../utils/helpers';
+import { canAssignPreventivi } from '../../utils/roleCapabilities';
 import { useAuth } from '../../context/AuthContext';
 import StatusBadge from '../../components/common/StatusBadge';
 import Modal from '../../components/ui/Modal';
@@ -120,7 +121,7 @@ export default function QuoteDetail() {
   }, [quote?.stato]);
 
   useEffect(() => {
-    if (role === 'admin' || role === 'supervisore' || role === 'fornitore') {
+    if (canAssignPreventivi(role)) {
       api.get<User[]>('/users/assignees').then(setAssignees).catch(() => {});
     }
   }, [role]);
@@ -212,10 +213,7 @@ export default function QuoteDetail() {
     !!quote &&
     ((role === 'operatore' && quote.operatore_id === currentUser?.id) ||
       (role === 'fornitore' && Number(quote.fornitore_id) === Number(currentUser?.id)));
-  const canAssign =
-    !!quote &&
-    (role === 'admin' || role === 'supervisore' || role === 'fornitore') &&
-    !isQuoteClosedForAssignment(quote.stato);
+  const canAssign = !!quote && canAssignPreventivi(role) && !isQuoteClosedForAssignment(quote.stato);
 
   if (loading) {
     return (
@@ -450,7 +448,8 @@ export default function QuoteDetail() {
       >
         <div className="space-y-4">
           <p className="text-sm text-gray-600">
-            Seleziona operatore o fornitore a cui assegnare il preventivo.
+            Solo amministratore e supervisore possono assegnare o riassegnare. Scegli un operatore o un fornitore come
+            incaricato che lavorerà la pratica.
           </p>
           <div>
             <label htmlFor="detail-assign-operator" className="mb-1 block text-sm font-medium text-gray-700">

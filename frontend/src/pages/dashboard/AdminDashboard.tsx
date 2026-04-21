@@ -11,6 +11,14 @@ import Modal from '../../components/ui/Modal';
 
 const DASHBOARD_ROW_LIMIT = 6;
 
+function incaricatoInProgressLabel(row: InProgressQuoteRow): string {
+  const op = [row.operatore_nome, row.operatore_cognome].filter(Boolean).join(' ').trim();
+  if (op) return op;
+  const fo = [row.fornitore_nome, row.fornitore_cognome].filter(Boolean).join(' ').trim();
+  if (fo) return fo;
+  return 'Incaricato non assegnato';
+}
+
 interface QuoteStats {
   PRESENTATA: number;
   ASSEGNATA: number;
@@ -84,6 +92,9 @@ export default function AdminDashboard() {
             operatore_id: quote.operatore_id,
             operatore_nome: quote.operatore_nome,
             operatore_cognome: quote.operatore_cognome,
+            fornitore_id: quote.fornitore_id,
+            fornitore_nome: quote.fornitore_nome,
+            fornitore_cognome: quote.fornitore_cognome,
             in_lavorazione_dal: quote.updated_at,
             updated_at: quote.updated_at,
           }));
@@ -149,7 +160,7 @@ export default function AdminDashboard() {
   const inLavorazioneRows = inProgressQuotes.map((quote) => ({
     id: quote.id,
     title: `ID Preventivo: ${quote.numero}`,
-    subtitle: [quote.operatore_nome, quote.operatore_cognome].filter(Boolean).join(' ') || 'Operatore non assegnato',
+    subtitle: incaricatoInProgressLabel(quote),
   }));
   const richiesteRows = requestedPolicies.map((policy) => ({
     id: policy.id,
@@ -371,7 +382,7 @@ export default function AdminDashboard() {
       <Modal
         isOpen={sollecitoModalOpen && selectedInLavorazioneRow != null}
         onClose={closeSollecitoModal}
-        title="Sollecita operatore"
+        title="Sollecita incaricato"
         size="sm"
       >
         {selectedInLavorazioneRow && (
@@ -379,9 +390,9 @@ export default function AdminDashboard() {
             <div className="rounded-lg border border-slate-200 bg-slate-50/80 px-4 py-3 text-sm">
               <p className="font-medium text-slate-900">Preventivo {selectedInLavorazioneRow.numero}</p>
               <p className="mt-1 text-slate-600">
-                Operatore:{' '}
+                Incaricato:{' '}
                 <span className="font-medium text-slate-800">
-                  {[selectedInLavorazioneRow.operatore_nome, selectedInLavorazioneRow.operatore_cognome].filter(Boolean).join(' ') || 'Operatore non assegnato'}
+                  {incaricatoInProgressLabel(selectedInLavorazioneRow)}
                 </span>
               </p>
               <p className="mt-2 text-xs text-slate-500">
@@ -392,7 +403,8 @@ export default function AdminDashboard() {
               </p>
             </div>
             <p className="text-sm text-slate-600">
-              Verrà inviato un sollecito all’operatore assegnato: comparirà nella sua dashboard tra i solleciti da leggere.
+              Verrà inviato un sollecito all’incaricato (operatore o fornitore): comparirà nella sua dashboard tra i
+              solleciti da leggere.
             </p>
             <div className="flex flex-wrap items-center justify-end gap-2 pt-1">
               <button type="button" onClick={closeSollecitoModal} className="btn-secondary px-4 py-2 text-sm">

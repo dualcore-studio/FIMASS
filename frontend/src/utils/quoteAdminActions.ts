@@ -1,4 +1,7 @@
-/** Controlli azioni su lista preventivi (admin, supervisore, struttura), allineati al backend per il download. */
+/**
+ * Controlli azioni su lista preventivi (UI «admin» include supervisore per Assegna/Riassegna).
+ * Assegnazione effettiva solo per admin e supervisore (vedi `canAssignPreventivi` in roleCapabilities).
+ */
 
 import { hasSavedRcAutoElaborazione } from './rcAutoElaboration';
 

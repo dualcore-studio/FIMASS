@@ -29,12 +29,12 @@ type MenuPos = { top: number; left: number; maxHeightPx?: number };
 
 export type QuoteRowActionsProps = {
   quote: Quote;
-  /** `admin`: back-office. `struttura` / `operatore` / `fornitore`: voci filtrate per ruolo. */
-  variant?: 'admin' | 'struttura' | 'operatore' | 'fornitore';
+  /** `admin`: admin e supervisore (Assegna/Riassegna). `operatore`: stesso menu per operatore e fornitore (solo lavorazione). */
+  variant?: 'admin' | 'struttura' | 'operatore';
   onNavigateDetail: (id: number) => void;
   onOpenHistory: (id: number) => void;
   onActionError: (message: string) => void;
-  /** Solo variant `admin` / supervisore / `fornitore` */
+  /** Solo variant `admin` (admin e supervisore in lista preventivi). */
   onOpenAssign?: (quote: Quote) => void;
   onOpenReassign?: (quote: Quote) => void;
   /** Se valorizzato, mostra la voce Elimina (solo ruoli con permesso effettivo, es. admin). */
@@ -185,7 +185,6 @@ export default function QuoteRowActions({
   useLayoutEffect(() => {
     if (!open) return;
     // Misura il menu nel portale subito dopo il mount; aggiorna posizione nello stesso frame.
-    // eslint-disable-next-line react-hooks/set-state-in-effect -- posizionamento dropdown (stesso schema lista admin)
     updatePosition();
     const el = menuRef.current;
     if (!el) return;
@@ -341,7 +340,7 @@ export default function QuoteRowActions({
           Storico stati
         </button>
       </div>
-    ) : open && (variant === 'operatore' || variant === 'fornitore') ? (
+    ) : open && variant === 'operatore' ? (
       <div
         ref={menuRef}
         className="fixed z-[200] max-h-[min(70vh,420px)] overflow-y-auto rounded-lg border border-gray-200/90 bg-white py-1 shadow-lg ring-1 ring-black/5"
@@ -364,36 +363,6 @@ export default function QuoteRowActions({
         >
           Apri
         </button>
-        {variant === 'fornitore' ? (
-          <>
-            <button
-              type="button"
-              role="menuitem"
-              className={itemClass(assignEnabled)}
-              disabled={!assignEnabled}
-              onClick={() => {
-                if (!assignEnabled || !onOpenAssign) return;
-                close();
-                onOpenAssign(quote);
-              }}
-            >
-              Assegna
-            </button>
-            <button
-              type="button"
-              role="menuitem"
-              className={itemClass(reassignEnabled)}
-              disabled={!reassignEnabled}
-              onClick={() => {
-                if (!reassignEnabled || !onOpenReassign) return;
-                close();
-                onOpenReassign(quote);
-              }}
-            >
-              Riassegna
-            </button>
-          </>
-        ) : null}
         <button
           type="button"
           role="menuitem"

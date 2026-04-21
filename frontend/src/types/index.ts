@@ -289,6 +289,9 @@ export interface InProgressQuoteRow {
   operatore_id: number | null;
   operatore_nome?: string;
   operatore_cognome?: string;
+  fornitore_id?: number | null;
+  fornitore_nome?: string;
+  fornitore_cognome?: string;
   in_lavorazione_dal: string;
   updated_at: string;
 }

@@ -640,11 +640,9 @@ export default function QuotesList() {
                               variant={
                                 role === 'struttura'
                                   ? 'struttura'
-                                  : role === 'operatore'
+                                  : role === 'operatore' || role === 'fornitore'
                                     ? 'operatore'
-                                    : role === 'fornitore'
-                                      ? 'fornitore'
-                                      : 'admin'
+                                    : 'admin'
                               }
                               quote={q}
                               onNavigateDetail={(id) => navigate(`/preventivi/${id}`)}
@@ -666,30 +664,8 @@ export default function QuotesList() {
                                     onRichiediPolizza: (row) =>
                                       navigate(`/polizze/nuova?quote_id=${row.id}`),
                                   }
-                                : role === 'operatore'
+                                : role === 'operatore' || role === 'fornitore'
                                   ? {
-                                      onOpenOperatorStandby: (row) => setOperatorStandbyQuoteId(row.id),
-                                      onOpenOperatorElaborata: (row) => setOperatorElaborataQuote(row),
-                                      onOpenOperatorInLavorazione: (row) => setOperatorInLavQuoteId(row.id),
-                                    }
-                                : role === 'fornitore'
-                                  ? {
-                                      onOpenAssign: (row) => {
-                                        setAssignQuoteId(row.id);
-                                        setAssignOperatorId('');
-                                        setAssignError(null);
-                                      },
-                                      onOpenReassign: (row) => {
-                                        setAssignQuoteId(row.id);
-                                        setAssignOperatorId(
-                                          row.operatore_id
-                                            ? String(row.operatore_id)
-                                            : row.fornitore_id
-                                              ? String(row.fornitore_id)
-                                              : '',
-                                        );
-                                        setAssignError(null);
-                                      },
                                       onOpenOperatorStandby: (row) => setOperatorStandbyQuoteId(row.id),
                                       onOpenOperatorElaborata: (row) => setOperatorElaborataQuote(row),
                                       onOpenOperatorInLavorazione: (row) => setOperatorInLavQuoteId(row.id),
@@ -807,7 +783,8 @@ export default function QuotesList() {
       <Modal isOpen={assignQuoteId != null} onClose={closeAssignModal} title={assignModalTitle} size="sm">
         <div className="space-y-4">
           <p className="text-sm text-gray-600">
-            Seleziona operatore o fornitore a cui assegnare il preventivo.
+            Solo amministratore e supervisore possono assegnare. Scegli un operatore o un fornitore come incaricato che
+            lavorerà la pratica.
           </p>
           <div>
             <label htmlFor="assign-operator" className="mb-1 block text-sm font-medium text-gray-700">
