@@ -11,6 +11,15 @@ function parseMaybeJson(value) {
   }
 }
 
+/** Base per merge su `dati_preventivo`: evita spread di stringhe/array (dati corrotti o JSON non oggetto). */
+function normalizeDatiPreventivoForMerge(storedValue) {
+  const parsed = parseMaybeJson(storedValue);
+  if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
+    return { ...parsed };
+  }
+  return {};
+}
+
 function mapById(rows) {
   const map = new Map();
   rows.forEach((r) => map.set(Number(r.id), r));
@@ -106,4 +115,4 @@ function enrichPolicy(policy, ctx) {
   };
 }
 
-module.exports = { loadContext, enrichQuote, enrichPolicy, parseMaybeJson };
+module.exports = { loadContext, enrichQuote, enrichPolicy, parseMaybeJson, normalizeDatiPreventivoForMerge };

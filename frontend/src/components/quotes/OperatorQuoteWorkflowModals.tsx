@@ -148,15 +148,22 @@ function OperatorRcAutoElaborataModal({
         nome: g,
         prezzo: parsePriceInput(prices[g] ?? '') ?? 0,
       }));
+      const payloadObj = {
+        pricingBreakdown,
+        notes: notes.trim() || null,
+        totalPrice: totale,
+      };
+      if (import.meta.env.DEV) {
+        // eslint-disable-next-line no-console
+        console.log('[RC Auto elaborazione] POST /quotes/:id/elaborazione-rc-auto', {
+          quoteId,
+          payload: payloadObj,
+          allegatoOperatore: file ? { name: file.name, size: file.size, type: file.type } : null,
+        });
+      }
       const formData = new FormData();
       if (file) formData.append('file', file);
-      formData.append(
-        'payload',
-        JSON.stringify({
-          pricingBreakdown,
-          notes: notes.trim() || null,
-        }),
-      );
+      formData.append('payload', JSON.stringify(payloadObj));
       await api.upload(`/quotes/${quoteId}/elaborazione-rc-auto`, formData);
       await onCompleted();
       onClose();

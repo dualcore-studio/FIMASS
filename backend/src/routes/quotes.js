@@ -7,7 +7,7 @@ const { del, put } = require('@vercel/blob');
 const { authenticateToken, authorizeRoles } = require('../middleware/auth');
 const { logActivity } = require('./logs');
 const { list, getById, findOne, insert, upsertById, removeById, like, paginate } = require('../data/store');
-const { loadContext, enrichQuote, parseMaybeJson } = require('../data/views');
+const { loadContext, enrichQuote, parseMaybeJson, normalizeDatiPreventivoForMerge } = require('../data/views');
 const { sortQuotesForList } = require('../utils/practiceListSort');
 const { isQuoteClosedForAssignment, normalizeQuoteStato } = require('../utils/quoteStato');
 const {
@@ -211,7 +211,7 @@ async function regenerateRcAutoRiepilogoStoredData(quoteId, actingUser) {
     tipo: 'preventivo_riepilogo_rc',
     userId: actingUser.id,
   });
-  const prevDp = parseMaybeJson(row.dati_preventivo) || {};
+  const prevDp = normalizeDatiPreventivoForMerge(row.dati_preventivo);
   const elaborazioneBlock = {
     pricingBreakdown,
     totalPrice,
@@ -659,57 +659,92 @@ router.get('/:id/preventivo-finale', authenticateToken, (req, res) => {
   })();
 });
 
+function elaborazioneRcAutoMulter(req, res, next) {
+  elaborazioneUpload.single('file')(req, res, (err) => {
+    if (!err) return next();
+    const tooLarge = err.code === 'LIMIT_FILE_SIZE';
+    return res.status(400).json({
+      error: tooLarge ? 'File troppo grande (massimo 10 MB).' : err.message || 'Caricamento file non riuscito.',
+      code: tooLarge ? 'UPLOAD_TOO_LARGE' : 'UPLOAD_REJECTED',
+    });
+  });
+}
+
 /**
  * Elaborazione RC Auto: prezzi garanzie, note facoltative, PDF riepilogo, allegato operatore facoltativo, stato ELABORATA.
  */
 router.post(
   '/:id/elaborazione-rc-auto',
   authenticateToken,
-  elaborazioneUpload.single('file'),
+  elaborazioneRcAutoMulter,
   (req, res) => {
     (async () => {
       const quoteId = parseInt(req.params.id, 10);
       if (Number.isNaN(quoteId)) {
-        return res.status(400).json({ error: 'ID preventivo non valido' });
+        return res.status(400).json({ error: 'ID preventivo non valido', code: 'INVALID_QUOTE_ID' });
       }
       try {
+        console.log('[elaborazione-rc-auto] raw input', {
+          quoteId,
+          bodyKeys: req.body && typeof req.body === 'object' ? Object.keys(req.body) : [],
+          payloadRaw: req.body && req.body.payload,
+          file: req.file
+            ? { fieldname: req.file.fieldname, originalname: req.file.originalname, size: req.file.size, mimetype: req.file.mimetype }
+            : null,
+        });
+
         const ctx = await loadContext();
         const row = await getById('quotes', quoteId);
-        if (!row) return res.status(404).json({ error: 'Preventivo non trovato' });
+        if (!row) return res.status(404).json({ error: 'Preventivo non trovato', code: 'QUOTE_NOT_FOUND' });
 
         if (req.user.role !== 'operatore' && req.user.role !== 'fornitore') {
-          return res.status(403).json({ error: 'Operazione riservata all\'incaricato' });
+          return res.status(403).json({ error: 'Operazione riservata all\'incaricato', code: 'FORBIDDEN_ROLE' });
         }
         if (!userIsAssignedToQuote(req.user, row)) {
-          return res.status(403).json({ error: 'Non sei l\'incaricato assegnato a questa pratica' });
+          return res.status(403).json({ error: 'Non sei l\'incaricato assegnato a questa pratica', code: 'FORBIDDEN_ASSIGNEE' });
         }
 
         const quote = enrichQuote(row, ctx);
         if (!isRcAutoTipoCodice(quote.tipo_codice)) {
-          return res.status(400).json({ error: 'Questa operazione è disponibile solo per pratiche RC Auto' });
+          return res.status(400).json({ error: 'Questa operazione è disponibile solo per pratiche RC Auto', code: 'NOT_RC_AUTO' });
         }
 
         const statoCur = normalizeQuoteStato(quote.stato);
+        console.log('[elaborazione-rc-auto] stato prima aggiornamento', { quoteId, statoRaw: quote.stato, statoNormalizzato: statoCur });
         if (statoCur === 'ELABORATA') {
-          return res.status(400).json({ error: 'Il preventivo risulta già elaborato' });
+          return res.status(400).json({ error: 'Il preventivo risulta già elaborato', code: 'ALREADY_ELABORATED' });
         }
         const allowedFrom = new Set(['IN LAVORAZIONE', 'STANDBY']);
         if (!allowedFrom.has(statoCur)) {
-          return res.status(400).json({ error: 'Stato pratica non compatibile con l\'elaborazione' });
+          return res.status(400).json({
+            error: `Stato pratica non compatibile con l'elaborazione (attuale: ${statoCur}). Sono ammessi: IN LAVORAZIONE, STANDBY.`,
+            code: 'INVALID_STATE',
+            stato: statoCur,
+          });
         }
 
         let payload;
         try {
           payload = JSON.parse(req.body.payload || '{}');
-        } catch {
-          return res.status(400).json({ error: 'Payload non valido' });
+        } catch (parseErr) {
+          console.warn('[elaborazione-rc-auto] JSON payload parse error', parseErr);
+          return res.status(400).json({ error: 'Payload non valido (JSON malformato)', code: 'INVALID_PAYLOAD_JSON' });
         }
 
+        console.log('[elaborazione-rc-auto] parsed payload', JSON.stringify(payload));
+
         const garanzie = getRcGaranzieSelezionate(quote.dati_specifici);
-        const pricingBreakdown = Array.isArray(payload.pricingBreakdown) ? payload.pricingBreakdown : [];
+        const pricingBreakdown = Array.isArray(payload.pricingBreakdown) ? payload.pricingBreakdown : null;
+        if (pricingBreakdown == null) {
+          return res.status(400).json({
+            error: 'Campo mancante o non valido: pricingBreakdown (atteso array di { nome, prezzo })',
+            code: 'MISSING_PRICING_BREAKDOWN',
+          });
+        }
+
         const valid = validateRcPricingForGaranzie(pricingBreakdown, garanzie);
         if (!valid.ok) {
-          return res.status(400).json({ error: valid.error });
+          return res.status(400).json({ error: valid.error, code: 'VALIDATION_PRICING' });
         }
 
         let notes = payload.notes != null ? String(payload.notes) : '';
@@ -720,55 +755,99 @@ router.post(
         const elaboratedAt = new Date().toISOString().slice(0, 19).replace('T', ' ');
         const typeRow = ctx.typesById.get(Number(quote.tipo_assicurazione_id)) || {};
 
+        let preventivoElaboratoAttachmentId = null;
         if (req.file) {
-          let downloadUrl = null;
-          let storageKey = req.file.filename;
-          if (process.env.BLOB_READ_WRITE_TOKEN) {
-            const blob = await put(`attachments/${req.file.filename}`, fs.createReadStream(req.file.path), {
-              access: 'private',
-              addRandomSuffix: false,
-              token: process.env.BLOB_READ_WRITE_TOKEN,
+          try {
+            let downloadUrl = null;
+            let storageKey = req.file.filename;
+            if (process.env.BLOB_READ_WRITE_TOKEN) {
+              const blob = await put(`attachments/${req.file.filename}`, fs.createReadStream(req.file.path), {
+                access: 'private',
+                addRandomSuffix: false,
+                token: process.env.BLOB_READ_WRITE_TOKEN,
+              });
+              downloadUrl = blob.url;
+              storageKey = blob.pathname;
+              if (fs.existsSync(req.file.path)) fs.unlinkSync(req.file.path);
+            }
+            const attRow = await insert('attachments', {
+              entity_type: 'quote',
+              entity_id: quoteId,
+              tipo: 'preventivo_elaborato',
+              nome_file: storageKey,
+              nome_originale: req.file.originalname,
+              mime_type: req.file.mimetype,
+              dimensione: req.file.size,
+              caricato_da: req.user.id,
+              url: downloadUrl,
             });
-            downloadUrl = blob.url;
-            storageKey = blob.pathname;
-            if (fs.existsSync(req.file.path)) fs.unlinkSync(req.file.path);
+            preventivoElaboratoAttachmentId = attRow.id;
+            console.log('[elaborazione-rc-auto] allegato operatore salvato', { attachmentId: preventivoElaboratoAttachmentId });
+          } catch (uploadErr) {
+            console.error('[elaborazione-rc-auto] errore salvataggio allegato operatore', uploadErr);
+            if (req.file.path && fs.existsSync(req.file.path)) {
+              try {
+                fs.unlinkSync(req.file.path);
+              } catch {
+                /* ignore */
+              }
+            }
+            return res.status(500).json({
+              error: uploadErr.message || 'Errore nel salvataggio dell\'allegato operatore',
+              code: 'ATTACHMENT_UPLOAD_FAILED',
+            });
           }
-          await insert('attachments', {
-            entity_type: 'quote',
-            entity_id: quoteId,
-            tipo: 'preventivo_elaborato',
-            nome_file: storageKey,
-            nome_originale: req.file.originalname,
-            mime_type: req.file.mimetype,
-            dimensione: req.file.size,
-            caricato_da: req.user.id,
-            url: downloadUrl,
-          });
         }
 
         const pdfPath = tempPdfPath();
-        const pdfBuffer = await pipeRcAutoRiepilogoPdf({
-          quote,
-          typeRow,
-          elaborazione: {
-            pricingBreakdown,
-            totalPrice,
-            notes: notesTrim,
-            elaboratedAt,
-          },
-          dest: null,
-        });
+        let pdfBuffer;
+        try {
+          pdfBuffer = await pipeRcAutoRiepilogoPdf({
+            quote,
+            typeRow,
+            elaborazione: {
+              pricingBreakdown,
+              totalPrice,
+              notes: notesTrim,
+              elaboratedAt,
+            },
+            dest: null,
+          });
+        } catch (pdfErr) {
+          console.error('[elaborazione-rc-auto] generazione PDF riepilogo', pdfErr);
+          return res.status(500).json({
+            error: pdfErr.message || 'Errore nella generazione del PDF riepilogo',
+            code: 'PDF_GENERATION_FAILED',
+          });
+        }
+
         fs.writeFileSync(pdfPath, pdfBuffer);
         const pdfOriginalName = rcAutoSistemaPreventivoPdfName(quote.numero, quoteId);
-        const pdfIns = await persistQuoteAttachmentFromDisk({
-          localPath: pdfPath,
-          originalName: pdfOriginalName,
-          quoteId,
-          tipo: 'preventivo_riepilogo_rc',
-          userId: req.user.id,
-        });
+        let pdfIns;
+        try {
+          pdfIns = await persistQuoteAttachmentFromDisk({
+            localPath: pdfPath,
+            originalName: pdfOriginalName,
+            quoteId,
+            tipo: 'preventivo_riepilogo_rc',
+            userId: req.user.id,
+          });
+        } catch (persistErr) {
+          console.error('[elaborazione-rc-auto] persist PDF riepilogo', persistErr);
+          if (fs.existsSync(pdfPath)) {
+            try {
+              fs.unlinkSync(pdfPath);
+            } catch {
+              /* ignore */
+            }
+          }
+          return res.status(500).json({
+            error: persistErr.message || 'Errore nel salvataggio del PDF riepilogo',
+            code: 'PDF_PERSIST_FAILED',
+          });
+        }
 
-        const prevDp = parseMaybeJson(row.dati_preventivo) || {};
+        const prevDp = normalizeDatiPreventivoForMerge(row.dati_preventivo);
         const elaborazioneBlock = {
           pricingBreakdown,
           totalPrice,
@@ -779,10 +858,18 @@ router.post(
           riepilogoPdfTemplateVersion: RC_AUTO_RIEPILOGO_PDF_TEMPLATE_VERSION,
         };
         const prevStato = quote.stato;
-        await upsertById('quotes', quoteId, {
-          stato: 'ELABORATA',
-          dati_preventivo: { ...prevDp, elaborazione_rc_auto: elaborazioneBlock },
-        });
+        try {
+          await upsertById('quotes', quoteId, {
+            stato: 'ELABORATA',
+            dati_preventivo: { ...prevDp, elaborazione_rc_auto: elaborazioneBlock },
+          });
+        } catch (dbErr) {
+          console.error('[elaborazione-rc-auto] aggiornamento preventivo', dbErr);
+          return res.status(500).json({
+            error: dbErr.message || 'Errore nel salvataggio dei dati preventivo',
+            code: 'QUOTE_UPDATE_FAILED',
+          });
+        }
 
         await insert('quote_status_history', {
           quote_id: quoteId,
@@ -820,10 +907,20 @@ router.post(
           });
         }
 
-        res.json({ message: 'Elaborazione RC Auto completata', riepilogo_attachment_id: pdfIns.id });
+        res.json({
+          message: 'Elaborazione RC Auto completata',
+          riepilogo_attachment_id: pdfIns.id,
+          preventivo_elaborato_attachment_id: preventivoElaboratoAttachmentId,
+          totalPrice,
+        });
       } catch (err) {
-        console.error('Error elaborazione RC Auto:', err);
-        if (!res.headersSent) res.status(500).json({ error: 'Errore durante l\'elaborazione RC Auto' });
+        console.error('[elaborazione-rc-auto] Error:', err);
+        if (!res.headersSent) {
+          res.status(500).json({
+            error: err.message || 'Errore durante l\'elaborazione RC Auto',
+            code: 'INTERNAL',
+          });
+        }
       }
     })();
   },
