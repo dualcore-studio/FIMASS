@@ -19,6 +19,7 @@ const TABLES = [
   'conversation_messages',
   'conversation_reads',
   'audit_logs',
+  'scadenze_reminder_logs',
 ];
 
 function nowIso() {

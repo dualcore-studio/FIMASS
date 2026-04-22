@@ -2,6 +2,12 @@
   "installCommand": "cd backend && npm ci && cd ../frontend && npm ci",
   "buildCommand": "cd frontend && npm run build",
   "outputDirectory": "frontend/dist",
+  "crons": [
+    {
+      "path": "/api/cron/scadenze-reminders",
+      "schedule": "0 5 * * *"
+    }
+  ],
   "functions": {
     "api/[...all].js": {
       "includeFiles": "backend/**"

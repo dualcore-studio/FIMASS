@@ -28,6 +28,12 @@ function buildPolicyUrl(policyId) {
   return `${appUrl}/polizze/${policyId}`;
 }
 
+function buildScadenzeUrl() {
+  const { appUrl } = getMailEnv();
+  if (!appUrl) return null;
+  return `${appUrl.replace(/\/$/, '')}/scadenze`;
+}
+
 function buildMessagesConversationUrl(conversationId) {
   const { appUrl } = getMailEnv();
   if (!appUrl || conversationId == null) return null;
@@ -102,16 +108,21 @@ function logResendError(error) {
   }
 }
 
-async function sendHtmlEmail({ to, subject, html, text }) {
+/**
+ * @returns {Promise<{ ok: true, data: object } | { ok: false, error: string }>}
+ */
+async function sendHtmlEmailResult({ to, subject, html, text }) {
   const { apiKey, from } = getMailEnv();
   if (!apiKey || !from) {
-    console.warn('[FIMASS email] RESEND_API_KEY o RESEND_FROM_EMAIL mancanti: invio saltato.');
-    return;
+    const msg = 'RESEND_API_KEY o RESEND_FROM_EMAIL mancanti';
+    console.warn(`[FIMASS email] ${msg}: invio saltato.`);
+    return { ok: false, error: msg };
   }
   const addr = to && String(to).trim();
   if (!addr) {
-    console.warn('[FIMASS email] Destinatario mancante: invio saltato.');
-    return;
+    const msg = 'Destinatario mancante';
+    console.warn(`[FIMASS email] ${msg}: invio saltato.`);
+    return { ok: false, error: msg };
   }
   const resend = new Resend(apiKey);
   const plain = text || htmlToText(html);
@@ -124,14 +135,118 @@ async function sendHtmlEmail({ to, subject, html, text }) {
   });
   if (error) {
     logResendError(error);
-    return;
+    const errStr = typeof error === 'string' ? error : JSON.stringify(error);
+    return { ok: false, error: errStr };
   }
   if (data?.id) {
     console.log(`[FIMASS email] Inviata correttamente (Resend id: ${data.id}, destinatario: ${addr})`);
   } else {
     console.warn('[FIMASS email] Risposta Resend senza id email; controlla la dashboard Resend → Logs.');
   }
-  return data;
+  return { ok: true, data: data || {} };
+}
+
+async function sendHtmlEmail({ to, subject, html, text }) {
+  const r = await sendHtmlEmailResult({ to, subject, html, text });
+  if (r.ok) return r.data;
+}
+
+function formatScadenzaItDate(iso) {
+  const ymd = String(iso || '').slice(0, 10);
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(ymd)) return escapeHtml(String(iso || '—'));
+  const [y, m, d] = ymd.split('-');
+  return `${d}/${m}/${y}`;
+}
+
+/**
+ * Riepilogo scadenze per struttura (job automatico 1° / 15 del mese).
+ * @param {object} params
+ * @param {'first_notice'|'second_notice'} params.reminderType
+ */
+async function sendScadenzeReminderMail({ to, strutturaNome, reminderType, monthLabel, rows }) {
+  try {
+    const scadenzeUrl = buildScadenzeUrl();
+    const isFirst = reminderType === 'first_notice';
+    const shellTitle = isFirst ? 'Avviso scadenze polizze' : 'Promemoria scadenze polizze';
+    const subject = `${isFirst ? 'Avviso' : 'Promemoria'} scadenze polizze – ${monthLabel}`;
+
+    const headerCells = ['Contraente', 'Tipologia', 'Scadenza', 'Compagnia']
+      .map(
+        (h) =>
+          `<th align="left" style="padding:10px 8px;border-bottom:2px solid #e2e8f0;font-size:12px;color:#64748b;text-transform:uppercase;letter-spacing:.04em;">${escapeHtml(h)}</th>`,
+      )
+      .join('');
+    const bodyRows = (rows || [])
+      .map((r) => {
+        const comp = r.compagnia != null && String(r.compagnia).trim() !== '' ? String(r.compagnia).trim() : '—';
+        return `<tr>
+  <td style="padding:10px 8px;border-bottom:1px solid #f1f5f9;vertical-align:top;">${escapeHtml(r.contraente)}</td>
+  <td style="padding:10px 8px;border-bottom:1px solid #f1f5f9;vertical-align:top;">${escapeHtml(r.tipologia)}</td>
+  <td style="padding:10px 8px;border-bottom:1px solid #f1f5f9;vertical-align:top;white-space:nowrap;">${formatScadenzaItDate(r.data_scadenza)}</td>
+  <td style="padding:10px 8px;border-bottom:1px solid #f1f5f9;vertical-align:top;">${escapeHtml(comp)}</td>
+</tr>`;
+      })
+      .join('');
+
+    const tableBlock = `
+      <div style="overflow-x:auto;-webkit-overflow-scrolling:touch;margin:16px 0 0;">
+        <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="border-collapse:collapse;min-width:480px;">
+          <thead><tr>${headerCells}</tr></thead>
+          <tbody>${bodyRows}</tbody>
+        </table>
+      </div>`;
+
+    const linkBlock = scadenzeUrl
+      ? `<p style="margin:24px 0 0;"><a href="${escapeHtml(scadenzeUrl)}" style="display:inline-block;background:#0f172a;color:#f8fafc;text-decoration:none;padding:10px 18px;border-radius:6px;font-weight:600;">Vai allo scadenzario</a></p>
+         <p style="margin:10px 0 0;font-size:13px;color:#64748b;">Oppure apri la sezione <strong>Scadenze</strong> dal menu del portale.</p>`
+      : '';
+
+    const intro = isFirst
+      ? `nel mese di <strong>${escapeHtml(monthLabel)}</strong> risultano in scadenza le polizze elencate di seguito. Ti invitiamo a consultare lo scadenzario per le azioni di rinnovo.`
+      : `questo è un promemoria: nel mese di <strong>${escapeHtml(monthLabel)}</strong> sono ancora in scadenza le polizze nell’elenco. Accedi al portale per completare le pratiche necessarie.`;
+
+    const inner = `
+      <p style="margin:0 0 16px;">Spett.le <strong>${escapeHtml(strutturaNome)}</strong>,</p>
+      <p style="margin:0 0 16px;">${intro}</p>
+      ${tableBlock}
+      ${linkBlock}
+      <p style="margin:24px 0 0;font-size:14px;color:#334155;">Cordiali saluti,<br><strong>FIMASS — Sportello Amico</strong></p>
+    `;
+
+    const html = emailShell(shellTitle, inner);
+
+    const plainItDate = (iso) => {
+      const ymd = String(iso || '').slice(0, 10);
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(ymd)) return String(iso || '—');
+      const [y, m, d] = ymd.split('-');
+      return `${d}/${m}/${y}`;
+    };
+    const textLines = (rows || []).map((r) => {
+      const comp = r.compagnia != null && String(r.compagnia).trim() !== '' ? String(r.compagnia).trim() : '—';
+      return `- ${r.contraente} | ${r.tipologia} | ${plainItDate(r.data_scadenza)} | ${comp}`;
+    });
+    const text = [
+      `Spett.le ${strutturaNome},`,
+      '',
+      isFirst
+        ? `Nel mese di ${monthLabel} risultano in scadenza le polizze elencate.`
+        : `Promemoria: nel mese di ${monthLabel} risultano le polizze elencate.`,
+      '',
+      ...textLines,
+      '',
+      scadenzeUrl ? `Scadenzario: ${scadenzeUrl}` : '',
+      '',
+      'Cordiali saluti,',
+      'FIMASS — Sportello Amico',
+    ]
+      .filter(Boolean)
+      .join('\n');
+
+    return await sendHtmlEmailResult({ to, subject, html, text });
+  } catch (err) {
+    console.error('[FIMASS email] sendScadenzeReminderMail:', err);
+    return { ok: false, error: String(err?.message || err) };
+  }
 }
 
 /**
@@ -332,7 +447,10 @@ module.exports = {
   getMailEnv,
   buildPracticeUrl,
   buildPolicyUrl,
+  buildScadenzeUrl,
   buildMessagesConversationUrl,
+  sendHtmlEmailResult,
+  sendScadenzeReminderMail,
   sendQuoteAssignedToOperatorMail,
   sendQuoteStatusChangeToStructureMail,
   sendPolicyEmissionRequestedToOperatorMail,
