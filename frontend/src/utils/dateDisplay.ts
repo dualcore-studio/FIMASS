@@ -89,3 +89,30 @@ export function formatDateWeekdayLongIt(d: Date = new Date()): string {
     year: 'numeric',
   });
 }
+
+const YMD_WITH_TIME_PREFIX = /^\d{4}-\d{2}-\d{2}[T ]\d/;
+
+/**
+ * Formattazione per valori mostrati da JSON/record generici (es. `dati_specifici`, output elaborazioni):
+ * date `YYYY-MM-DD` e datetime ISO/SQL → italiano; boolean → Sì/No; array → elementi formattati e separati da "; ".
+ */
+export function formatUnknownValueForDisplay(value: unknown): string {
+  if (value === null || value === undefined) return EMPTY_DATE_PLACEHOLDER;
+  if (typeof value === 'boolean') return value ? 'Sì' : 'No';
+  if (Array.isArray(value)) {
+    if (value.length === 0) return EMPTY_DATE_PLACEHOLDER;
+    return value.map((v) => formatUnknownValueForDisplay(v)).join('; ');
+  }
+  if (typeof value === 'object') {
+    if (value instanceof Date) {
+      return formatDateTime(value.getTime());
+    }
+    return String(value);
+  }
+  if (typeof value === 'number') return String(value);
+  const s = String(value).trim();
+  if (!s) return EMPTY_DATE_PLACEHOLDER;
+  if (DATE_ONLY_YMD.test(s)) return formatDate(s);
+  if (YMD_WITH_TIME_PREFIX.test(s)) return formatDateTime(s);
+  return s;
+}

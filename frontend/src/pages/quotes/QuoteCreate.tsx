@@ -25,7 +25,7 @@ import {
 import type { LucideIcon } from 'lucide-react';
 import { api, ApiError } from '../../utils/api';
 import type { InsuranceType, FormField, ChecklistItem, AssistedPerson } from '../../types';
-import { formatDate } from '../../utils/helpers';
+import { formatDate, formatUnknownValueForDisplay } from '../../utils/helpers';
 import {
   activeCampiForFlow,
   activeChecklistForFlow,
@@ -854,7 +854,7 @@ function CasaSpecsPackageBox({ pkg }: { pkg: CasaPackageDef }) {
         {pkg.righe.map((r) => (
           <li key={r.label} className="flex flex-wrap gap-x-2 gap-y-0.5">
             <span className="text-gray-500">{r.label}:</span>
-            <span>{r.valore}</span>
+            <span>{formatUnknownValueForDisplay(r.valore)}</span>
           </li>
         ))}
       </ul>
@@ -1266,10 +1266,7 @@ function Step4Attachments({
 /* ───────────── Step 5: Review ───────────── */
 
 function formatReviewValue(val: unknown): string {
-  if (val === null || val === undefined) return '-';
-  if (typeof val === 'boolean') return val ? 'Sì' : 'No';
-  if (Array.isArray(val)) return val.length ? val.join('; ') : '-';
-  return String(val);
+  return formatUnknownValueForDisplay(val);
 }
 
 function Step5Review({
@@ -1350,7 +1347,7 @@ function Step5Review({
               <ReviewItem label="Nome pacchetto" value={casaPackage.nome} />
             </div>
             {casaPackage.righe.map((r) => (
-              <ReviewItem key={r.label} label={r.label} value={r.valore} />
+              <ReviewItem key={r.label} label={r.label} value={formatUnknownValueForDisplay(r.valore)} />
             ))}
             <div className="sm:col-span-2 rounded-lg border border-sky-100 bg-sky-50/80 px-4 py-3">
               <p className="text-xs font-medium uppercase tracking-wide text-sky-800">Premio finale</p>

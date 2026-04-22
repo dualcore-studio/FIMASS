@@ -15,7 +15,7 @@ import { api, ApiError } from '../../utils/api';
 import { formatPremioCasaIt } from '../../config/casaPolizzaPackages';
 import { labelForQuoteAttachmentTipo } from '../../config/casaQuoteFlow';
 import type { Policy, Attachment, StatusHistory } from '../../types';
-import { formatDate, formatDateTime, formatFileSize } from '../../utils/helpers';
+import { formatDate, formatDateTime, formatFileSize, formatUnknownValueForDisplay } from '../../utils/helpers';
 import { useAuth } from '../../context/AuthContext';
 import StatusBadge from '../../components/common/StatusBadge';
 
@@ -302,7 +302,7 @@ function TabDati({ policy }: { policy: Policy }) {
                   <InfoRow
                     key={i}
                     label={r.label || '—'}
-                    value={r.valore != null ? String(r.valore) : '—'}
+                    value={r.valore != null ? formatUnknownValueForDisplay(r.valore) : '—'}
                   />
                 ))
               : null}
@@ -344,13 +344,7 @@ function TabDati({ policy }: { policy: Policy }) {
                 <InfoRow
                   key={key}
                   label={key.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase())}
-                  value={
-                    typeof value === 'boolean'
-                      ? (value ? 'Sì' : 'No')
-                      : Array.isArray(value)
-                        ? (value.length ? value.join('; ') : '-')
-                        : String(value ?? '-')
-                  }
+                  value={formatUnknownValueForDisplay(value)}
                 />
               ))}
           </dl>

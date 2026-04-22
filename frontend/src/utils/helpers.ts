@@ -5,6 +5,7 @@ export {
   formatDate,
   formatDateTime,
   formatDateWeekdayLongIt,
+  formatUnknownValueForDisplay,
   parseForDisplay,
 } from './dateDisplay';
 

@@ -7,6 +7,7 @@ import {
   getCasaPackageDefById,
   type CasaPackageDef,
 } from '../../config/casaPolizzaPackages';
+import { formatUnknownValueForDisplay } from '../../utils/helpers';
 
 const SELECT_PLACEHOLDER = '';
 
@@ -98,7 +99,9 @@ export default function CasaPolizzaPackageStep({
               {selectedPkg.righe.map((r) => (
                 <li key={r.label} className="flex justify-between gap-4">
                   <span className="text-gray-600">{r.label}</span>
-                  <span className="shrink-0 text-right font-medium text-gray-900">{r.valore}</span>
+                  <span className="shrink-0 text-right font-medium text-gray-900">
+                    {formatUnknownValueForDisplay(r.valore)}
+                  </span>
                 </li>
               ))}
             </ul>

@@ -27,7 +27,13 @@ import { downloadPreventivoFinale } from '../../utils/downloadPreventivoFinale';
 import { rcPreventivoPdfDownloadFilename } from '../../utils/rcPreventivoPdfFilename';
 import { userCanRegenerateRcRiepilogoPdf } from '../../utils/rcAutoElaboration';
 import type { Quote, User, Attachment, QuoteNote, StatusHistory } from '../../types';
-import { formatDate, formatDateTime, getUserDisplayName, isQuoteClosedForAssignment } from '../../utils/helpers';
+import {
+  formatDate,
+  formatDateTime,
+  formatUnknownValueForDisplay,
+  getUserDisplayName,
+  isQuoteClosedForAssignment,
+} from '../../utils/helpers';
 import { canAssignPreventivi } from '../../utils/roleCapabilities';
 import { useAuth } from '../../context/AuthContext';
 import StatusBadge from '../../components/common/StatusBadge';
@@ -665,7 +671,7 @@ function TabDati({ quote, viewerRole }: { quote: Quote; viewerRole?: string }) {
                   <InfoRow
                     key={i}
                     label={r.label || '—'}
-                    value={r.valore != null ? String(r.valore) : '—'}
+                    value={r.valore != null ? formatUnknownValueForDisplay(r.valore) : '—'}
                   />
                 ))
               : null}
@@ -708,13 +714,7 @@ function TabDati({ quote, viewerRole }: { quote: Quote; viewerRole?: string }) {
               <InfoRow
                 key={key}
                 label={key.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase())}
-                value={
-                  typeof value === 'boolean'
-                    ? (value ? 'Sì' : 'No')
-                    : Array.isArray(value)
-                      ? (value.length ? value.join('; ') : '-')
-                      : String(value ?? '-')
-                }
+                value={formatUnknownValueForDisplay(value)}
               />
             ))}
           </dl>
@@ -1352,7 +1352,7 @@ function TabPreventivo({
                     <InfoRow
                       key={key}
                       label={key.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase())}
-                      value={typeof value === 'boolean' ? (value ? 'Sì' : 'No') : String(value ?? '-')}
+                      value={formatUnknownValueForDisplay(value)}
                     />
                   ))}
                 </dl>
