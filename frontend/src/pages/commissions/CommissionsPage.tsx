@@ -235,7 +235,7 @@ export default function CommissionsPage() {
           </h1>
           <p className="mt-1 max-w-2xl text-sm text-gray-600">
             {isFullAccess
-              ? 'Registrazione delle polizze: base provvigione broker, calcolo automatico provvigione struttura (30% / 50%) e quota Sportello Amico (65%).'
+              ? 'Registrazione delle polizze: base provvigione broker, calcolo provvigione struttura (30% / 50% / 65%) e quota Sportello Amico (65%).'
               : 'Elenco delle provvigioni registrate per la tua struttura.'}
           </p>
         </div>

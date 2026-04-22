@@ -305,8 +305,8 @@ export default function CommissionForm() {
               required
             />
             <p className="mt-1 text-xs text-gray-500">
-              Importo obbligatorio; su questo valore si applicano le percentuali struttura (segnalatore 30%,
-              partner 50%) e la quota Sportello Amico 65%.
+              Importo obbligatorio; la provvigione struttura dipende dal tipo (Segnalatore 30%, Partner 50%, Sportello
+              Amico 65%). Nel riepilogo è indicata anche la quota Sportello Amico (65% della provv. broker).
             </p>
             {fieldErrors.provvigioniBroker ? (
               <p className="mt-1 text-xs text-red-600">{fieldErrors.provvigioniBroker}</p>

@@ -109,7 +109,7 @@ export function formatEuro(value: number | null | undefined): string {
 /** % della provvigione broker per la quota struttura (convenzione vigente). */
 export function commissionPercentForType(type: string): number {
   if (type === 'PARTNER') return 50;
-  if (type === 'SPORTELLO_AMICO') return 50;
+  if (type === 'SPORTELLO_AMICO') return 65;
   return 30;
 }
 

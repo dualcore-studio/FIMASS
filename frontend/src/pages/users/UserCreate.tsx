@@ -381,8 +381,8 @@ export default function UserCreate() {
                 </label>
                 <p className="mb-2 text-xs text-gray-500">
                   Percentuali provvigione struttura sulla provvigione broker (inserita nelle provvigioni): Segnalatore 30% ·
-                  Partner 50% · rete Sportello Amico 50%. La quota Sportello Amico organizzazione (65%) è calcolata
-                  automaticamente in ogni provvigione.
+                  Partner 50% · Sportello Amico 65%. Nel modulo provvigioni sono calcolati automaticamente anche gli
+                  importi di riepilogo (inclusa la quota Sportello Amico al 65% della provv. broker).
                 </p>
                 <select
                   value={commissionType}
@@ -391,7 +391,7 @@ export default function UserCreate() {
                 >
                   <option value="SEGNALATORE">Segnalatore (30% provv. broker)</option>
                   <option value="PARTNER">Partner (50% provv. broker)</option>
-                  <option value="SPORTELLO_AMICO">Sportello Amico – rete (50% provv. broker)</option>
+                  <option value="SPORTELLO_AMICO">Sportello Amico (65% provv. broker)</option>
                 </select>
               </div>
 

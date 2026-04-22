@@ -16,12 +16,12 @@ const { pipeCommissionsListPdf } = require('../lib/commissionsExportPdf');
 const router = express.Router();
 
 const COMMISSION_TYPES = new Set(['SEGNALATORE', 'PARTNER', 'SPORTELLO_AMICO']);
-/** % della provvigione broker spettante alla struttura (SPORTELLO_AMICO: stesso criterio partner rete). */
+/** Quota accordo Sportello Amico (organizzazione) sulla provvigione broker (stessa base usata anche per il tipo struttura SA). */
 const SPORTELLO_AMICO_ORG_PCT = 0.65;
 
 function structurePctForType(t) {
   if (t === 'PARTNER') return 50;
-  if (t === 'SPORTELLO_AMICO') return 50;
+  if (t === 'SPORTELLO_AMICO') return 65;
   return 30;
 }
 

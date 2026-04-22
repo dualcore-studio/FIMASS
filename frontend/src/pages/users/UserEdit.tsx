@@ -369,8 +369,7 @@ export default function UserEdit() {
               </label>
               <p className="mb-2 text-xs text-gray-500">
                 Modificabile solo dall&apos;admin. Percentuali provvigione struttura sulla provvigione broker: Segnalatore
-                30% · Partner 50% · rete Sportello Amico 50%. In ogni pratica, la quota organizzazione Sportello Amico
-                (65% della provv. broker) è mostrata e salvata a parte.
+                30% · Partner 50% · Sportello Amico 65%.
               </p>
               <select
                 value={commissionType}
@@ -379,7 +378,7 @@ export default function UserEdit() {
               >
                 <option value="SEGNALATORE">Segnalatore (30% provv. broker)</option>
                 <option value="PARTNER">Partner (50% provv. broker)</option>
-                <option value="SPORTELLO_AMICO">Sportello Amico – rete (50% provv. broker)</option>
+                <option value="SPORTELLO_AMICO">Sportello Amico (65% provv. broker)</option>
               </select>
             </div>
 
