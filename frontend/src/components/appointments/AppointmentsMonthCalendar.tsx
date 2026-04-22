@@ -1,11 +1,14 @@
 import { addMonths, eachDayOfInterval, endOfMonth, endOfWeek, format, isSameDay, isSameMonth, parse, startOfMonth, startOfWeek } from 'date-fns';
 import { it } from 'date-fns/locale';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
-import type { Appointment } from '../../types';
-import { getAppointmentStatusColor, getUserDisplayName } from '../../utils/helpers';
-import { modalitaBadgeClass, modalitaLabel } from '../../utils/appointmentLabels';
+import { createPortal } from 'react-dom';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import type { Appointment, AppointmentStato } from '../../types';
+import { getUserDisplayName } from '../../utils/helpers';
+import { modalitaLabel } from '../../utils/appointmentLabels';
 
 const WEEKDAYS = ['Lun', 'Mar', 'Mer', 'Gio', 'Ven', 'Sab', 'Dom'];
+const MAX_VISIBLE_DEFAULT = 4;
 
 function parseMonthKey(m: string | null): Date {
   if (!m || !/^\d{4}-\d{2}$/.test(m)) return startOfMonth(new Date());
@@ -16,12 +19,65 @@ function dayKey(apt: Appointment): string {
   return String(apt.data_appuntamento || '').slice(0, 10);
 }
 
+function assistitoDisplay(a: Appointment): string {
+  const s = [a.assistito_nome, a.assistito_cognome].filter(Boolean).join(' ').trim();
+  return s || '—';
+}
+
+function formatTimeRange(a: Appointment): string {
+  const start = String(a.ora_inizio || '').slice(0, 5);
+  const end = String(a.ora_fine || '').slice(0, 5);
+  if (start && end) return `${start} – ${end}`;
+  return start || '—';
+}
+
+/** Accento leggero: bordo sinistro + fondo tenuissimo (stile agenda). */
+function eventAccentClass(stato: AppointmentStato): string {
+  switch (stato) {
+    case 'RICHIESTO':
+      return 'border-l-slate-400/80 bg-slate-100/[0.45]';
+    case 'CONFERMATO':
+      return 'border-l-emerald-500/75 bg-emerald-50/[0.4]';
+    case 'DA RIPROGRAMMARE':
+      return 'border-l-amber-500/80 bg-amber-50/[0.45]';
+    case 'ANNULLATO':
+      return 'border-l-red-400/85 bg-red-50/[0.35]';
+    case 'COMPLETATO':
+      return 'border-l-slate-500/60 bg-slate-50/[0.35]';
+    default:
+      return 'border-l-slate-300/70 bg-slate-50/30';
+  }
+}
+
+function dotClass(stato: AppointmentStato): string {
+  switch (stato) {
+    case 'RICHIESTO':
+      return 'bg-slate-500/70';
+    case 'CONFERMATO':
+      return 'bg-emerald-500/80';
+    case 'DA RIPROGRAMMARE':
+      return 'bg-amber-500/85';
+    case 'ANNULLATO':
+      return 'bg-red-500/75';
+    case 'COMPLETATO':
+      return 'bg-slate-500/60';
+    default:
+      return 'bg-slate-400/70';
+  }
+}
+
 type Props = {
   monthKey: string;
   items: Appointment[];
   loading: boolean;
   onMonthChange: (key: string) => void;
   onSelectAppointment: (a: Appointment) => void;
+};
+
+type HoverTip = {
+  apt: Appointment;
+  x: number;
+  y: number;
 };
 
 export default function AppointmentsMonthCalendar({ monthKey, items, loading, onMonthChange, onSelectAppointment }: Props) {
@@ -46,6 +102,45 @@ export default function AppointmentsMonthCalendar({ monthKey, items, loading, on
     list.sort((x, y) => String(x.ora_inizio || '').localeCompare(String(y.ora_inizio || '')));
   }
 
+  const [expandedDays, setExpandedDays] = useState<Set<string>>(() => new Set());
+  const [hoverTip, setHoverTip] = useState<HoverTip | null>(null);
+  const tipHideTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const clearTipSoon = useCallback(() => {
+    if (tipHideTimer.current) clearTimeout(tipHideTimer.current);
+    tipHideTimer.current = setTimeout(() => setHoverTip(null), 120);
+  }, []);
+
+  const showTip = useCallback((e: React.MouseEvent, apt: Appointment) => {
+    if (tipHideTimer.current) clearTimeout(tipHideTimer.current);
+    const el = e.currentTarget as HTMLElement;
+    const r = el.getBoundingClientRect();
+    const pad = 6;
+    const tipW = 288;
+    const estH = 200;
+    let x = r.left;
+    let y = r.bottom + pad;
+    if (x + tipW > window.innerWidth - 8) x = Math.max(8, window.innerWidth - tipW - 8);
+    if (x < 8) x = 8;
+    if (y + estH > window.innerHeight - 8) y = Math.max(8, r.top - estH - pad);
+    setHoverTip({ apt, x, y });
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      if (tipHideTimer.current) clearTimeout(tipHideTimer.current);
+    };
+  }, []);
+
+  const toggleDayExpand = (k: string) => {
+    setExpandedDays((prev) => {
+      const next = new Set(prev);
+      if (next.has(k)) next.delete(k);
+      else next.add(k);
+      return next;
+    });
+  };
+
   const label = format(anchor, 'LLLL yyyy', { locale: it });
   const title = label.charAt(0).toUpperCase() + label.slice(1);
 
@@ -55,8 +150,8 @@ export default function AppointmentsMonthCalendar({ monthKey, items, loading, on
   };
 
   return (
-    <div className="card overflow-hidden">
-      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200/90 bg-[var(--portal-table-header-bg)] px-3 py-2.5 sm:px-4">
+    <div className="overflow-hidden rounded-xl border border-slate-200/90 bg-white shadow-sm">
+      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200/80 bg-[var(--portal-table-header-bg)] px-3 py-2.5 sm:px-4">
         <div className="flex items-center gap-1">
           <button type="button" onClick={() => go(-1)} className="btn-secondary !py-1.5 !px-2" aria-label="Mese precedente">
             <ChevronLeft className="h-4 w-4" />
@@ -68,7 +163,11 @@ export default function AppointmentsMonthCalendar({ monthKey, items, loading, on
         <h2 className="min-w-0 text-center text-base font-semibold capitalize tracking-tight text-slate-900 sm:text-lg">
           {title}
         </h2>
-        <button type="button" onClick={() => onMonthChange(format(startOfMonth(new Date()), 'yyyy-MM'))} className="text-sm font-medium text-[var(--ui-primary)] hover:underline">
+        <button
+          type="button"
+          onClick={() => onMonthChange(format(startOfMonth(new Date()), 'yyyy-MM'))}
+          className="text-sm font-medium text-[var(--ui-primary)] hover:underline"
+        >
           Oggi
         </button>
       </div>
@@ -81,64 +180,79 @@ export default function AppointmentsMonthCalendar({ monthKey, items, loading, on
           </div>
         </div>
       ) : (
-        <div className="overflow-x-auto p-1 sm:p-2">
-          <div className="grid min-w-[720px] grid-cols-7 border-b border-slate-200/80 text-center text-xs font-semibold uppercase tracking-wide text-slate-500">
+        <div className="overflow-x-auto">
+          <div className="grid min-w-[680px] grid-cols-7 border-b border-slate-200/70 text-center text-[11px] font-semibold uppercase tracking-wide text-slate-500">
             {WEEKDAYS.map((d) => (
-              <div key={d} className="px-0.5 py-2">
+              <div key={d} className="border-l border-slate-200/60 px-0.5 py-2 first:border-l-0">
                 {d}
               </div>
             ))}
           </div>
-          <div className="grid min-w-[720px] grid-cols-7">
+          <div className="grid min-w-[680px] grid-cols-7">
             {days.map((day, i) => {
               const inMonth = isSameMonth(day, monthStart);
               const k = format(day, 'yyyy-MM-dd');
               const list = inMonth ? (byDate.get(k) ?? []) : [];
+              const expanded = expandedDays.has(k);
+              const maxVis = expanded ? list.length : MAX_VISIBLE_DEFAULT;
+              const visible = list.slice(0, maxVis);
+              const hiddenCount = expanded ? 0 : Math.max(0, list.length - MAX_VISIBLE_DEFAULT);
+
               return (
                 <div
                   key={k + i}
-                  className={`min-h-[100px] border-b border-r border-slate-100 p-0.5 sm:min-h-[110px] sm:p-1 ${i % 7 === 0 ? 'border-l' : ''} ${
-                    inMonth ? 'bg-white' : 'bg-slate-50/50'
+                  className={`min-h-[104px] border-b border-r border-slate-200/55 p-1 sm:min-h-[112px] sm:p-1.5 ${i % 7 === 0 ? 'border-l border-slate-200/55' : ''} ${
+                    inMonth ? 'bg-white' : 'bg-slate-50/60'
                   }`}
                 >
-                  <div
-                    className={`mb-0.5 text-right text-xs tabular-nums ${inMonth ? 'font-medium text-slate-800' : 'text-slate-300'}`}
-                  >
+                  <div className={`mb-0.5 text-left text-xs tabular-nums ${inMonth ? 'font-medium text-slate-800' : 'text-slate-300'}`}>
                     {isSameDay(day, new Date()) ? (
-                      <span className="inline-flex h-6 min-w-6 items-center justify-center rounded-full bg-slate-900 px-1.5 text-white">{format(day, 'd')}</span>
+                      <span className="inline-flex h-6 min-w-6 items-center justify-center rounded-full bg-slate-900 px-1.5 text-white">
+                        {format(day, 'd')}
+                      </span>
                     ) : (
-                      <span className="inline-block p-0.5">{format(day, 'd')}</span>
+                      <span className="inline-block pl-0.5 pt-0.5">{format(day, 'd')}</span>
                     )}
                   </div>
-                  <div className="space-y-1">
-                    {list.slice(0, 3).map((a) => {
-                      const ass = [a.assistito_nome, a.assistito_cognome].filter(Boolean).join(' ');
-                      const fornShort = a.fornitore ? getUserDisplayName(a.fornitore) : '—';
+                  <div className="flex flex-col gap-px">
+                    {visible.map((a) => {
+                      const time = String(a.ora_inizio || '').slice(0, 5);
                       return (
                         <button
                           key={a.id}
                           type="button"
                           onClick={() => onSelectAppointment(a)}
-                          className="block w-full rounded-md border-l-[3px] border-[var(--ui-primary)] bg-slate-50/90 px-1 py-0.5 text-left text-[11px] leading-snug text-slate-800 shadow-sm ring-1 ring-slate-200/60 transition hover:bg-white hover:ring-slate-300/80"
+                          onMouseEnter={(e) => showTip(e, a)}
+                          onMouseLeave={clearTipSoon}
+                          className={`flex w-full min-w-0 items-center gap-0.5 border-l-2 py-0.5 pl-1 pr-0.5 text-left text-[11px] leading-[1.25] text-slate-800 transition hover:brightness-[0.98] ${eventAccentClass(a.stato)}`}
+                          style={{ minHeight: 22, maxHeight: 24 }}
                         >
-                          <span className="block font-medium tabular-nums text-slate-600">{a.ora_inizio?.slice(0, 5)}</span>
-                          <span className="line-clamp-2 font-medium text-slate-900">{ass || '—'}</span>
-                          <span className="line-clamp-1 text-[10px] text-slate-500" title={fornShort}>
-                            {fornShort.length > 22 ? `${fornShort.slice(0, 20)}…` : fornShort}
+                          <span className={`mt-[1px] h-1.5 w-1.5 shrink-0 rounded-full ${dotClass(a.stato)}`} aria-hidden />
+                          <span className="min-w-0 flex-1 truncate tabular-nums">
+                            <span className="tabular-nums text-slate-600">{time}</span>
+                            <span className="text-slate-600"> </span>
+                            <span className="font-medium text-slate-900">{assistitoDisplay(a)}</span>
                           </span>
-                          <div className="mt-0.5 flex flex-wrap items-center gap-0.5">
-                            <span className={`inline-block max-w-full truncate rounded px-1 py-px text-[9px] font-medium ${modalitaBadgeClass(a.modalita)}`}>
-                              {modalitaLabel(a.modalita)}
-                            </span>
-                            <span className={`max-w-full truncate rounded px-1 py-px text-[8px] font-semibold ${getAppointmentStatusColor(a.stato)}`} title={a.stato}>
-                              {a.stato}
-                            </span>
-                          </div>
                         </button>
                       );
                     })}
-                    {list.length > 3 ? (
-                      <p className="pl-0.5 text-[10px] text-slate-500">+{list.length - 3} altri</p>
+                    {hiddenCount > 0 ? (
+                      <button
+                        type="button"
+                        onClick={() => toggleDayExpand(k)}
+                        className="mt-0.5 w-full py-0.5 text-left text-[11px] font-medium text-[var(--ui-primary)] hover:underline"
+                      >
+                        +{hiddenCount} altri
+                      </button>
+                    ) : null}
+                    {expanded && list.length > MAX_VISIBLE_DEFAULT ? (
+                      <button
+                        type="button"
+                        onClick={() => toggleDayExpand(k)}
+                        className="mt-0.5 w-full py-0.5 text-left text-[11px] text-slate-500 hover:text-slate-700 hover:underline"
+                      >
+                        Mostra meno
+                      </button>
                     ) : null}
                   </div>
                 </div>
@@ -147,6 +261,40 @@ export default function AppointmentsMonthCalendar({ monthKey, items, loading, on
           </div>
         </div>
       )}
+
+      {hoverTip
+        ? createPortal(
+            <div
+              className="pointer-events-none fixed z-[200] w-72 max-w-[calc(100vw-16px)] rounded-lg border border-slate-200/90 bg-white px-3 py-2.5 text-left text-xs shadow-lg shadow-slate-900/10"
+              style={{ left: hoverTip.x, top: hoverTip.y }}
+              role="tooltip"
+            >
+              <p className="font-semibold text-slate-900">{assistitoDisplay(hoverTip.apt)}</p>
+              <p className="mt-1.5 tabular-nums text-slate-600">{formatTimeRange(hoverTip.apt)}</p>
+              <dl className="mt-2 space-y-1.5 text-slate-600">
+                <div className="flex gap-2">
+                  <dt className="shrink-0 text-slate-500">Fornitore</dt>
+                  <dd className="min-w-0 font-medium text-slate-800">
+                    {hoverTip.apt.fornitore ? getUserDisplayName(hoverTip.apt.fornitore) : '—'}
+                  </dd>
+                </div>
+                <div className="flex gap-2">
+                  <dt className="shrink-0 text-slate-500">Modalità</dt>
+                  <dd className="min-w-0 font-medium text-slate-800">{modalitaLabel(hoverTip.apt.modalita)}</dd>
+                </div>
+                <div className="flex gap-2">
+                  <dt className="shrink-0 text-slate-500">Stato</dt>
+                  <dd className="min-w-0 font-medium text-slate-800">{hoverTip.apt.stato}</dd>
+                </div>
+                <div className="flex gap-2">
+                  <dt className="shrink-0 text-slate-500">Oggetto</dt>
+                  <dd className="min-w-0 break-words font-medium text-slate-800">{hoverTip.apt.oggetto || '—'}</dd>
+                </div>
+              </dl>
+            </div>,
+            document.body,
+          )
+        : null}
     </div>
   );
 }
