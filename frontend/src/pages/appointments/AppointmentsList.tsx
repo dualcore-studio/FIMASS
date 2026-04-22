@@ -11,6 +11,7 @@ import Modal from '../../components/ui/Modal';
 import { TABLE_PAGE_SIZE } from '../../constants/tablePagination';
 import { useSyncPageToTotalPages } from '../../hooks/useSyncPageToTotalPages';
 import AppointmentRowActions from '../../components/appointments/AppointmentRowActions';
+import AppointmentFornitoreOverviewModal from '../../components/appointments/AppointmentFornitoreOverviewModal';
 import AppointmentsMonthCalendar, { parseMonthKey } from '../../components/appointments/AppointmentsMonthCalendar';
 import { modalitaBadgeClass, modalitaLabel } from '../../utils/appointmentLabels';
 import { getUserDisplayName, isValidAssistitoPhone, isValidContactEmail } from '../../utils/helpers';
@@ -119,9 +120,13 @@ export default function AppointmentsList() {
     note: '',
   });
 
-  const viewCalendar = searchParams.get('vista') === 'calendario';
+  /** Vista predefinita: calendario (solo esplicito `vista=tabella` mostra la tabella). */
+  const viewCalendar = searchParams.get('vista') !== 'tabella';
   const meseParam = searchParams.get('mese') ?? '';
   const calInitRef = useRef(false);
+  const fornitoreModalIdRef = useRef<number | null>(null);
+
+  const [fornitoreDetailAppt, setFornitoreDetailAppt] = useState<Appointment | null>(null);
 
   useEffect(() => {
     const t = window.setTimeout(() => setDebouncedAssistito(assistitoInput), 350);
@@ -140,13 +145,13 @@ export default function AppointmentsList() {
   }, [role]);
 
   useEffect(() => {
-    if (searchParams.get('vista') !== 'calendario') {
+    if (searchParams.get('vista') === 'tabella') {
       calInitRef.current = false;
     }
   }, [searchParams]);
 
   useEffect(() => {
-    if (searchParams.get('vista') !== 'calendario' || searchParams.get('mese') || calInitRef.current) {
+    if (!viewCalendar || searchParams.get('mese') || calInitRef.current) {
       return;
     }
     calInitRef.current = true;
@@ -160,12 +165,67 @@ export default function AppointmentsList() {
         sp.set('mese', mk);
         sp.set('data_da', d1);
         sp.set('data_a', d2);
-        sp.set('vista', 'calendario');
+        if (sp.get('vista') === 'tabella') sp.set('vista', 'tabella');
+        else sp.delete('vista');
         return sp;
       },
       { replace: true },
     );
-  }, [searchParams, dataDa, setSearchParams]);
+  }, [searchParams, dataDa, setSearchParams, viewCalendar]);
+
+  const focusRaw = searchParams.get('focusAppointment');
+  useEffect(() => {
+    if (!focusRaw || role !== 'fornitore') return;
+    const n = Number(focusRaw);
+    if (!Number.isFinite(n)) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const one = await api.get<Appointment>(`/appointments/${n}`);
+        if (cancelled) return;
+        setFornitoreDetailAppt(one);
+        const mk = String(one.data_appuntamento || '').slice(0, 7);
+        if (/^\d{4}-\d{2}$/.test(mk)) {
+          const { dataDa: d1, dataAl: d2 } = monthRangeFromKey(mk);
+          setDataDa(d1);
+          setDataAl(d2);
+        }
+        setSearchParams(
+          (prev) => {
+            const sp = new URLSearchParams(prev);
+            sp.delete('focusAppointment');
+            if (/^\d{4}-\d{2}$/.test(mk)) {
+              const { dataDa: d1, dataAl: d2 } = monthRangeFromKey(mk);
+              sp.set('mese', mk);
+              sp.set('data_da', d1);
+              sp.set('data_a', d2);
+            }
+            sp.delete('vista');
+            return sp;
+          },
+          { replace: true },
+        );
+      } catch {
+        if (!cancelled) {
+          setSearchParams(
+            (prev) => {
+              const sp = new URLSearchParams(prev);
+              sp.delete('focusAppointment');
+              return sp;
+            },
+            { replace: true },
+          );
+        }
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [focusRaw, role, setSearchParams]);
+
+  useEffect(() => {
+    fornitoreModalIdRef.current = fornitoreDetailAppt?.id ?? null;
+  }, [fornitoreDetailAppt?.id]);
 
   useEffect(() => {
     setPage(1);
@@ -193,7 +253,7 @@ export default function AppointmentsList() {
         else sp.delete('oggetto');
         if (page > 1) sp.set('page', String(page));
         else sp.delete('page');
-        if (sp.get('vista') === 'calendario' && meseParam) {
+        if (viewCalendar && meseParam) {
           sp.set('mese', meseParam);
         }
         return sp;
@@ -211,6 +271,7 @@ export default function AppointmentsList() {
     debouncedOggetto,
     page,
     meseParam,
+    viewCalendar,
     setSearchParams,
   ]);
 
@@ -260,6 +321,43 @@ export default function AppointmentsList() {
     fetchList();
   }, [fetchList]);
 
+  const refreshAppointments = useCallback(async () => {
+    await fetchList();
+    const id = fornitoreModalIdRef.current;
+    if (!id) return;
+    try {
+      const one = await api.get<Appointment>(`/appointments/${id}`);
+      setFornitoreDetailAppt(one);
+    } catch {
+      setFornitoreDetailAppt(null);
+    }
+  }, [fetchList]);
+
+  const openFornitoreModal = useCallback((a: Appointment) => {
+    setFornitoreDetailAppt(a);
+  }, []);
+
+  const resolveNavigateDetail = useCallback(
+    async (apptId: number) => {
+      if (role !== 'fornitore') {
+        navigate(`/appuntamenti/${apptId}`);
+        return;
+      }
+      const fromList = result?.data.find((x) => x.id === apptId);
+      if (fromList) {
+        openFornitoreModal(fromList);
+        return;
+      }
+      try {
+        const one = await api.get<Appointment>(`/appointments/${apptId}`);
+        openFornitoreModal(one);
+      } catch (e) {
+        setActionError(e instanceof ApiError ? e.message : 'Impossibile aprire l’appuntamento.');
+      }
+    },
+    [role, navigate, result?.data, openFornitoreModal],
+  );
+
   const totalPages = result?.totalPages ?? 1;
   useSyncPageToTotalPages(page, result?.totalPages, setPage);
 
@@ -270,7 +368,7 @@ export default function AppointmentsList() {
       setDataDa(d1);
       setDataAl(d2);
       const sp = new URLSearchParams(searchParams);
-      sp.set('vista', 'calendario');
+      sp.delete('vista');
       sp.set('mese', mk);
       sp.set('data_da', d1);
       sp.set('data_a', d2);
@@ -278,7 +376,7 @@ export default function AppointmentsList() {
       setSearchParams(sp, { replace: true });
     } else {
       const sp = new URLSearchParams(searchParams);
-      sp.delete('vista');
+      sp.set('vista', 'tabella');
       sp.delete('mese');
       setSearchParams(sp, { replace: true });
     }
@@ -293,7 +391,7 @@ export default function AppointmentsList() {
     sp.set('data_da', d1);
     sp.set('data_a', d2);
     if (viewCalendar) {
-      sp.set('vista', 'calendario');
+      sp.delete('vista');
     }
     setSearchParams(sp, { replace: true });
   };
@@ -543,7 +641,10 @@ export default function AppointmentsList() {
           items={calendarItems}
           loading={loading}
           onMonthChange={handleMonthChange}
-          onSelectAppointment={(a) => navigate(`/appuntamenti/${a.id}`)}
+          onSelectAppointment={(a) => {
+            if (role === 'fornitore') openFornitoreModal(a);
+            else navigate(`/appuntamenti/${a.id}`);
+          }}
         />
       ) : (
         <>
@@ -582,7 +683,16 @@ export default function AppointmentsList() {
                       </tr>
                     ) : (
                       result.data.map((a) => (
-                        <tr key={a.id} className="border-b border-slate-100/90">
+                        <tr
+                          key={a.id}
+                          className={`border-b border-slate-100/90 ${role === 'fornitore' ? 'cursor-pointer hover:bg-slate-50/90' : ''}`}
+                          onClick={(e) => {
+                            if (role !== 'fornitore') return;
+                            const el = e.target as HTMLElement;
+                            if (el.closest('button') || el.closest('[data-appt-actions-root]')) return;
+                            openFornitoreModal(a);
+                          }}
+                        >
                           <td className="px-4 py-3 align-middle">
                             <StatusBadge stato={a.stato} type="appointment" />
                           </td>
@@ -609,10 +719,10 @@ export default function AppointmentsList() {
                           <td className="max-w-[200px] truncate px-4 py-3 align-middle text-slate-800" title={a.oggetto}>
                             {a.oggetto}
                           </td>
-                          <td className="px-4 py-3 align-middle text-right">
+                          <td className="px-4 py-3 align-middle text-right" data-appt-actions-root>
                             <AppointmentRowActions
                               row={a}
-                              onRefresh={fetchList}
+                              onRefresh={role === 'fornitore' ? refreshAppointments : fetchList}
                               onError={(msg) => {
                                 setActionError(msg);
                                 setActionSuccess(null);
@@ -621,7 +731,7 @@ export default function AppointmentsList() {
                                 setActionSuccess(msg);
                                 setActionError(null);
                               }}
-                              onNavigateDetail={(id) => navigate(`/appuntamenti/${id}`)}
+                              onNavigateDetail={(id) => void resolveNavigateDetail(id)}
                               suppliers={suppliers}
                             />
                           </td>
@@ -792,6 +902,23 @@ export default function AppointmentsList() {
           </button>
         </div>
       </Modal>
+
+      {role === 'fornitore' ? (
+        <AppointmentFornitoreOverviewModal
+          appointment={fornitoreDetailAppt}
+          onClose={() => setFornitoreDetailAppt(null)}
+          onRefresh={refreshAppointments}
+          onError={(msg) => {
+            setActionError(msg);
+            setActionSuccess(null);
+          }}
+          onSuccess={(msg) => {
+            setActionSuccess(msg);
+            setActionError(null);
+          }}
+          suppliers={suppliers}
+        />
+      ) : null}
     </div>
   );
 }

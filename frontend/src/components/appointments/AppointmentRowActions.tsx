@@ -8,7 +8,7 @@ import { useAuth } from '../../context/AuthContext';
 import Modal from '../ui/Modal';
 import StatusBadge from '../common/StatusBadge';
 import { formatDateTime } from '../../utils/helpers';
-import { isAppointmentClosed, strutturaCanEditTable } from '../../utils/appointmentLabels';
+import { isAppointmentClosed, modalitaLabel, strutturaCanEditTable } from '../../utils/appointmentLabels';
 
 const MENU_WIDTH = 240;
 const VIEW_MARGIN = 8;
@@ -18,12 +18,14 @@ type MenuPos = { top: number; left: number; maxHeightPx?: number };
 
 type Props = {
   row: Appointment;
-  onRefresh: () => void;
+  onRefresh: () => void | Promise<void>;
   onError: (msg: string) => void;
   onSuccess?: (msg: string) => void;
   onNavigateDetail: (id: number) => void;
   /** Per riassegnazione (admin/supervisore) */
   suppliers?: { id: number; nome: string | null; cognome: string | null }[];
+  /** Nasconde la voce «Apri» (es. modale dettaglio già aperta) */
+  hideOpenInMenu?: boolean;
 };
 
 function actorLabel(u: { nome?: string | null; cognome?: string | null; denominazione?: string | null; role?: string } | null | undefined) {
@@ -39,6 +41,7 @@ export default function AppointmentRowActions({
   onSuccess,
   onNavigateDetail,
   suppliers = [],
+  hideOpenInMenu = false,
 }: Props) {
   const navigate = useNavigate();
   const { user } = useAuth();
@@ -152,6 +155,18 @@ export default function AppointmentRowActions({
   }, [reschedOpen, row]);
 
   const handleConfirm = async () => {
+    if (row.modalita === 'presenza' && !confirmLuogo.trim()) {
+      onError('Indicare il luogo.');
+      return;
+    }
+    if (row.modalita === 'videocall' && !confirmLink.trim()) {
+      onError('Indicare il link videocall.');
+      return;
+    }
+    if (row.modalita === 'telefonata' && !String(row.assistito_telefono || '').trim()) {
+      onError('Il telefono dell’assistito è obbligatorio per confermare la telefonata.');
+      return;
+    }
     setConfirmBusy(true);
     try {
       await api.post(`/appointments/${row.id}/confirm`, {
@@ -292,16 +307,18 @@ export default function AppointmentRowActions({
       className="fixed z-[80] max-h-[min(70vh,420px)] w-[240px] overflow-y-auto rounded-lg border border-slate-200 bg-white py-1 text-sm shadow-lg"
       style={{ top: menuPos.top, left: menuPos.left, maxHeight: menuPos.maxHeightPx }}
     >
-      <button
-        type="button"
-        className="block w-full px-3 py-2 text-left hover:bg-slate-50"
-        onClick={() => {
-          closeMenu();
-          onNavigateDetail(row.id);
-        }}
-      >
-        Apri
-      </button>
+      {hideOpenInMenu ? null : (
+        <button
+          type="button"
+          className="block w-full px-3 py-2 text-left hover:bg-slate-50"
+          onClick={() => {
+            closeMenu();
+            onNavigateDetail(row.id);
+          }}
+        >
+          Apri
+        </button>
+      )}
       {(showStrutturaActions && canStrutturaEdit) || showAdminActions ? (
         <button
           type="button"
@@ -335,7 +352,7 @@ export default function AppointmentRowActions({
             closeMenu();
           }}
         >
-          Riproponi data
+          Riprogramma
         </button>
       ) : null}
       {canCancel ? (
@@ -442,12 +459,33 @@ export default function AppointmentRowActions({
       </Modal>
 
       <Modal isOpen={confirmOpen} onClose={() => !confirmBusy && setConfirmOpen(false)} title="Conferma appuntamento" size="md">
-        <div className="space-y-3">
+        <div className="space-y-4">
+          <div className="rounded-lg border border-slate-200/90 bg-slate-50/90 px-3 py-3 text-sm">
+            <p className="font-medium text-slate-900">{row.oggetto}</p>
+            <dl className="mt-2 grid gap-2 sm:grid-cols-2">
+              <div>
+                <dt className="text-xs text-slate-500">Data</dt>
+                <dd className="tabular-nums text-slate-800">{String(row.data_appuntamento || '').slice(0, 10)}</dd>
+              </div>
+              <div>
+                <dt className="text-xs text-slate-500">Ora</dt>
+                <dd className="tabular-nums text-slate-800">{row.ora_inizio}</dd>
+              </div>
+              <div>
+                <dt className="text-xs text-slate-500">Durata</dt>
+                <dd className="text-slate-800">{row.durata_minuti} minuti</dd>
+              </div>
+              <div>
+                <dt className="text-xs text-slate-500">Modalità</dt>
+                <dd className="text-slate-800">{modalitaLabel(row.modalita)}</dd>
+              </div>
+            </dl>
+          </div>
           {row.modalita === 'presenza' ? (
             <div>
-              <label className="text-xs text-slate-600">Luogo</label>
+              <label className="text-sm font-medium text-slate-700">Luogo *</label>
               <input
-                className="mt-0.5 w-full rounded border border-slate-200 px-2 py-1.5 text-sm"
+                className="input-field mt-1 w-full text-sm"
                 value={confirmLuogo}
                 onChange={(e) => setConfirmLuogo(e.target.value)}
               />
@@ -455,9 +493,9 @@ export default function AppointmentRowActions({
           ) : null}
           {row.modalita === 'videocall' ? (
             <div>
-              <label className="text-xs text-slate-600">Link videocall</label>
+              <label className="text-sm font-medium text-slate-700">Link videocall *</label>
               <input
-                className="mt-0.5 w-full rounded border border-slate-200 px-2 py-1.5 text-sm"
+                className="input-field mt-1 w-full text-sm"
                 value={confirmLink}
                 onChange={(e) => setConfirmLink(e.target.value)}
                 placeholder="https://…"
@@ -466,80 +504,84 @@ export default function AppointmentRowActions({
           ) : null}
           {row.modalita === 'telefonata' ? (
             <p className="rounded-lg border border-slate-200/80 bg-slate-50/90 px-3 py-2 text-sm text-slate-700">
-              Contatto telefonico: <strong className="text-slate-900">{row.assistito_telefono || '—'}</strong> (numero
-              assistito)
+              Telefonata sull&apos;assistito: <strong className="text-slate-900">{row.assistito_telefono || '—'}</strong>
             </p>
           ) : null}
-          <div className="mt-1 flex flex-wrap justify-end gap-2 border-t border-slate-200/90 pt-3">
+          <div className="flex flex-wrap justify-end gap-2 border-t border-slate-200/90 pt-4">
             <button type="button" className="btn-secondary" onClick={() => setConfirmOpen(false)} disabled={confirmBusy}>
-              Indietro
+              Annulla
             </button>
             <button type="button" className="btn-primary" onClick={handleConfirm} disabled={confirmBusy}>
-              {confirmBusy ? 'Salvataggio…' : 'Conferma'}
+              {confirmBusy ? 'Salvataggio…' : 'Conferma appuntamento'}
             </button>
           </div>
         </div>
       </Modal>
 
-      <Modal isOpen={reschedOpen} onClose={() => !resBusy && setReschedOpen(false)} title="Riproponi data" size="md">
-        <div className="space-y-3">
-          <div className="grid grid-cols-2 gap-2">
+      <Modal isOpen={reschedOpen} onClose={() => !resBusy && setReschedOpen(false)} title="Riprogramma appuntamento" size="md">
+        <div className="space-y-4">
+          <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="text-xs text-slate-600">Data</label>
-              <input type="date" className="mt-0.5 w-full rounded border border-slate-200 px-2 py-1.5 text-sm" value={resData} onChange={(e) => setResData(e.target.value)} />
+              <label className="text-sm font-medium text-slate-700">Nuova data *</label>
+              <input type="date" className="input-field mt-1 w-full text-sm" value={resData} onChange={(e) => setResData(e.target.value)} />
             </div>
             <div>
-              <label className="text-xs text-slate-600">Ora inizio</label>
-              <input type="time" className="mt-0.5 w-full rounded border border-slate-200 px-2 py-1.5 text-sm" value={resOra} onChange={(e) => setResOra(e.target.value)} />
+              <label className="text-sm font-medium text-slate-700">Nuova ora *</label>
+              <input type="time" className="input-field mt-1 w-full text-sm" value={resOra} onChange={(e) => setResOra(e.target.value)} />
             </div>
           </div>
           <div>
-            <label className="text-xs text-slate-600">Durata (minuti)</label>
-            <select className="mt-0.5 w-full rounded border border-slate-200 px-2 py-1.5 text-sm" value={resDurata} onChange={(e) => setResDurata(e.target.value)}>
-              <option value="30">30</option>
-              <option value="60">60</option>
+            <label className="text-sm font-medium text-slate-700">Durata</label>
+            <select className="input-field mt-1 w-full text-sm" value={resDurata} onChange={(e) => setResDurata(e.target.value)}>
+              <option value="30">30 minuti</option>
+              <option value="60">60 minuti</option>
             </select>
           </div>
           <div>
-            <label className="text-xs text-slate-600">Motivo riprogrammazione</label>
-            <textarea className="mt-0.5 w-full rounded border border-slate-200 px-2 py-1.5 text-sm" rows={3} value={resMotivo} onChange={(e) => setResMotivo(e.target.value)} />
+            <label className="text-sm font-medium text-slate-700">Motivo / nota riprogrammazione *</label>
+            <textarea className="input-field mt-1 w-full resize-y text-sm" rows={3} value={resMotivo} onChange={(e) => setResMotivo(e.target.value)} />
           </div>
-          <div className="flex justify-end gap-2 pt-2">
-            <button type="button" className="rounded border border-slate-200 px-3 py-1.5 text-sm" onClick={() => setReschedOpen(false)} disabled={resBusy}>
-              Indietro
+          <div className="flex flex-wrap justify-end gap-2 border-t border-slate-200/90 pt-4">
+            <button type="button" className="btn-secondary" onClick={() => setReschedOpen(false)} disabled={resBusy}>
+              Annulla
             </button>
-            <button type="button" className="rounded bg-slate-900 px-3 py-1.5 text-sm text-white disabled:opacity-50" onClick={handleReschedule} disabled={resBusy}>
-              {resBusy ? 'Salvataggio…' : 'Salva'}
+            <button type="button" className="btn-primary" onClick={handleReschedule} disabled={resBusy}>
+              {resBusy ? 'Salvataggio…' : 'Salva nuova proposta'}
             </button>
           </div>
         </div>
       </Modal>
 
       <Modal isOpen={cancelOpen} onClose={() => !cancelBusy && setCancelOpen(false)} title="Annulla appuntamento" size="md">
-        <div className="space-y-3">
+        <div className="space-y-4">
           <div>
-            <label className="text-xs text-slate-600">Motivo annullamento</label>
-            <textarea className="mt-0.5 w-full rounded border border-slate-200 px-2 py-1.5 text-sm" rows={3} value={cancelMotivo} onChange={(e) => setCancelMotivo(e.target.value)} />
+            <label className="text-sm font-medium text-slate-700">Motivo annullamento *</label>
+            <textarea className="input-field mt-1 w-full resize-y text-sm" rows={3} value={cancelMotivo} onChange={(e) => setCancelMotivo(e.target.value)} />
           </div>
-          <div className="flex justify-end gap-2 pt-2">
-            <button type="button" className="rounded border border-slate-200 px-3 py-1.5 text-sm" onClick={() => setCancelOpen(false)} disabled={cancelBusy}>
-              Indietro
+          <div className="flex flex-wrap justify-end gap-2 border-t border-slate-200/90 pt-4">
+            <button type="button" className="btn-secondary" onClick={() => setCancelOpen(false)} disabled={cancelBusy}>
+              Chiudi
             </button>
-            <button type="button" className="rounded bg-red-700 px-3 py-1.5 text-sm text-white disabled:opacity-50" onClick={handleCancel} disabled={cancelBusy}>
-              {cancelBusy ? '…' : 'Annulla appuntamento'}
+            <button
+              type="button"
+              className="rounded-lg border border-red-200 bg-red-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-red-700 disabled:opacity-50"
+              onClick={handleCancel}
+              disabled={cancelBusy}
+            >
+              {cancelBusy ? 'Salvataggio…' : 'Conferma annullamento'}
             </button>
           </div>
         </div>
       </Modal>
 
       <Modal isOpen={completeOpen} onClose={() => !completeBusy && setCompleteOpen(false)} title="Completa appuntamento" size="sm">
-        <p className="text-sm text-slate-600">Segnare l&apos;appuntamento come completato?</p>
-        <div className="mt-4 flex justify-end gap-2">
-          <button type="button" className="rounded border border-slate-200 px-3 py-1.5 text-sm" onClick={() => setCompleteOpen(false)} disabled={completeBusy}>
-            No
+        <p className="text-sm text-slate-600">Confermi di voler segnare questo appuntamento come completato? L&apos;operazione aggiornerà lo stato nell&apos;agenda.</p>
+        <div className="mt-4 flex flex-wrap justify-end gap-2 border-t border-slate-200/90 pt-4">
+          <button type="button" className="btn-secondary" onClick={() => setCompleteOpen(false)} disabled={completeBusy}>
+            Annulla
           </button>
-          <button type="button" className="rounded bg-slate-900 px-3 py-1.5 text-sm text-white" onClick={handleComplete} disabled={completeBusy}>
-            {completeBusy ? '…' : 'Sì, completa'}
+          <button type="button" className="btn-primary" onClick={handleComplete} disabled={completeBusy}>
+            {completeBusy ? 'Salvataggio…' : 'Segna come completato'}
           </button>
         </div>
       </Modal>

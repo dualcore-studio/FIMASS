@@ -17,7 +17,7 @@ export default function AppointmentDetail() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
-  const { user } = useAuth();
+  const { user, isLoading: authLoading } = useAuth();
   const role = user?.role;
   const modifica = searchParams.get('modifica') === '1';
 
@@ -41,8 +41,14 @@ export default function AppointmentDetail() {
   }, [id]);
 
   useEffect(() => {
+    if (user?.role === 'fornitore') return;
     fetchDetail();
-  }, [fetchDetail]);
+  }, [fetchDetail, user?.role]);
+
+  useEffect(() => {
+    if (authLoading || role !== 'fornitore' || !id) return;
+    navigate(`/appuntamenti?focusAppointment=${encodeURIComponent(id)}&vista=calendario`, { replace: true });
+  }, [authLoading, role, id, navigate]);
 
   useEffect(() => {
     if (role === 'struttura' || role === 'admin' || role === 'supervisore') {
@@ -102,6 +108,22 @@ export default function AppointmentDetail() {
       setSaving(false);
     }
   };
+
+  if (authLoading) {
+    return (
+      <div className="px-4 py-8 text-slate-600">
+        <p>Caricamento…</p>
+      </div>
+    );
+  }
+
+  if (role === 'fornitore') {
+    return (
+      <div className="px-4 py-8 text-center text-sm text-slate-600">
+        <p>Apertura in agenda…</p>
+      </div>
+    );
+  }
 
   if (error && !detail) {
     return (
