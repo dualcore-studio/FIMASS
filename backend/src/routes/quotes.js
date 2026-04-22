@@ -34,6 +34,10 @@ const { writeAuditLog, AUDIT_ACTIONS } = require('../lib/auditLog');
 const { sanitizeAttachmentsList } = require('../lib/attachmentPublicJson');
 const { PRIVACY_POLICY_VERSION } = require('../config/privacyConstants');
 const { getCasaPackageById, canonicalPacchettoSnapshot } = require('../lib/casaPolizzaPackages');
+const {
+  getSanitariaPackageByCodice,
+  canonicalPacchettoSanitariaSnapshot,
+} = require('../lib/sanitariaPolizzaPackages');
 const { buildCasaPolizzaRiepilogoPdfBuffer, CASA_RIEPILOGO_PDF_VERSION } = require('../lib/casaPolizzaRiepilogoPdf');
 
 /** Con pacchetto Casa predefinito, non persistere RCT/garanzie manuali (fonte: pacchetto). Allineato al cutoff dopo indirizzo immobile. */
@@ -1166,6 +1170,23 @@ router.post('/', authenticateToken, authorizeRoles('struttura'), (req, res) => {
         mergedDati = {
           ...rest,
           casa_preventivo: { personalizzato: true },
+        };
+      }
+    }
+    if (tipoCodice === 'sanitaria') {
+      const codiceRaw = mergedDati.pacchetto_sanitaria?.codice;
+      const spkg = getSanitariaPackageByCodice(codiceRaw);
+      if (spkg) {
+        const { pacchetto_sanitaria: _dropPs, sanitaria_preventivo: _dropSp, ...rest } = mergedDati;
+        mergedDati = {
+          ...rest,
+          pacchetto_sanitaria: canonicalPacchettoSanitariaSnapshot(spkg),
+        };
+      } else {
+        const { pacchetto_sanitaria: _omitPs, sanitaria_preventivo: _omitSprev, ...rest } = mergedDati;
+        mergedDati = {
+          ...rest,
+          sanitaria_preventivo: { personalizzato: true },
         };
       }
     }

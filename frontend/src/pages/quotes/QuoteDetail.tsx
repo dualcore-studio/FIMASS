@@ -22,6 +22,7 @@ import {
 } from 'lucide-react';
 import { api, ApiError } from '../../utils/api';
 import { formatPremioCasaIt } from '../../config/casaPolizzaPackages';
+import { downloadSanitariaPacchettoPdf, formatPremioStartingIt } from '../../config/sanitariaPolizzaPackages';
 import { labelForQuoteAttachmentTipo } from '../../config/casaQuoteFlow';
 import { downloadPreventivoFinale } from '../../utils/downloadPreventivoFinale';
 import { rcPreventivoPdfDownloadFilename } from '../../utils/rcPreventivoPdfFilename';
@@ -573,6 +574,33 @@ function TabDati({ quote, viewerRole }: { quote: Quote; viewerRole?: string }) {
     && (casaPreventivoRaw as { personalizzato?: unknown }).personalizzato === true,
   );
 
+  const sanitariaPacchetto =
+    quote.tipo_codice === 'sanitaria' && quote.dati_specifici && typeof quote.dati_specifici === 'object'
+      ? (quote.dati_specifici as Record<string, unknown>).pacchetto_sanitaria
+      : null;
+  const sanitariaPacchettoObj =
+    sanitariaPacchetto && typeof sanitariaPacchetto === 'object'
+      ? (sanitariaPacchetto as {
+          codice?: string;
+          nome?: string;
+          premio_starting_euro?: number;
+          pdf_file?: string;
+          eta_ingresso_max?: number;
+          highlights?: string[];
+        })
+      : null;
+
+  const sanitariaPreventivoRaw =
+    quote.tipo_codice === 'sanitaria' && quote.dati_specifici && typeof quote.dati_specifici === 'object'
+      ? (quote.dati_specifici as Record<string, unknown>).sanitaria_preventivo
+      : null;
+  const isSanitariaPersonalizzato = Boolean(
+    quote.tipo_codice === 'sanitaria'
+    && sanitariaPreventivoRaw
+    && typeof sanitariaPreventivoRaw === 'object'
+    && (sanitariaPreventivoRaw as { personalizzato?: unknown }).personalizzato === true,
+  );
+
   const incaricatoDisplay =
     quote.operatore_id
       ? [quote.operatore_nome, quote.operatore_cognome].filter(Boolean).join(' ')
@@ -696,6 +724,61 @@ function TabDati({ quote, viewerRole }: { quote: Quote; viewerRole?: string }) {
         </DetailSectionCard>
       )}
 
+      {isSanitariaPersonalizzato && !sanitariaPacchettoObj?.codice && (
+        <DetailSectionCard title="Polizza Sanitaria" variant="amber" className="lg:col-span-2">
+          <p className="text-sm font-medium leading-snug text-amber-950">Preventivo personalizzato</p>
+          <p className="mt-1.5 text-sm leading-snug text-amber-900/85">
+            Richiesta senza pacchetto predefinito: la pratica è stata avviata come preventivo su misura.
+          </p>
+        </DetailSectionCard>
+      )}
+
+      {sanitariaPacchettoObj?.codice && (
+        <DetailSectionCard title="Pacchetto polizza Sanitaria" variant="muted" className="lg:col-span-2">
+          <CompactInfoGrid columns="responsive-3">
+            <DetailField label="Codice" value={sanitariaPacchettoObj.codice} colSpan="full" />
+            <DetailField label="Nome pacchetto" value={sanitariaPacchettoObj.nome || undefined} colSpan="full" />
+            {typeof sanitariaPacchettoObj.eta_ingresso_max === 'number' ? (
+              <DetailField
+                label="Età ingresso massima"
+                value={`${sanitariaPacchettoObj.eta_ingresso_max} anni`}
+              />
+            ) : null}
+            {typeof sanitariaPacchettoObj.premio_starting_euro === 'number' ? (
+              <DetailField
+                label="Premio a partire da"
+                value={formatPremioStartingIt(sanitariaPacchettoObj.premio_starting_euro)}
+              />
+            ) : null}
+            {Array.isArray(sanitariaPacchettoObj.highlights) && sanitariaPacchettoObj.highlights.length > 0 ? (
+              <div className="col-span-full">
+                <p className="text-[10px] font-semibold uppercase tracking-wide text-gray-500">Garanzie principali</p>
+                <ul className="mt-1.5 list-inside list-disc space-y-0.5 text-sm text-gray-800">
+                  {sanitariaPacchettoObj.highlights.map((h) => (
+                    <li key={h}>{h}</li>
+                  ))}
+                </ul>
+              </div>
+            ) : null}
+            {sanitariaPacchettoObj.pdf_file ? (
+              <DetailField label="File PDF" value={sanitariaPacchettoObj.pdf_file} colSpan="full" />
+            ) : null}
+          </CompactInfoGrid>
+          {sanitariaPacchettoObj.pdf_file ? (
+            <div className="mt-3 border-t border-slate-200/80 pt-3">
+              <button
+                type="button"
+                onClick={() => downloadSanitariaPacchettoPdf(sanitariaPacchettoObj.pdf_file!)}
+                className="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-900 shadow-sm transition hover:bg-slate-50"
+              >
+                <Download className="h-4 w-4" />
+                Scarica riepilogo PDF
+              </button>
+            </div>
+          ) : null}
+        </DetailSectionCard>
+      )}
+
       <DetailSectionCard title="Note" className="lg:col-span-2">
         <div className="grid gap-4 sm:grid-cols-2 sm:gap-5">
           <div className="min-w-0 rounded-md border border-slate-100 bg-slate-50/40 px-3 py-2.5">
@@ -735,6 +818,8 @@ function TabDati({ quote, viewerRole }: { quote: Quote; viewerRole?: string }) {
                   !String(key).startsWith('_')
                   && key !== 'pacchetto_casa'
                   && key !== 'casa_preventivo'
+                  && key !== 'pacchetto_sanitaria'
+                  && key !== 'sanitaria_preventivo'
                   && !(isRcVeicoliTipo(quote.tipo_codice) && RC_DATI_SPEC_KEYS_TO_HIDE.has(key)),
               )
               .map(([key, value]) => {

@@ -1,0 +1,86 @@
+[
+  {
+    "codice": "golden_assistance",
+    "nome": "Golden Assistance",
+    "premio_starting_euro": 192,
+    "eta_ingresso_max": 75,
+    "pdf_file": "golden-assistance.pdf",
+    "highlights": [
+      "Ricovero per gravi malattie",
+      "Fisioterapia",
+      "Check-up in network",
+      "2 visite di controllo in network"
+    ]
+  },
+  {
+    "codice": "platinum_assistance",
+    "nome": "Platinum Assistance",
+    "premio_starting_euro": 228,
+    "eta_ingresso_max": 75,
+    "pdf_file": "platinum-assistance.pdf",
+    "highlights": [
+      "Prestazioni ospedaliere",
+      "Alta diagnostica",
+      "Visite e analisi",
+      "Assistenza domiciliare",
+      "Check-up Silver Assistance"
+    ]
+  },
+  {
+    "codice": "on_smart_care",
+    "nome": "On Smart Care",
+    "premio_starting_euro": 552,
+    "eta_ingresso_max": 50,
+    "pdf_file": "on-smart-care.pdf",
+    "highlights": [
+      "Ricovero / day hospital / intervento ambulatoriale",
+      "Alta diagnostica",
+      "Prevenzione",
+      "Odontoiatria base"
+    ]
+  },
+  {
+    "codice": "on_plus_care",
+    "nome": "On Plus Care",
+    "premio_starting_euro": 672,
+    "eta_ingresso_max": 75,
+    "pdf_file": "on-plus-care.pdf",
+    "highlights": [
+      "Ricovero / day hospital / intervento ambulatoriale",
+      "Alta diagnostica",
+      "Visite, accertamenti e analisi",
+      "Prevenzione",
+      "Odontoiatria base"
+    ]
+  },
+  {
+    "codice": "diamond_assistance",
+    "nome": "Diamond Assistance",
+    "premio_starting_euro": 408,
+    "eta_ingresso_max": 75,
+    "pdf_file": "diamond-assistance.pdf",
+    "highlights": [
+      "Gravi malattie",
+      "Alta diagnostica",
+      "Visite e analisi",
+      "Assistenza domiciliare",
+      "Fisioterapia",
+      "Prevenzione"
+    ]
+  },
+  {
+    "codice": "on_top_care",
+    "nome": "On Top Care",
+    "premio_starting_euro": 912,
+    "eta_ingresso_max": 75,
+    "pdf_file": "on-top-care.pdf",
+    "highlights": [
+      "Ricovero / day hospital / intervento ambulatoriale",
+      "Alta diagnostica",
+      "Lenti / occhiali",
+      "Fisioterapia",
+      "Prevenzione",
+      "Odontoiatria"
+    ]
+  }
+]

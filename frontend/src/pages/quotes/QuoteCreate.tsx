@@ -34,7 +34,9 @@ import {
 import { formatGaranzieRichiesteRcLine, isRcVeicoliTipo, RC_DATI_SPEC_KEYS_TO_HIDE } from '../../utils/rcAutoGaranzie';
 import { PRIVACY_POLICY_VERSION } from '../../config/privacyConfig';
 import CasaPolizzaPackageStep from '../../components/quotes/CasaPolizzaPackageStep';
+import SanitariaPolizzaPackageStep from '../../components/quotes/SanitariaPolizzaPackageStep';
 import { formatPremioCasaIt, type CasaPackageDef } from '../../config/casaPolizzaPackages';
+import { formatPremioStartingIt, type SanitariaPackageDef } from '../../config/sanitariaPolizzaPackages';
 import {
   CASA_PREVENTIVO_FIRMATO_TIPO,
   filterCasaCampiForPackageSelected,
@@ -152,8 +154,12 @@ export default function QuoteCreate() {
 
   /** Scelto nello step iniziale Polizza Casa (codice `casa`): abilita il flusso ridotto nei dati specifici. */
   const [casaPackage, setCasaPackage] = useState<CasaPackageDef | null>(null);
+  const [sanitariaPackage, setSanitariaPackage] = useState<SanitariaPackageDef | null>(null);
   const hasSelectedCasaPackage =
     Boolean(selectedType && String(selectedType.codice || '').toLowerCase() === 'casa' && casaPackage);
+  const hasSelectedSanitariaPackage = Boolean(
+    selectedType && String(selectedType.codice || '').toLowerCase() === 'sanitaria' && sanitariaPackage,
+  );
 
   useEffect(() => {
     setTypesLoading(true);
@@ -279,10 +285,14 @@ export default function QuoteCreate() {
 
   const goPrev = () => {
     setStepErrors([]);
-    if (step === 0 && selectedType && String(selectedType.codice || '').toLowerCase() === 'casa') {
-      setSelectedType(null);
-      setCasaPackage(null);
-      return;
+    if (step === 0 && selectedType) {
+      const t = String(selectedType.codice || '').toLowerCase();
+      if (t === 'casa' || t === 'sanitaria') {
+        setSelectedType(null);
+        setCasaPackage(null);
+        setSanitariaPackage(null);
+        return;
+      }
     }
     setStep((s) => Math.max(s - 1, 0));
   };
@@ -342,6 +352,17 @@ export default function QuoteCreate() {
           mergedDati = { ...restDati, pacchetto_casa: { id: casaPackage.id } };
         } else {
           mergedDati = { ...restDati, casa_preventivo: { personalizzato: true } };
+        }
+      }
+      if (cod === 'sanitaria') {
+        const { pacchetto_sanitaria: _ps, sanitaria_preventivo: _sprev, ...restSan } = mergedDati;
+        if (sanitariaPackage) {
+          mergedDati = {
+            ...restSan,
+            pacchetto_sanitaria: { codice: sanitariaPackage.codice },
+          };
+        } else {
+          mergedDati = { ...restSan, sanitaria_preventivo: { personalizzato: true } };
         }
       }
 
@@ -471,8 +492,12 @@ export default function QuoteCreate() {
 
       {/* Step content */}
       <div className="card p-6">
-        {step === 0 && !(selectedType && String(selectedType.codice || '').toLowerCase() === 'casa') && (
-          <Step1Types
+        {step === 0
+          && !(
+            selectedType
+            && ['casa', 'sanitaria'].includes(String(selectedType.codice || '').toLowerCase())
+          ) && (
+            <Step1Types
             types={insuranceTypes}
             loading={typesLoading}
             error={typesError}
@@ -488,8 +513,9 @@ export default function QuoteCreate() {
               setNoteAllegati('');
               setStepErrors([]);
               setCasaPackage(null);
+              setSanitariaPackage(null);
               const cod = String(t.codice || '').toLowerCase();
-              if (cod === 'casa') {
+              if (cod === 'casa' || cod === 'sanitaria') {
                 setStep(0);
               } else {
                 setStep(1);
@@ -522,6 +548,26 @@ export default function QuoteCreate() {
             }}
           />
         )}
+        {step === 0 && selectedType && String(selectedType.codice || '').toLowerCase() === 'sanitaria' && (
+          <SanitariaPolizzaPackageStep
+            committedPackageCodice={sanitariaPackage?.codice ?? null}
+            onBackToTipologie={() => {
+              setSelectedType(null);
+              setSanitariaPackage(null);
+              setStepErrors([]);
+            }}
+            onContinueWithPackage={(pkg) => {
+              setSanitariaPackage(pkg);
+              setStepErrors([]);
+              setStep(1);
+            }}
+            onContinuePersonalized={() => {
+              setSanitariaPackage(null);
+              setStepErrors([]);
+              setStep(1);
+            }}
+          />
+        )}
         {step === 1 && selectedType && (
           <Step2Assisted
             tipoCodice={selectedType.codice}
@@ -543,6 +589,8 @@ export default function QuoteCreate() {
             tipoCodice={String(selectedType.codice || '').toLowerCase()}
             hasSelectedCasaPackage={hasSelectedCasaPackage}
             casaPackage={casaPackage}
+            hasSelectedSanitariaPackage={hasSelectedSanitariaPackage}
+            sanitariaPackage={sanitariaPackage}
             fields={activeCampiSpecificiQuoteStep(selectedType, datiSpecifici, casaPackage)}
             values={datiSpecifici}
             onChange={updateDatiSpecifici}
@@ -576,6 +624,7 @@ export default function QuoteCreate() {
             marketingOptIn={marketingOptIn}
             onMarketingOptInChange={setMarketingOptIn}
             casaPackage={casaPackage}
+            sanitariaPackage={sanitariaPackage}
           />
         )}
       </div>
@@ -585,7 +634,13 @@ export default function QuoteCreate() {
         <button
           type="button"
           onClick={goPrev}
-          disabled={step === 0 && !(selectedType && String(selectedType.codice || '').toLowerCase() === 'casa')}
+          disabled={
+            step === 0
+            && !(
+              selectedType
+              && ['casa', 'sanitaria'].includes(String(selectedType.codice || '').toLowerCase())
+            )
+          }
           className="btn-secondary disabled:opacity-40"
         >
           <ArrowLeft className="h-4 w-4" />
@@ -868,10 +923,34 @@ function CasaSpecsPackageBox({ pkg }: { pkg: CasaPackageDef }) {
   );
 }
 
+function SanitariaSpecsPackageBox({ pkg }: { pkg: SanitariaPackageDef }) {
+  return (
+    <div className="mb-6 rounded-lg border border-teal-200/80 bg-teal-50/40 p-4 shadow-sm">
+      <h3 className="text-sm font-semibold text-teal-950">Pacchetto selezionato</h3>
+      <p className="mt-1 text-sm font-medium text-gray-900">{pkg.nome}</p>
+      <ul className="mt-2 list-inside list-disc space-y-0.5 text-sm leading-snug text-gray-700">
+        {pkg.highlights.map((h) => (
+          <li key={h}>{h}</li>
+        ))}
+      </ul>
+      <p className="mt-2 text-sm text-gray-600">
+        Età ingresso massima: <span className="font-medium text-gray-900">{pkg.eta_ingresso_max} anni</span>
+      </p>
+      <div className="mt-3 rounded-md border border-teal-100 bg-white/90 px-3 py-2">
+        <p className="text-xs font-medium uppercase tracking-wide text-teal-900/80">Premio a partire da</p>
+        <p className="text-lg font-bold text-[#0B4EA2]">{formatPremioStartingIt(pkg.premio_starting_euro)}</p>
+      </div>
+      <p className="mt-2.5 text-xs text-gray-500">Riepilogo informativo della scelta effettuata nello step precedente.</p>
+    </div>
+  );
+}
+
 function Step3DatiSpecifici({
   tipoCodice,
   hasSelectedCasaPackage,
   casaPackage,
+  hasSelectedSanitariaPackage,
+  sanitariaPackage,
   fields,
   values,
   onChange,
@@ -879,11 +958,14 @@ function Step3DatiSpecifici({
   tipoCodice: string;
   hasSelectedCasaPackage: boolean;
   casaPackage: CasaPackageDef | null;
+  hasSelectedSanitariaPackage: boolean;
+  sanitariaPackage: SanitariaPackageDef | null;
   fields: FormField[];
   values: Record<string, unknown>;
   onChange: (nome: string, value: unknown) => void;
 }) {
   const showCasaHeader = tipoCodice === 'casa';
+  const showSanitariaHeader = tipoCodice === 'sanitaria';
 
   if (!fields || fields.length === 0) {
     return (
@@ -893,6 +975,14 @@ function Step3DatiSpecifici({
         {showCasaHeader && !hasSelectedCasaPackage && (
           <div className="mb-6 rounded-lg border border-gray-200 bg-gray-50/80 px-4 py-3 text-sm text-gray-700">
             Richiesta personalizzata senza pacchetto predefinito
+          </div>
+        )}
+        {showSanitariaHeader && hasSelectedSanitariaPackage && sanitariaPackage && (
+          <SanitariaSpecsPackageBox pkg={sanitariaPackage} />
+        )}
+        {showSanitariaHeader && !hasSelectedSanitariaPackage && (
+          <div className="mb-6 rounded-lg border border-gray-200 bg-gray-50/80 px-4 py-3 text-sm text-gray-700">
+            Preventivo personalizzato senza pacchetto predefinito
           </div>
         )}
         <p className="py-8 text-center text-sm text-gray-500">
@@ -909,6 +999,14 @@ function Step3DatiSpecifici({
       {showCasaHeader && !hasSelectedCasaPackage && (
         <div className="mb-6 rounded-lg border border-gray-200 bg-gray-50/80 px-4 py-3 text-sm text-gray-700">
           Richiesta personalizzata senza pacchetto predefinito
+        </div>
+      )}
+      {showSanitariaHeader && hasSelectedSanitariaPackage && sanitariaPackage && (
+        <SanitariaSpecsPackageBox pkg={sanitariaPackage} />
+      )}
+      {showSanitariaHeader && !hasSelectedSanitariaPackage && (
+        <div className="mb-6 rounded-lg border border-gray-200 bg-gray-50/80 px-4 py-3 text-sm text-gray-700">
+          Preventivo personalizzato senza pacchetto predefinito
         </div>
       )}
       <p className="mb-6 text-sm text-gray-500">
@@ -1285,6 +1383,7 @@ function Step5Review({
   marketingOptIn,
   onMarketingOptInChange,
   casaPackage,
+  sanitariaPackage,
 }: {
   selectedType: InsuranceType;
   assisted: AssistedForm;
@@ -1300,6 +1399,7 @@ function Step5Review({
   marketingOptIn: boolean;
   onMarketingOptInChange: (v: boolean) => void;
   casaPackage: CasaPackageDef | null;
+  sanitariaPackage: SanitariaPackageDef | null;
 }) {
   const uploadCount = Object.values(attachmentFiles).filter(Boolean).length;
   const cod = String(selectedType.codice || '').toLowerCase();
@@ -1325,6 +1425,10 @@ function Step5Review({
       && !(
         String(selectedType.codice || '').toLowerCase() === 'casa'
         && (k === 'pacchetto_casa' || k === 'casa_preventivo')
+      )
+      && !(
+        String(selectedType.codice || '').toLowerCase() === 'sanitaria'
+        && (k === 'pacchetto_sanitaria' || k === 'sanitaria_preventivo')
       )
       && !(isRcFlow && RC_DATI_SPEC_KEYS_TO_HIDE.has(k)),
   );
@@ -1365,6 +1469,40 @@ function Step5Review({
               <p className="font-medium">Preventivo personalizzato</p>
               <p className="mt-1 text-amber-900/90">
                 Nessun pacchetto predefinito selezionato. La richiesta verrà gestita come preventivo su misura.
+              </p>
+            </div>
+          </ReviewSection>
+        )}
+
+        {codTipo === 'sanitaria' && sanitariaPackage && (
+          <ReviewSection title="Pacchetto selezionato">
+            <div className="sm:col-span-2">
+              <ReviewItem label="Nome pacchetto" value={sanitariaPackage.nome} />
+            </div>
+            <div className="sm:col-span-2">
+              <p className="text-xs font-medium text-gray-500">Garanzie principali</p>
+              <ul className="mt-1.5 list-inside list-disc space-y-0.5 text-sm text-gray-900">
+                {sanitariaPackage.highlights.map((h) => (
+                  <li key={h}>{h}</li>
+                ))}
+              </ul>
+            </div>
+            <ReviewItem label="Età ingresso massima" value={`${sanitariaPackage.eta_ingresso_max} anni`} />
+            <div className="sm:col-span-2 rounded-lg border border-teal-100 bg-teal-50/60 px-4 py-3">
+              <p className="text-xs font-medium uppercase tracking-wide text-teal-900/85">Premio a partire da</p>
+              <p className="text-lg font-bold text-[#0B4EA2]">
+                {formatPremioStartingIt(sanitariaPackage.premio_starting_euro)}
+              </p>
+            </div>
+          </ReviewSection>
+        )}
+
+        {codTipo === 'sanitaria' && !sanitariaPackage && (
+          <ReviewSection title="Polizza Sanitaria">
+            <div className="sm:col-span-2 rounded-lg border border-amber-100 bg-amber-50/60 px-4 py-3 text-sm text-amber-950">
+              <p className="font-medium">Preventivo personalizzato</p>
+              <p className="mt-1 text-amber-900/90">
+                Nessun pacchetto predefinito associato. La richiesta verrà gestita come preventivo su misura.
               </p>
             </div>
           </ReviewSection>
