@@ -4,6 +4,7 @@ import { ChevronDown } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import type { Appointment } from '../../types';
 import { api, ApiError } from '../../utils/api';
+import { formatDate } from '../../utils/helpers';
 import { useAuth } from '../../context/AuthContext';
 import Modal from '../ui/Modal';
 import { modalitaLabel, strutturaCanEditTable, isAppointmentClosed } from '../../utils/appointmentLabels';
@@ -426,7 +427,7 @@ export default function AppointmentRowActions({
             <dl className="mt-2 grid gap-2 sm:grid-cols-2">
               <div>
                 <dt className="text-xs text-slate-500">Data</dt>
-                <dd className="tabular-nums text-slate-800">{String(row.data_appuntamento || '').slice(0, 10)}</dd>
+                <dd className="tabular-nums text-slate-800">{formatDate(row.data_appuntamento)}</dd>
               </div>
               <div>
                 <dt className="text-xs text-slate-500">Ora</dt>

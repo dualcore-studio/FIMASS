@@ -4,7 +4,7 @@ import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { createPortal } from 'react-dom';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { Appointment } from '../../types';
-import { getUserDisplayName } from '../../utils/helpers';
+import { getUserDisplayName, formatDate } from '../../utils/helpers';
 import { appointmentCalendarChipClass, appointmentCalendarDotClass, modalitaLabel } from '../../utils/appointmentLabels';
 import { parseMonthKey } from '../../utils/appointmentCalendarMonth';
 
@@ -231,7 +231,8 @@ export default function AppointmentsMonthCalendar({ monthKey, items, loading, on
               role="tooltip"
             >
               <p className="font-semibold text-slate-900">{assistitoDisplay(hoverTip.apt)}</p>
-              <p className="mt-1.5 tabular-nums text-slate-600">{formatTimeRange(hoverTip.apt)}</p>
+              <p className="mt-0.5 tabular-nums text-slate-600">{formatDate(hoverTip.apt.data_appuntamento)}</p>
+              <p className="mt-1 tabular-nums text-slate-600">{formatTimeRange(hoverTip.apt)}</p>
               <dl className="mt-2 space-y-1.5 text-slate-600">
                 <div className="flex gap-2">
                   <dt className="shrink-0 text-slate-500">Fornitore</dt>

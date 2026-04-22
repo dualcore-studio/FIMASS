@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { api, ApiError } from '../../utils/api';
 import type { Appointment, AppointmentHistoryEntry } from '../../types';
-import { getUserDisplayName, formatDateTime, isValidAssistitoPhone, isValidContactEmail } from '../../utils/helpers';
+import { getUserDisplayName, formatDate, formatDateTime, isValidAssistitoPhone, isValidContactEmail } from '../../utils/helpers';
 import { useAuth } from '../../context/AuthContext';
 import StatusBadge from '../../components/common/StatusBadge';
 import AppointmentRowActions from '../../components/appointments/AppointmentRowActions';
@@ -332,7 +332,7 @@ export default function AppointmentDetail() {
             <div className="flex justify-between gap-4">
               <dt className="text-slate-500">Data e ora</dt>
               <dd className="text-right text-slate-900">
-                {String(detail.data_appuntamento).slice(0, 10)} {detail.ora_inizio} – {detail.ora_fine} ({detail.durata_minuti} min)
+                {formatDate(detail.data_appuntamento)} {detail.ora_inizio} – {detail.ora_fine} ({detail.durata_minuti} min)
               </dd>
             </div>
             <div className="flex justify-between gap-4">

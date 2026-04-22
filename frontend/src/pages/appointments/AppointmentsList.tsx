@@ -17,7 +17,7 @@ import AppointmentStrutturaEditModal from '../../components/appointments/Appoint
 import AppointmentsMonthCalendar from '../../components/appointments/AppointmentsMonthCalendar';
 import { parseMonthKey } from '../../utils/appointmentCalendarMonth';
 import { modalitaBadgeClass, modalitaLabel } from '../../utils/appointmentLabels';
-import { getUserDisplayName, isValidAssistitoPhone, isValidContactEmail } from '../../utils/helpers';
+import { getUserDisplayName, formatDate, isValidAssistitoPhone, isValidContactEmail } from '../../utils/helpers';
 
 const STATI = ['RICHIESTO', 'CONFERMATO', 'DA RIPROGRAMMARE', 'COMPLETATO', 'ANNULLATO'] as const;
 const CAL_LIMIT = 500;
@@ -808,7 +808,7 @@ export default function AppointmentsList() {
                             <StatusBadge stato={a.stato} type="appointment" />
                           </td>
                           <td className="px-4 py-3 align-middle tabular-nums text-slate-800">
-                            {String(a.data_appuntamento || '').slice(0, 10)}
+                            {formatDate(a.data_appuntamento)}
                           </td>
                           <td className="px-4 py-3 align-middle tabular-nums text-slate-800">{a.ora_inizio}</td>
                           <td className="px-4 py-3 align-middle text-slate-800">{assistitoCell(a)}</td>

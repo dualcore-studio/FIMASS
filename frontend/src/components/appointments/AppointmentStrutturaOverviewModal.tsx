@@ -2,7 +2,7 @@ import { useState } from 'react';
 import type { Appointment } from '../../types';
 import Modal from '../ui/Modal';
 import StatusBadge from '../common/StatusBadge';
-import { getUserDisplayName } from '../../utils/helpers';
+import { getUserDisplayName, formatDate } from '../../utils/helpers';
 import { modalitaBadgeClass, modalitaLabel } from '../../utils/appointmentLabels';
 import AppointmentRowActions from './AppointmentRowActions';
 import AppointmentHistoryModal from './AppointmentHistoryModal';
@@ -48,7 +48,7 @@ function StrutturaDetailBody({
           <dl className="grid gap-3 text-sm sm:grid-cols-2">
             <div>
               <dt className="text-xs font-medium text-slate-500">Data</dt>
-              <dd className="mt-0.5 tabular-nums text-slate-900">{String(appointment.data_appuntamento || '').slice(0, 10)}</dd>
+              <dd className="mt-0.5 tabular-nums text-slate-900">{formatDate(appointment.data_appuntamento)}</dd>
             </div>
             <div>
               <dt className="text-xs font-medium text-slate-500">Ora</dt>
