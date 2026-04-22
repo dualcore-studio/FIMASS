@@ -10,7 +10,8 @@ interface ModalProps {
 }
 
 export default function Modal({ isOpen, onClose, title, children, size = 'md' }: ModalProps) {
-  const overlayRef = useRef<HTMLDivElement>(null);
+  /** Evita chiusura quando il mouseup del click finisce sul backdrop dopo selezione testo in un input. */
+  const backdropPointerDownRef = useRef(false);
 
   useEffect(() => {
     if (isOpen) {
@@ -33,10 +34,12 @@ export default function Modal({ isOpen, onClose, title, children, size = 'md' }:
 
   return (
     <div
-      ref={overlayRef}
       className="fixed inset-0 z-50 flex cursor-pointer items-center justify-center bg-slate-900/40 p-4 backdrop-blur-[2px]"
+      onMouseDownCapture={(e) => {
+        backdropPointerDownRef.current = e.target === e.currentTarget;
+      }}
       onClick={(e) => {
-        if (e.target === overlayRef.current) onClose();
+        if (e.target === e.currentTarget && backdropPointerDownRef.current) onClose();
       }}
     >
       <div

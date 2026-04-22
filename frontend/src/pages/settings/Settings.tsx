@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import {
   Settings as SettingsIcon,
   Save,
@@ -71,13 +71,24 @@ function Modal({
   onClose: () => void;
   footer?: ReactNode;
 }) {
+  const backdropRef = useRef<HTMLDivElement>(null);
+  const backdropPointerDownRef = useRef(false);
+
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-      <button
-        type="button"
-        className="absolute inset-0 bg-black/40"
-        aria-label="Chiudi"
-        onClick={onClose}
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center p-4"
+      onMouseDownCapture={(e) => {
+        backdropPointerDownRef.current =
+          backdropRef.current != null && e.target === backdropRef.current;
+      }}
+    >
+      <div
+        ref={backdropRef}
+        className="absolute inset-0 cursor-pointer bg-black/40"
+        aria-hidden
+        onClick={(e) => {
+          if (e.target === e.currentTarget && backdropPointerDownRef.current) onClose();
+        }}
       />
       <div className="relative max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-xl border border-gray-200 bg-white shadow-xl">
         <div className="sticky top-0 flex items-center justify-between border-b border-gray-100 bg-white px-5 py-4">
