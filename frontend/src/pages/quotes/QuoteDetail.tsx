@@ -42,6 +42,13 @@ import {
   OperatorStandbyModal,
   OperatorElaborataModal,
 } from '../../components/quotes/OperatorQuoteWorkflowModals';
+import {
+  CompactInfoGrid,
+  DetailField,
+  DetailSectionCard,
+  detailColSpanFromDisplayString,
+  formatDetailRecordKey,
+} from '../../components/detail';
 
 type Tab = 'dati' | 'allegati' | 'note' | 'storico' | 'preventivo';
 
@@ -561,164 +568,164 @@ function TabDati({ quote, viewerRole }: { quote: Quote; viewerRole?: string }) {
     && (casaPreventivoRaw as { personalizzato?: unknown }).personalizzato === true,
   );
 
+  const incaricatoDisplay =
+    quote.operatore_id
+      ? [quote.operatore_nome, quote.operatore_cognome].filter(Boolean).join(' ')
+      : quote.fornitore_id
+        ? [quote.fornitore_nome, quote.fornitore_cognome].filter(Boolean).join(' ')
+        : '';
+
   return (
-    <div className="grid gap-6 lg:grid-cols-2">
+    <div className="grid gap-4 lg:grid-cols-2">
       {showPrivacyPanel ? (
-        <div className="card border border-slate-200/90 bg-slate-50/50 p-6 lg:col-span-2">
-          <h3 className="mb-3 text-sm font-semibold uppercase tracking-wider text-gray-500">
-            Tracciamento consensi (sola lettura)
-          </h3>
+        <DetailSectionCard
+          title="Tracciamento consensi (sola lettura)"
+          variant="muted"
+          className="lg:col-span-2"
+        >
           {quote.privacy_consent_untracked ? (
-            <p className="text-sm text-gray-600">
+            <p className="text-sm leading-snug text-gray-600">
               Consenso non tracciato (record precedente all’introduzione della nuova policy).
             </p>
           ) : (
-            <dl className="grid gap-3 text-sm sm:grid-cols-2">
-              <InfoRow
+            <CompactInfoGrid columns="two">
+              <DetailField
                 label="Consenso privacy"
-                value={
-                  quote.privacy_consent_required ? 'Prestato' : 'Non prestato'
-                }
+                value={quote.privacy_consent_required ? 'Prestato' : 'Non prestato'}
               />
-              <InfoRow
+              <DetailField
                 label="Data consenso"
-                value={quote.privacy_consent_at ? formatDateTime(quote.privacy_consent_at) : '—'}
+                value={quote.privacy_consent_at ? formatDateTime(quote.privacy_consent_at) : undefined}
               />
-              <InfoRow label="Versione informativa" value={quote.privacy_policy_version || '—'} />
-              <InfoRow
+              <DetailField label="Versione informativa" value={quote.privacy_policy_version} />
+              <DetailField
                 label="Consenso marketing"
                 value={
-                  quote.marketing_consent === true ? 'Sì' : quote.marketing_consent === false ? 'No' : '—'
+                  quote.marketing_consent === true ? 'Sì' : quote.marketing_consent === false ? 'No' : undefined
                 }
               />
               {quote.marketing_consent_at ? (
-                <InfoRow label="Data consenso marketing" value={formatDateTime(quote.marketing_consent_at)} />
+                <DetailField
+                  label="Data consenso marketing"
+                  value={formatDateTime(quote.marketing_consent_at)}
+                />
               ) : null}
-            </dl>
+            </CompactInfoGrid>
           )}
-          <p className="mt-3 text-xs text-gray-400">
+          <p className="mt-2.5 border-t border-slate-200/80 pt-2.5 text-[11px] leading-snug text-gray-400">
             L’indirizzo IP è conservato a fini di prova lato sistema e non è mostrato qui.
           </p>
-        </div>
+        </DetailSectionCard>
       ) : null}
 
-      {/* Assistito */}
-      <div className="card p-6">
-        <h3 className="mb-4 text-sm font-semibold uppercase tracking-wider text-gray-500">Assistito</h3>
-        <dl className="space-y-3 text-sm">
-          <InfoRow label="Nome e Cognome" value={`${quote.assistito_nome || ''} ${quote.assistito_cognome || ''}`} />
-          <InfoRow label="Codice Fiscale" value={quote.assistito_cf} mono />
-          <InfoRow label="Data di Nascita" value={formatDate(quote.assistito_data_nascita)} />
-          <InfoRow label="Cellulare" value={quote.assistito_cellulare} />
-          <InfoRow label="Email" value={quote.assistito_email} />
-          <InfoRow label="Indirizzo" value={quote.assistito_indirizzo} />
-          <InfoRow label="CAP" value={quote.assistito_cap} />
-          <InfoRow label="Città" value={quote.assistito_citta} />
-        </dl>
-      </div>
-
-      {/* Dettagli preventivo */}
-      <div className="card p-6">
-        <h3 className="mb-4 text-sm font-semibold uppercase tracking-wider text-gray-500">Dettagli Preventivo</h3>
-        <dl className="space-y-3 text-sm">
-          <InfoRow label="Numero" value={quote.numero} mono />
-          <InfoRow label="Tipologia" value={quote.tipo_nome} />
-          <InfoRow label="Struttura" value={quote.struttura_nome} />
-          <InfoRow
-            label="Incaricato"
-            value={
-              quote.operatore_id
-                ? [quote.operatore_nome, quote.operatore_cognome].filter(Boolean).join(' ')
-                : quote.fornitore_id
-                  ? [quote.fornitore_nome, quote.fornitore_cognome].filter(Boolean).join(' ')
-                  : undefined
-            }
+      <DetailSectionCard title="Assistito">
+        <CompactInfoGrid columns="two">
+          <DetailField
+            label="Nome e cognome"
+            value={`${quote.assistito_nome || ''} ${quote.assistito_cognome || ''}`.trim()}
           />
-          <InfoRow label="Stato" value={quote.stato} />
-          <InfoRow label="Data Decorrenza" value={formatDate(quote.data_decorrenza)} />
-          <InfoRow label="Data Creazione" value={formatDateTime(quote.created_at)} />
-          <InfoRow label="Ultimo Aggiornamento" value={formatDateTime(quote.updated_at)} />
-        </dl>
-      </div>
+          <DetailField label="Codice fiscale" value={quote.assistito_cf} mono />
+          <DetailField label="Data di nascita" value={formatDate(quote.assistito_data_nascita)} />
+          <DetailField label="Cellulare" value={quote.assistito_cellulare} />
+          <DetailField label="Email" value={quote.assistito_email} />
+          <DetailField label="Città" value={quote.assistito_citta} />
+          <DetailField label="Indirizzo" value={quote.assistito_indirizzo} />
+          <DetailField label="CAP" value={quote.assistito_cap} />
+        </CompactInfoGrid>
+      </DetailSectionCard>
+
+      <DetailSectionCard title="Dettagli preventivo">
+        <CompactInfoGrid columns="two">
+          <DetailField label="Numero" value={quote.numero} mono />
+          <DetailField label="Tipologia" value={quote.tipo_nome} />
+          <DetailField label="Struttura" value={quote.struttura_nome} />
+          <DetailField label="Incaricato" value={incaricatoDisplay || undefined} />
+          <DetailField label="Stato" value={quote.stato} />
+          <DetailField label="Data decorrenza" value={formatDate(quote.data_decorrenza)} />
+          <DetailField label="Data creazione" value={formatDateTime(quote.created_at)} />
+          <DetailField label="Ultimo aggiornamento" value={formatDateTime(quote.updated_at)} />
+        </CompactInfoGrid>
+      </DetailSectionCard>
 
       {isCasaPersonalizzato && !casaPacchettoObj?.id && (
-        <div className="card border border-amber-100 bg-amber-50/50 p-6 lg:col-span-2">
-          <h3 className="mb-3 text-sm font-semibold uppercase tracking-wider text-amber-900/90">
-            Polizza Casa
-          </h3>
-          <p className="text-sm font-medium text-amber-950">Preventivo personalizzato</p>
-          <p className="mt-2 text-sm text-amber-900/85">
+        <DetailSectionCard title="Polizza Casa" variant="amber" className="lg:col-span-2">
+          <p className="text-sm font-medium leading-snug text-amber-950">Preventivo personalizzato</p>
+          <p className="mt-1.5 text-sm leading-snug text-amber-900/85">
             Richiesta senza pacchetto predefinito: la pratica è stata avviata come preventivo su misura.
           </p>
-        </div>
+        </DetailSectionCard>
       )}
 
       {casaPacchettoObj?.id && (
-        <div className="card border border-sky-100 bg-sky-50/40 p-6 lg:col-span-2">
-          <h3 className="mb-4 text-sm font-semibold uppercase tracking-wider text-sky-900/90">
-            Pacchetto Polizza Casa
-          </h3>
-          <dl className="space-y-2 text-sm">
-            <InfoRow label="Nome pacchetto" value={casaPacchettoObj.nome || '—'} />
+        <DetailSectionCard title="Pacchetto polizza Casa" variant="sky" className="lg:col-span-2">
+          <CompactInfoGrid columns="responsive-3">
+            <DetailField label="Nome pacchetto" value={casaPacchettoObj.nome || undefined} colSpan="full" />
             {typeof casaPacchettoObj.premio_finale_euro === 'number' ? (
-              <InfoRow
-                label="Premio finale"
-                value={formatPremioCasaIt(casaPacchettoObj.premio_finale_euro)}
-              />
+              <DetailField label="Premio finale" value={formatPremioCasaIt(casaPacchettoObj.premio_finale_euro)} />
             ) : null}
             {Array.isArray(casaPacchettoObj.righe) && casaPacchettoObj.righe.length > 0
               ? casaPacchettoObj.righe.map((r, i) => (
-                  <InfoRow
+                  <DetailField
                     key={i}
                     label={r.label || '—'}
-                    value={r.valore != null ? formatUnknownValueForDisplay(r.valore) : '—'}
+                    value={r.valore != null ? formatUnknownValueForDisplay(r.valore) : undefined}
+                    colSpan={detailColSpanFromDisplayString(
+                      r.valore != null ? formatUnknownValueForDisplay(r.valore) : '',
+                    )}
                   />
                 ))
               : null}
-          </dl>
-          <div className="mt-4">
+          </CompactInfoGrid>
+          <div className="mt-3 border-t border-sky-200/60 pt-3">
             <CasaPacchettoPdfDownload packageId={casaPacchettoObj.id} nomePacchetto={casaPacchettoObj.nome} />
           </div>
-        </div>
+        </DetailSectionCard>
       )}
 
-      <div className="card p-6 lg:col-span-2">
-        <h3 className="mb-3 text-sm font-semibold uppercase tracking-wider text-gray-500">Note della Struttura</h3>
-        {quote.note_struttura?.trim() ? (
-          <p className="whitespace-pre-wrap text-sm text-gray-700">{quote.note_struttura}</p>
-        ) : (
-          <p className="text-sm text-gray-400">—</p>
-        )}
-      </div>
+      <DetailSectionCard title="Note" className="lg:col-span-2">
+        <div className="grid gap-4 sm:grid-cols-2 sm:gap-5">
+          <div className="min-w-0 rounded-md border border-slate-100 bg-slate-50/40 px-3 py-2.5">
+            <h4 className="text-[10px] font-semibold uppercase tracking-wide text-gray-500">Note della struttura</h4>
+            {quote.note_struttura?.trim() ? (
+              <p className="mt-1 whitespace-pre-wrap text-sm leading-snug text-gray-800">{quote.note_struttura}</p>
+            ) : (
+              <p className="mt-1 text-sm text-gray-400">—</p>
+            )}
+          </div>
+          <div className="min-w-0 rounded-md border border-slate-100 bg-slate-50/40 px-3 py-2.5">
+            <h4 className="text-[10px] font-semibold uppercase tracking-wide text-gray-500">Note sugli allegati</h4>
+            {quote.note_allegati && String(quote.note_allegati).trim() ? (
+              <p className="mt-1 whitespace-pre-wrap text-sm leading-snug text-gray-800">
+                {String(quote.note_allegati).trim()}
+              </p>
+            ) : (
+              <p className="mt-1 text-sm text-gray-400">—</p>
+            )}
+          </div>
+        </div>
+      </DetailSectionCard>
 
-      <div className="card p-6 lg:col-span-2">
-        <h3 className="mb-3 text-sm font-semibold uppercase tracking-wider text-gray-500">Note sugli allegati</h3>
-        {quote.note_allegati && String(quote.note_allegati).trim() ? (
-          <p className="whitespace-pre-wrap text-sm text-gray-700">{String(quote.note_allegati).trim()}</p>
-        ) : (
-          <p className="text-sm text-gray-400">—</p>
-        )}
-      </div>
-
-      {/* Dati specifici */}
       {quote.dati_specifici && Object.keys(quote.dati_specifici).length > 0 && (
-        <div className="card p-6 lg:col-span-2">
-          <h3 className="mb-4 text-sm font-semibold uppercase tracking-wider text-gray-500">Dati Specifici</h3>
-          <dl className="space-y-3 text-sm">
+        <DetailSectionCard title="Dati specifici" className="lg:col-span-2">
+          <CompactInfoGrid columns="responsive-3">
             {Object.entries(quote.dati_specifici)
               .filter(
                 ([key]) =>
                   !String(key).startsWith('_') && key !== 'pacchetto_casa' && key !== 'casa_preventivo',
               )
-              .map(([key, value]) => (
-              <InfoRow
-                key={key}
-                label={key.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase())}
-                value={formatUnknownValueForDisplay(value)}
-              />
-            ))}
-          </dl>
-        </div>
+              .map(([key, value]) => {
+                const formatted = formatUnknownValueForDisplay(value);
+                return (
+                  <DetailField
+                    key={key}
+                    label={formatDetailRecordKey(key)}
+                    value={formatted}
+                    colSpan={detailColSpanFromDisplayString(formatted)}
+                  />
+                );
+              })}
+          </CompactInfoGrid>
+        </DetailSectionCard>
       )}
     </div>
   );
@@ -756,17 +763,6 @@ function CasaPacchettoPdfDownload({ packageId, nomePacchetto }: { packageId: str
   );
 }
 
-function InfoRow({ label, value, mono }: { label: string; value?: string | null; mono?: boolean }) {
-  return (
-    <div>
-      <dt className="text-xs font-medium text-gray-500">{label}</dt>
-      <dd className={`mt-0.5 text-gray-900 ${mono ? 'font-mono text-xs' : ''}`}>
-        {value?.trim() || <span className="text-gray-400">-</span>}
-      </dd>
-    </div>
-  );
-}
-
 /* ───────────── Tab: Allegati ───────────── */
 
 interface TabAllegatiProps {
@@ -782,10 +778,10 @@ interface TabAllegatiProps {
 
 function TabAllegati({ attachments, uploadFile, setUploadFile, uploadTipo, setUploadTipo, uploading, uploadError, onUpload }: TabAllegatiProps) {
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       {/* Upload form */}
-      <div className="card p-6">
-        <h3 className="mb-4 text-sm font-semibold uppercase tracking-wider text-gray-500">Carica Allegato</h3>
+      <div className="card p-4">
+        <h3 className="mb-3 text-[11px] font-semibold uppercase tracking-wider text-gray-500">Carica allegato</h3>
         <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
           <div className="flex-1">
             <label htmlFor="upload-file" className="mb-1 block text-sm font-medium text-gray-700">File</label>
@@ -821,7 +817,7 @@ function TabAllegati({ attachments, uploadFile, setUploadFile, uploadTipo, setUp
       {/* Attachments list */}
       <div className="card overflow-hidden">
         {attachments.length === 0 ? (
-          <div className="px-6 py-12 text-center text-sm text-gray-500">Nessun allegato presente.</div>
+          <div className="px-4 py-8 text-center text-sm text-gray-500">Nessun allegato presente.</div>
         ) : (
           <div className="overflow-x-auto">
             <table className="portal-table min-w-full text-left text-sm">
@@ -881,10 +877,10 @@ interface TabNoteProps {
 
 function TabNote({ notes, noteText, setNoteText, noteTipo, setNoteTipo, noteSubmitting, noteError, onAddNote }: TabNoteProps) {
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       {/* Add note form */}
-      <div className="card p-6">
-        <h3 className="mb-4 text-sm font-semibold uppercase tracking-wider text-gray-500">Aggiungi Nota</h3>
+      <div className="card p-4">
+        <h3 className="mb-3 text-[11px] font-semibold uppercase tracking-wider text-gray-500">Aggiungi nota</h3>
         <div className="space-y-3">
           <div className="flex gap-3">
             <div className="flex-1">
@@ -922,11 +918,11 @@ function TabNote({ notes, noteText, setNoteText, noteTipo, setNoteTipo, noteSubm
 
       {/* Notes list */}
       {notes.length === 0 ? (
-        <div className="card px-6 py-12 text-center text-sm text-gray-500">Nessuna nota presente.</div>
+        <div className="card px-4 py-8 text-center text-sm text-gray-500">Nessuna nota presente.</div>
       ) : (
-        <div className="space-y-3">
+        <div className="space-y-2.5">
           {notes.map((n) => (
-            <div key={n.id} className="card p-4">
+            <div key={n.id} className="card border-slate-200/80 p-3.5">
               <div className="flex items-start justify-between gap-2">
                 <div className="flex items-center gap-2">
                   <span className="font-medium text-gray-900 text-sm">
@@ -955,14 +951,14 @@ function TabNote({ notes, noteText, setNoteText, noteTipo, setNoteTipo, noteSubm
 
 function TabStorico({ history }: { history: StatusHistory[] }) {
   if (history.length === 0) {
-    return <div className="card px-6 py-12 text-center text-sm text-gray-500">Nessun cambiamento di stato registrato.</div>;
+    return <div className="card px-4 py-8 text-center text-sm text-gray-500">Nessun cambiamento di stato registrato.</div>;
   }
 
   return (
-    <div className="card p-6">
+    <div className="card p-4">
       <div className="relative">
         <div className="absolute left-4 top-0 bottom-0 w-0.5 bg-gray-200" />
-        <ul className="space-y-6">
+        <ul className="space-y-4">
           {history.map((h, i) => (
             <li key={h.id} className="relative pl-10">
               <div className={`absolute left-2.5 top-1 h-3 w-3 rounded-full border-2 border-[#f3f5f9] shadow-[0_0_0_1px_rgba(226,232,240,0.9)] ${
@@ -1123,13 +1119,13 @@ function TabPreventivo({
     !showRiepilogoCard && !showLegacySingleCard && !(isRcAuto && quote.stato === 'ELABORATA' && !riepilogoAttachment);
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       {showRiepilogoCard ? (
-        <div className="card p-6">
-          <h3 className="mb-4 text-sm font-semibold uppercase tracking-wider text-gray-500">
+        <div className="card p-4">
+          <h3 className="mb-3 text-[11px] font-semibold uppercase tracking-wider text-gray-500">
             Preventivo (PDF sistema)
           </h3>
-          <div className="flex items-center justify-between rounded-lg border border-gray-200 bg-gray-50 p-4">
+          <div className="flex flex-col gap-3 rounded-lg border border-gray-200 bg-gray-50 p-3 sm:flex-row sm:items-center sm:justify-between">
             <div className="flex items-center gap-3">
               <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-slate-100">
                 <FileText className="h-5 w-5 text-slate-700" />
@@ -1177,11 +1173,11 @@ function TabPreventivo({
       ) : null}
 
       {isRcAuto && quote.stato === 'ELABORATA' && preventivoAttachment ? (
-        <div className="card p-6">
-          <h3 className="mb-4 text-sm font-semibold uppercase tracking-wider text-gray-500">
+        <div className="card p-4">
+          <h3 className="mb-3 text-[11px] font-semibold uppercase tracking-wider text-gray-500">
             Allegato operatore
           </h3>
-          <div className="flex items-center justify-between rounded-lg border border-gray-200 bg-gray-50 p-4">
+          <div className="flex flex-col gap-3 rounded-lg border border-gray-200 bg-gray-50 p-3 sm:flex-row sm:items-center sm:justify-between">
             <div className="flex items-center gap-3">
               <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-red-100">
                 <FileText className="h-5 w-5 text-red-600" />
@@ -1205,11 +1201,11 @@ function TabPreventivo({
       ) : null}
 
       {showLegacySingleCard ? (
-        <div className="card p-6">
-          <h3 className="mb-4 text-sm font-semibold uppercase tracking-wider text-gray-500">
-            Documento Preventivo
+        <div className="card p-4">
+          <h3 className="mb-3 text-[11px] font-semibold uppercase tracking-wider text-gray-500">
+            Documento preventivo
           </h3>
-          <div className="flex items-center justify-between rounded-lg border border-gray-200 bg-gray-50 p-4">
+          <div className="flex flex-col gap-3 rounded-lg border border-gray-200 bg-gray-50 p-3 sm:flex-row sm:items-center sm:justify-between">
             <div className="flex items-center gap-3">
               <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-red-100">
                 <FileText className="h-5 w-5 text-red-600" />
@@ -1234,8 +1230,8 @@ function TabPreventivo({
       ) : null}
 
       {showEmptyState ? (
-        <div className="card px-6 py-12 text-center">
-          <ClipboardList className="mx-auto h-12 w-12 text-gray-300" />
+        <div className="card px-4 py-8 text-center">
+          <ClipboardList className="mx-auto h-10 w-10 text-gray-300" />
           <p className="mt-3 text-sm text-gray-500">Nessun documento preventivo caricato.</p>
           <p className="mt-1 text-xs text-gray-400">
             {canUpload
@@ -1254,8 +1250,8 @@ function TabPreventivo({
 
       {/* Upload form per operatore/admin */}
       {canUpload && (
-        <div className="card p-6">
-          <h3 className="mb-4 text-sm font-semibold uppercase tracking-wider text-gray-500">
+        <div className="card p-4">
+          <h3 className="mb-3 text-[11px] font-semibold uppercase tracking-wider text-gray-500">
             {preventivoAttachment ? 'Sostituisci documento' : 'Carica documento preventivo'}
           </h3>
           <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
@@ -1299,11 +1295,8 @@ function TabPreventivo({
         return (
           <>
             {elabora && typeof elabora === 'object' && elabora !== null ? (
-              <div className="card p-6">
-                <h3 className="mb-4 text-sm font-semibold uppercase tracking-wider text-gray-500">
-                  Riepilogo premi (RC Auto)
-                </h3>
-                <div className="space-y-3 text-sm">
+              <DetailSectionCard title="Riepilogo premi (RC Auto)">
+                <div className="space-y-2.5 text-sm">
                   {Array.isArray((elabora as { pricingBreakdown?: unknown }).pricingBreakdown) &&
                   ((elabora as { pricingBreakdown: { nome: string; prezzo: number }[] }).pricingBreakdown.length >
                     0) ? (
@@ -1340,23 +1333,24 @@ function TabPreventivo({
                     </p>
                   ) : null}
                 </div>
-              </div>
+              </DetailSectionCard>
             ) : null}
             {rest.length > 0 ? (
-              <div className="card p-6">
-                <h3 className="mb-4 text-sm font-semibold uppercase tracking-wider text-gray-500">
-                  Dati Preventivo Elaborato
-                </h3>
-                <dl className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 text-sm">
-                  {rest.map(([key, value]) => (
-                    <InfoRow
-                      key={key}
-                      label={key.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase())}
-                      value={formatUnknownValueForDisplay(value)}
-                    />
-                  ))}
-                </dl>
-              </div>
+              <DetailSectionCard title="Dati preventivo elaborato">
+                <CompactInfoGrid columns="responsive-3">
+                  {rest.map(([key, value]) => {
+                    const formatted = formatUnknownValueForDisplay(value);
+                    return (
+                      <DetailField
+                        key={key}
+                        label={formatDetailRecordKey(key)}
+                        value={formatted}
+                        colSpan={detailColSpanFromDisplayString(formatted)}
+                      />
+                    );
+                  })}
+                </CompactInfoGrid>
+              </DetailSectionCard>
             ) : null}
           </>
         );

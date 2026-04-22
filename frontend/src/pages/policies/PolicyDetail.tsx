@@ -18,6 +18,13 @@ import type { Policy, Attachment, StatusHistory } from '../../types';
 import { formatDate, formatDateTime, formatFileSize, formatUnknownValueForDisplay } from '../../utils/helpers';
 import { useAuth } from '../../context/AuthContext';
 import StatusBadge from '../../components/common/StatusBadge';
+import {
+  CompactInfoGrid,
+  DetailField,
+  DetailSectionCard,
+  detailColSpanFromDisplayString,
+  formatDetailRecordKey,
+} from '../../components/detail';
 
 type Tab = 'dati' | 'allegati' | 'storico';
 
@@ -237,118 +244,119 @@ function TabDati({ policy }: { policy: Policy }) {
     && (casaPreventivoRaw as { personalizzato?: unknown }).personalizzato === true,
   );
 
-  return (
-    <div className="grid gap-6 lg:grid-cols-2">
-      <div className="card p-6">
-        <h3 className="mb-4 text-sm font-semibold uppercase tracking-wider text-gray-500">Assistito</h3>
-        <dl className="space-y-3 text-sm">
-          <InfoRow label="Nome e Cognome" value={`${policy.assistito_nome || ''} ${policy.assistito_cognome || ''}`} />
-          <InfoRow label="Codice Fiscale" value={policy.assistito_cf} mono />
-          <InfoRow label="Data di Nascita" value={formatDate(policy.assistito_data_nascita)} />
-          <InfoRow label="Cellulare" value={policy.assistito_cellulare} />
-          <InfoRow label="Email" value={policy.assistito_email} />
-          <InfoRow label="Indirizzo" value={policy.assistito_indirizzo} />
-          <InfoRow label="CAP" value={policy.assistito_cap} />
-          <InfoRow label="Città" value={policy.assistito_citta} />
-        </dl>
-      </div>
+  const incaricatoDisplay = policy.operatore_id
+    ? `${[policy.operatore_nome, policy.operatore_cognome].filter(Boolean).join(' ')} (Operatore)`
+    : policy.fornitore_id
+      ? `${[policy.fornitore_nome, policy.fornitore_cognome].filter(Boolean).join(' ')} (Fornitore)`
+      : '';
 
-      <div className="card p-6">
-        <h3 className="mb-4 text-sm font-semibold uppercase tracking-wider text-gray-500">Dettagli Polizza</h3>
-        <dl className="space-y-3 text-sm">
-          <InfoRow label="Numero" value={policy.numero} mono />
-          <InfoRow label="Tipologia" value={policy.tipo_nome} />
-          <InfoRow label="Struttura" value={policy.struttura_nome} />
-          <InfoRow
-            label="Incaricato"
-            value={
-              policy.operatore_id
-                ? [policy.operatore_nome, policy.operatore_cognome].filter(Boolean).join(' ') + ' (Operatore)'
-                : policy.fornitore_id
-                  ? [policy.fornitore_nome, policy.fornitore_cognome].filter(Boolean).join(' ') + ' (Fornitore)'
-                  : undefined
-            }
+  return (
+    <div className="grid gap-4 lg:grid-cols-2">
+      <DetailSectionCard title="Assistito">
+        <CompactInfoGrid columns="two">
+          <DetailField
+            label="Nome e cognome"
+            value={`${policy.assistito_nome || ''} ${policy.assistito_cognome || ''}`.trim()}
           />
-          <InfoRow label="Stato" value={policy.stato} />
-          <InfoRow label="Data Creazione" value={formatDateTime(policy.created_at)} />
-          <InfoRow label="Ultimo Aggiornamento" value={formatDateTime(policy.updated_at)} />
-        </dl>
-      </div>
+          <DetailField label="Codice fiscale" value={policy.assistito_cf} mono />
+          <DetailField label="Data di nascita" value={formatDate(policy.assistito_data_nascita)} />
+          <DetailField label="Cellulare" value={policy.assistito_cellulare} />
+          <DetailField label="Email" value={policy.assistito_email} />
+          <DetailField label="Città" value={policy.assistito_citta} />
+          <DetailField label="Indirizzo" value={policy.assistito_indirizzo} />
+          <DetailField label="CAP" value={policy.assistito_cap} />
+        </CompactInfoGrid>
+      </DetailSectionCard>
+
+      <DetailSectionCard title="Dettagli polizza">
+        <CompactInfoGrid columns="two">
+          <DetailField label="Numero" value={policy.numero} mono />
+          <DetailField label="Tipologia" value={policy.tipo_nome} />
+          <DetailField label="Struttura" value={policy.struttura_nome} />
+          <DetailField label="Incaricato" value={incaricatoDisplay || undefined} />
+          <DetailField label="Stato" value={policy.stato} />
+          <DetailField label="Data creazione" value={formatDateTime(policy.created_at)} />
+          <DetailField label="Ultimo aggiornamento" value={formatDateTime(policy.updated_at)} />
+        </CompactInfoGrid>
+      </DetailSectionCard>
 
       {isCasaPersonalizzato && !casaPacchettoObj?.id && (
-        <div className="card border border-amber-100 bg-amber-50/50 p-6 lg:col-span-2">
-          <h3 className="mb-3 text-sm font-semibold uppercase tracking-wider text-amber-900/90">
-            Polizza Casa
-          </h3>
-          <p className="text-sm font-medium text-amber-950">Preventivo personalizzato</p>
-          <p className="mt-2 text-sm text-amber-900/85">
+        <DetailSectionCard title="Polizza Casa" variant="amber" className="lg:col-span-2">
+          <p className="text-sm font-medium leading-snug text-amber-950">Preventivo personalizzato</p>
+          <p className="mt-1.5 text-sm leading-snug text-amber-900/85">
             Richiesta senza pacchetto predefinito: la pratica è stata avviata come preventivo su misura.
           </p>
-        </div>
+        </DetailSectionCard>
       )}
 
       {casaPacchettoObj?.id && (
-        <div className="card border border-sky-100 bg-sky-50/40 p-6 lg:col-span-2">
-          <h3 className="mb-4 text-sm font-semibold uppercase tracking-wider text-sky-900/90">
-            Pacchetto Polizza Casa
-          </h3>
-          <dl className="space-y-2 text-sm">
-            <InfoRow label="Nome pacchetto" value={casaPacchettoObj.nome || '—'} />
+        <DetailSectionCard title="Pacchetto polizza Casa" variant="sky" className="lg:col-span-2">
+          <CompactInfoGrid columns="responsive-3">
+            <DetailField label="Nome pacchetto" value={casaPacchettoObj.nome || undefined} colSpan="full" />
             {typeof casaPacchettoObj.premio_finale_euro === 'number' ? (
-              <InfoRow label="Premio finale" value={formatPremioCasaIt(casaPacchettoObj.premio_finale_euro)} />
+              <DetailField label="Premio finale" value={formatPremioCasaIt(casaPacchettoObj.premio_finale_euro)} />
             ) : null}
             {Array.isArray(casaPacchettoObj.righe) && casaPacchettoObj.righe.length > 0
               ? casaPacchettoObj.righe.map((r, i) => (
-                  <InfoRow
+                  <DetailField
                     key={i}
                     label={r.label || '—'}
-                    value={r.valore != null ? formatUnknownValueForDisplay(r.valore) : '—'}
+                    value={r.valore != null ? formatUnknownValueForDisplay(r.valore) : undefined}
+                    colSpan={detailColSpanFromDisplayString(
+                      r.valore != null ? formatUnknownValueForDisplay(r.valore) : '',
+                    )}
                   />
                 ))
               : null}
-          </dl>
-          <div className="mt-4">
+          </CompactInfoGrid>
+          <div className="mt-3 border-t border-sky-200/60 pt-3">
             <PolicyCasaPacchettoPdfDownload packageId={casaPacchettoObj.id} nomePacchetto={casaPacchettoObj.nome} />
           </div>
-        </div>
+        </DetailSectionCard>
       )}
 
-      <div className="card p-6 lg:col-span-2">
-        <h3 className="mb-3 text-sm font-semibold uppercase tracking-wider text-gray-500">Note della Struttura</h3>
-        {policy.note_struttura?.trim() ? (
-          <p className="whitespace-pre-wrap text-sm text-gray-700">{policy.note_struttura}</p>
-        ) : (
-          <p className="text-sm text-gray-400">—</p>
-        )}
-      </div>
-
-      <div className="card p-6 lg:col-span-2">
-        <h3 className="mb-3 text-sm font-semibold uppercase tracking-wider text-gray-500">Note Interne</h3>
-        {policy.note_interne?.trim() ? (
-          <p className="whitespace-pre-wrap text-sm text-gray-700">{policy.note_interne}</p>
-        ) : (
-          <p className="text-sm text-gray-400">—</p>
-        )}
-      </div>
+      <DetailSectionCard title="Note" className="lg:col-span-2">
+        <div className="grid gap-4 sm:grid-cols-2 sm:gap-5">
+          <div className="min-w-0 rounded-md border border-slate-100 bg-slate-50/40 px-3 py-2.5">
+            <h4 className="text-[10px] font-semibold uppercase tracking-wide text-gray-500">Note della struttura</h4>
+            {policy.note_struttura?.trim() ? (
+              <p className="mt-1 whitespace-pre-wrap text-sm leading-snug text-gray-800">{policy.note_struttura}</p>
+            ) : (
+              <p className="mt-1 text-sm text-gray-400">—</p>
+            )}
+          </div>
+          <div className="min-w-0 rounded-md border border-slate-100 bg-slate-50/40 px-3 py-2.5">
+            <h4 className="text-[10px] font-semibold uppercase tracking-wide text-gray-500">Note interne</h4>
+            {policy.note_interne?.trim() ? (
+              <p className="mt-1 whitespace-pre-wrap text-sm leading-snug text-gray-800">{policy.note_interne}</p>
+            ) : (
+              <p className="mt-1 text-sm text-gray-400">—</p>
+            )}
+          </div>
+        </div>
+      </DetailSectionCard>
 
       {policy.dati_specifici && Object.keys(policy.dati_specifici).length > 0 && (
-        <div className="card p-6 lg:col-span-2">
-          <h3 className="mb-4 text-sm font-semibold uppercase tracking-wider text-gray-500">Dati Specifici</h3>
-          <dl className="space-y-3 text-sm">
+        <DetailSectionCard title="Dati specifici" className="lg:col-span-2">
+          <CompactInfoGrid columns="responsive-3">
             {Object.entries(policy.dati_specifici)
               .filter(
                 ([key]) =>
                   !String(key).startsWith('_') && key !== 'pacchetto_casa' && key !== 'casa_preventivo',
               )
-              .map(([key, value]) => (
-                <InfoRow
-                  key={key}
-                  label={key.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase())}
-                  value={formatUnknownValueForDisplay(value)}
-                />
-              ))}
-          </dl>
-        </div>
+              .map(([key, value]) => {
+                const formatted = formatUnknownValueForDisplay(value);
+                return (
+                  <DetailField
+                    key={key}
+                    label={formatDetailRecordKey(key)}
+                    value={formatted}
+                    colSpan={detailColSpanFromDisplayString(formatted)}
+                  />
+                );
+              })}
+          </CompactInfoGrid>
+        </DetailSectionCard>
       )}
     </div>
   );
@@ -386,17 +394,6 @@ function PolicyCasaPacchettoPdfDownload({ packageId, nomePacchetto }: { packageI
   );
 }
 
-function InfoRow({ label, value, mono }: { label: string; value?: string | null; mono?: boolean }) {
-  return (
-    <div>
-      <dt className="text-xs font-medium text-gray-500">{label}</dt>
-      <dd className={`mt-0.5 text-gray-900 ${mono ? 'font-mono text-xs' : ''}`}>
-        {value?.trim() || <span className="text-gray-400">-</span>}
-      </dd>
-    </div>
-  );
-}
-
 /* ───────────── Tab: Allegati ───────────── */
 
 interface TabAllegatiProps {
@@ -427,10 +424,10 @@ function TabAllegati({
   const showPolizzaTipo = policyStato === 'IN EMISSIONE' || policyStato === 'EMESSA';
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       {canUpload ? (
-        <div className="card p-6">
-          <h3 className="mb-4 text-sm font-semibold uppercase tracking-wider text-gray-500">Carica allegato</h3>
+        <div className="card p-4">
+          <h3 className="mb-3 text-[11px] font-semibold uppercase tracking-wider text-gray-500">Carica allegato</h3>
           <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
             <div className="flex-1">
               <label htmlFor="upload-file" className="mb-1 block text-sm font-medium text-gray-700">File</label>
@@ -466,14 +463,14 @@ function TabAllegati({
           {uploadError && <p className="mt-2 text-sm text-red-600">{uploadError}</p>}
         </div>
       ) : (
-        <div className="card p-6 text-sm text-gray-600">
+        <div className="card p-4 text-sm leading-snug text-gray-600">
           Gli allegati vengono gestiti dalla struttura in fase di richiesta o dall&apos;incaricato (operatore o fornitore) in gestione pratica. Puoi scaricare i documenti disponibili dalla tabella sotto.
         </div>
       )}
 
       <div className="card overflow-hidden">
         {attachments.length === 0 ? (
-          <div className="px-6 py-12 text-center text-sm text-gray-500">Nessun allegato presente.</div>
+          <div className="px-4 py-8 text-center text-sm text-gray-500">Nessun allegato presente.</div>
         ) : (
           <div className="overflow-x-auto">
             <table className="portal-table min-w-full text-left text-sm">
@@ -522,14 +519,14 @@ function TabAllegati({
 
 function TabStorico({ history }: { history: StatusHistory[] }) {
   if (history.length === 0) {
-    return <div className="card px-6 py-12 text-center text-sm text-gray-500">Nessun cambiamento di stato registrato.</div>;
+    return <div className="card px-4 py-8 text-center text-sm text-gray-500">Nessun cambiamento di stato registrato.</div>;
   }
 
   return (
-    <div className="card p-6">
+    <div className="card p-4">
       <div className="relative">
         <div className="absolute left-4 top-0 bottom-0 w-0.5 bg-gray-200" />
-        <ul className="space-y-6">
+        <ul className="space-y-4">
           {history.map((h, i) => (
             <li key={h.id} className="relative pl-10">
               <div className={`absolute left-2.5 top-1 h-3 w-3 rounded-full border-2 border-[#f3f5f9] shadow-[0_0_0_1px_rgba(226,232,240,0.9)] ${
