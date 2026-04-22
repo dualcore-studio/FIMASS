@@ -265,7 +265,7 @@ export default function UserEdit() {
         : role === 'operatore'
           ? 'Operatore'
           : role === 'fornitore'
-            ? 'Fornitore'
+            ? 'Broker'
             : 'Struttura';
 
   return (

@@ -44,7 +44,7 @@ const ROLE_CARDS: {
   },
   {
     role: 'fornitore',
-    title: 'Fornitore',
+    title: 'Broker',
     description:
       'Lavora i preventivi e le polizze assegnati dall’amministratore o dal supervisore; gestisce le provvigioni. Non assegna pratiche ad altri utenti.',
     icon: UserCog,

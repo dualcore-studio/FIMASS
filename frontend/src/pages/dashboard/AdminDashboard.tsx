@@ -203,7 +203,7 @@ export default function AdminDashboard() {
       return;
     }
     if (!assignOperatorId) {
-      setAssignFeedback('Seleziona un operatore o un fornitore prima di confermare.');
+      setAssignFeedback('Seleziona un operatore o un broker prima di confermare.');
       return;
     }
     setAssignFeedback(null);
@@ -332,7 +332,7 @@ export default function AdminDashboard() {
               </p>
             </div>
             <p className="text-sm text-slate-600">
-              Seleziona operatore o fornitore a cui assegnare il preventivo.
+              Seleziona operatore o broker a cui assegnare il preventivo.
             </p>
             <div>
               <label htmlFor="assign-operator-dashboard" className="mb-1 block text-sm font-medium text-slate-700">
@@ -347,7 +347,7 @@ export default function AdminDashboard() {
                 <option value="">Seleziona…</option>
                 {assignees.map((a) => (
                   <option key={a.id} value={String(a.id)}>
-                    {getUserDisplayName(a)} ({a.role === 'fornitore' ? 'Fornitore' : 'Operatore'})
+                    {getUserDisplayName(a)} ({a.role === 'fornitore' ? 'Broker' : 'Operatore'})
                   </option>
                 ))}
               </select>
@@ -398,7 +398,7 @@ export default function AdminDashboard() {
               </p>
             </div>
             <p className="text-sm text-slate-600">
-              Verrà inviato un sollecito all’incaricato (operatore o fornitore): comparirà nella sua dashboard tra i
+              Verrà inviato un sollecito all’incaricato (operatore o broker): comparirà nella sua dashboard tra i
               solleciti da leggere.
             </p>
             <div className="flex flex-wrap items-center justify-end gap-2 pt-1">

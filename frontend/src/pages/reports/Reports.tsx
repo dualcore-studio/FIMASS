@@ -610,7 +610,7 @@ export default function Reports() {
 
         {reportsScopeFornitore ? (
           <p className="text-xs text-gray-600">
-            I dati mostrati si riferiscono alle sole pratiche preventivi e polizze assegnate al tuo profilo fornitore.
+            I dati mostrati si riferiscono alle sole pratiche preventivi e polizze assegnate al tuo profilo broker.
           </p>
         ) : (
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
@@ -652,7 +652,7 @@ export default function Reports() {
             </div>
             <div>
               <label htmlFor="filtro-fornitore" className="mb-1 block text-xs font-medium text-gray-500">
-                Fornitore
+                Broker
               </label>
               <select
                 id="filtro-fornitore"
@@ -663,7 +663,7 @@ export default function Reports() {
                 <option value="">Tutti i fornitori</option>
                 {fornitori.map((o) => (
                   <option key={o.id} value={String(o.id)}>
-                    {`${o.cognome || ''} ${o.nome || ''}`.trim() || `Fornitore #${o.id}`}
+                    {`${o.cognome || ''} ${o.nome || ''}`.trim() || `Broker #${o.id}`}
                   </option>
                 ))}
               </select>

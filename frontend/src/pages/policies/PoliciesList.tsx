@@ -263,7 +263,7 @@ export default function PoliciesList() {
                   {assignees.map((o) => (
                     <option key={o.id} value={String(o.id)}>
                       {getUserDisplayName(o)}
-                      {o.role === 'fornitore' ? ' (Fornitore)' : ' (Operatore)'}
+                      {o.role === 'fornitore' ? ' (Broker)' : ' (Operatore)'}
                     </option>
                   ))}
                 </select>

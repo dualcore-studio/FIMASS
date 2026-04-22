@@ -473,7 +473,7 @@ export default function QuoteDetail() {
       >
         <div className="space-y-4">
           <p className="text-sm text-gray-600">
-            Solo amministratore e supervisore possono assegnare o riassegnare. Scegli un operatore o un fornitore come
+            Solo amministratore e supervisore possono assegnare o riassegnare. Scegli un operatore o un broker come
             incaricato che lavorerà la pratica.
           </p>
           <div>
@@ -489,7 +489,7 @@ export default function QuoteDetail() {
               <option value="">Seleziona…</option>
               {assignees.map((o) => (
                 <option key={o.id} value={String(o.id)}>
-                  {getUserDisplayName(o)} ({o.role === 'fornitore' ? 'Fornitore' : 'Operatore'})
+                  {getUserDisplayName(o)} ({o.role === 'fornitore' ? 'Broker' : 'Operatore'})
                 </option>
               ))}
             </select>

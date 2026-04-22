@@ -160,7 +160,7 @@ export interface Quote {
   operatore_cognome?: string;
   fornitore_nome?: string;
   fornitore_cognome?: string;
-  /** Nome/cognome dell’incaricato (operatore o fornitore), arricchito lato API */
+  /** Nome/cognome dell’incaricato (operatore o broker), arricchito lato API */
   incaricato_nome?: string | null;
   incaricato_cognome?: string | null;
   /** Allegato tipo preventivo_elaborato più recente (solo elenco/API arricchito) */

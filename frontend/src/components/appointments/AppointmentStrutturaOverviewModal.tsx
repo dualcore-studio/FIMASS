@@ -16,7 +16,8 @@ type Props = {
   onError: (msg: string) => void;
   onSuccess: (msg: string) => void;
   suppliers: SupplierOption[];
-  onStrutturaEditRequest: (id: number) => void;
+  /** Solo lato struttura: apre il modale di modifica senza uscire dall’elenco. */
+  onStrutturaEditRequest?: (id: number) => void;
 };
 
 function StrutturaDetailBody({
@@ -62,7 +63,7 @@ function StrutturaDetailBody({
               <dd className="mt-0.5 text-slate-900">{appointment.durata_minuti} minuti</dd>
             </div>
             <div>
-              <dt className="text-xs font-medium text-slate-500">Fornitore</dt>
+              <dt className="text-xs font-medium text-slate-500">Broker</dt>
               <dd className="mt-0.5 text-slate-900">{appointment.fornitore ? getUserDisplayName(appointment.fornitore) : '—'}</dd>
             </div>
             <div className="sm:col-span-2">
@@ -162,7 +163,7 @@ function StrutturaDetailBody({
             hideOpenInMenu
             uiVariant="toolbar"
             historyInActions={false}
-            onStrutturaEditRequest={onStrutturaEditRequest}
+            {...(onStrutturaEditRequest ? { onStrutturaEditRequest } : {})}
           />
           <button type="button" className="btn-secondary shrink-0 self-end sm:self-auto" onClick={onClose}>
             Chiudi

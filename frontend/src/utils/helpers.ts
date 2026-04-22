@@ -95,7 +95,7 @@ export function getRoleLabel(role: string): string {
     'admin': 'Admin',
     'supervisore': 'Supervisore',
     'operatore': 'Operatore',
-    'fornitore': 'Fornitore',
+    'fornitore': 'Broker',
     'struttura': 'Struttura',
   };
   return labels[role] || role;

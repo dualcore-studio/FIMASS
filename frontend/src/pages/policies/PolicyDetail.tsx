@@ -252,7 +252,7 @@ function TabDati({ policy }: { policy: Policy }) {
   const incaricatoDisplay = policy.operatore_id
     ? `${[policy.operatore_nome, policy.operatore_cognome].filter(Boolean).join(' ')} (Operatore)`
     : policy.fornitore_id
-      ? `${[policy.fornitore_nome, policy.fornitore_cognome].filter(Boolean).join(' ')} (Fornitore)`
+      ? `${[policy.fornitore_nome, policy.fornitore_cognome].filter(Boolean).join(' ')} (Broker)`
       : '';
 
   const policyDs =
@@ -488,7 +488,7 @@ function TabAllegati({
         </div>
       ) : (
         <div className="card p-4 text-sm leading-snug text-gray-600">
-          Gli allegati vengono gestiti dalla struttura in fase di richiesta o dall&apos;incaricato (operatore o fornitore) in gestione pratica. Puoi scaricare i documenti disponibili dalla tabella sotto.
+          Gli allegati vengono gestiti dalla struttura in fase di richiesta o dall&apos;incaricato (operatore o broker) in gestione pratica. Puoi scaricare i documenti disponibili dalla tabella sotto.
         </div>
       )}
 

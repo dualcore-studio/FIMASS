@@ -235,7 +235,7 @@ export default function AppointmentsMonthCalendar({ monthKey, items, loading, on
               <p className="mt-1 tabular-nums text-slate-600">{formatTimeRange(hoverTip.apt)}</p>
               <dl className="mt-2 space-y-1.5 text-slate-600">
                 <div className="flex gap-2">
-                  <dt className="shrink-0 text-slate-500">Fornitore</dt>
+                  <dt className="shrink-0 text-slate-500">Broker</dt>
                   <dd className="min-w-0 font-medium text-slate-800">
                     {hoverTip.apt.fornitore ? getUserDisplayName(hoverTip.apt.fornitore) : '—'}
                   </dd>

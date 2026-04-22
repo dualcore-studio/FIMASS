@@ -231,13 +231,13 @@ export default function AppointmentRowActions({
 
   const handleReassign = async () => {
     if (!reassignFornitore) {
-      onError('Seleziona un fornitore.');
+      onError('Seleziona un broker.');
       return;
     }
     setReassignBusy(true);
     try {
       await api.post(`/appointments/${row.id}/reassign`, { fornitore_id: Number(reassignFornitore) });
-      onSuccess?.('Fornitore aggiornato.');
+      onSuccess?.('Broker aggiornato.');
       setReassignOpen(false);
       closeMenu();
       onRefresh();
@@ -379,7 +379,7 @@ export default function AppointmentRowActions({
             closeMenu();
           }}
         >
-          Riassegna fornitore
+          Riassegna broker
         </button>
       ) : null}
       {historyInActions ? (
@@ -548,9 +548,9 @@ export default function AppointmentRowActions({
         </div>
       </Modal>
 
-      <Modal isOpen={reassignOpen} onClose={() => !reassignBusy && setReassignOpen(false)} title="Riassegna fornitore" size="sm">
+      <Modal isOpen={reassignOpen} onClose={() => !reassignBusy && setReassignOpen(false)} title="Riassegna broker" size="sm">
         <div>
-          <label className="text-xs text-slate-600">Fornitore</label>
+          <label className="text-xs text-slate-600">Broker</label>
           <select
             className="mt-1 w-full rounded border border-slate-200 px-2 py-1.5 text-sm"
             value={reassignFornitore}

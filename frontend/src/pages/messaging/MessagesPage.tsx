@@ -213,7 +213,7 @@ export default function MessagesPage() {
 
   const assigneeLabel = (a: AssigneeOption) => {
     const name = [a.nome?.trim(), a.cognome?.trim()].filter(Boolean).join(' ');
-    const roleIt = a.role === 'fornitore' ? 'Fornitore' : 'Operatore';
+    const roleIt = a.role === 'fornitore' ? 'Broker' : 'Operatore';
     return name ? `${name} (${roleIt})` : `${roleIt} #${a.id}`;
   };
 
@@ -476,7 +476,7 @@ export default function MessagesPage() {
           <p className="text-sm text-gray-600">
             {newKind === 'info' && canStartInfoRequest(user.role) ? (
               <>
-                Scegli l&apos;incaricato (operatore o fornitore) e scrivi la richiesta: verrà aperta una conversazione
+                Scegli l&apos;incaricato (operatore o broker) e scrivi la richiesta: verrà aperta una conversazione
                 dedicata, senza legame a una pratica specifica.
               </>
             ) : user.role === 'struttura' ? (
@@ -524,7 +524,7 @@ export default function MessagesPage() {
                 onChange={(e) => setInfoAssigneeId(e.target.value)}
                 className="input-field"
               >
-                <option value="">— Seleziona operatore o fornitore —</option>
+                <option value="">— Seleziona operatore o broker —</option>
                 {infoAssignees.map((a) => (
                   <option key={a.id} value={String(a.id)}>
                     {assigneeLabel(a)}

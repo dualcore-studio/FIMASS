@@ -128,10 +128,10 @@ export default function AppointmentsList() {
   const meseParam = searchParams.get('mese') ?? '';
   const calInitRef = useRef(false);
   const fornitoreModalIdRef = useRef<number | null>(null);
-  const strutturaModalIdRef = useRef<number | null>(null);
+  const consultationModalIdRef = useRef<number | null>(null);
 
   const [fornitoreDetailAppt, setFornitoreDetailAppt] = useState<Appointment | null>(null);
-  const [strutturaDetailAppt, setStrutturaDetailAppt] = useState<Appointment | null>(null);
+  const [consultationDetailAppt, setConsultationDetailAppt] = useState<Appointment | null>(null);
   const [strutturaEditing, setStrutturaEditing] = useState<Appointment | null>(null);
 
   useEffect(() => {
@@ -239,7 +239,7 @@ export default function AppointmentsList() {
       try {
         const one = await api.get<Appointment>(`/appointments/${n}`);
         if (cancelled) return;
-        setStrutturaDetailAppt(one);
+        setConsultationDetailAppt(one);
         const mk = String(one.data_appuntamento || '').slice(0, 7);
         if (/^\d{4}-\d{2}$/.test(mk)) {
           const { dataDa: d1, dataAl: d2 } = monthRangeFromKey(mk);
@@ -284,8 +284,8 @@ export default function AppointmentsList() {
   }, [fornitoreDetailAppt?.id]);
 
   useEffect(() => {
-    strutturaModalIdRef.current = strutturaDetailAppt?.id ?? null;
-  }, [strutturaDetailAppt?.id]);
+    consultationModalIdRef.current = consultationDetailAppt?.id ?? null;
+  }, [consultationDetailAppt?.id]);
 
   useEffect(() => {
     setPage(1);
@@ -384,7 +384,7 @@ export default function AppointmentsList() {
   const refreshOpenAppointmentModals = useCallback(async () => {
     await fetchList();
     const fid = fornitoreModalIdRef.current;
-    const sid = strutturaModalIdRef.current;
+    const sid = consultationModalIdRef.current;
     if (fid) {
       try {
         const one = await api.get<Appointment>(`/appointments/${fid}`);
@@ -396,9 +396,9 @@ export default function AppointmentsList() {
     if (sid) {
       try {
         const one = await api.get<Appointment>(`/appointments/${sid}`);
-        setStrutturaDetailAppt(one);
+        setConsultationDetailAppt(one);
       } catch {
-        setStrutturaDetailAppt(null);
+        setConsultationDetailAppt(null);
       }
     }
   }, [fetchList]);
@@ -407,8 +407,8 @@ export default function AppointmentsList() {
     setFornitoreDetailAppt(a);
   }, []);
 
-  const openStrutturaModal = useCallback((a: Appointment) => {
-    setStrutturaDetailAppt(a);
+  const openConsultationModal = useCallback((a: Appointment) => {
+    setConsultationDetailAppt(a);
   }, []);
 
   const resolveNavigateDetail = useCallback(
@@ -427,15 +427,15 @@ export default function AppointmentsList() {
         }
         return;
       }
-      if (role === 'struttura') {
+      if (role === 'struttura' || role === 'admin' || role === 'supervisore') {
         const fromList = result?.data.find((x) => x.id === apptId);
         if (fromList) {
-          openStrutturaModal(fromList);
+          openConsultationModal(fromList);
           return;
         }
         try {
           const one = await api.get<Appointment>(`/appointments/${apptId}`);
-          openStrutturaModal(one);
+          openConsultationModal(one);
         } catch (e) {
           setActionError(e instanceof ApiError ? e.message : 'Impossibile aprire l’appuntamento.');
         }
@@ -443,12 +443,12 @@ export default function AppointmentsList() {
       }
       navigate(`/appuntamenti/${apptId}`);
     },
-    [role, navigate, result?.data, openFornitoreModal, openStrutturaModal],
+    [role, navigate, result?.data, openFornitoreModal, openConsultationModal],
   );
 
   const requestStrutturaEdit = useCallback(
     (editId: number) => {
-      const cur = strutturaDetailAppt?.id === editId ? strutturaDetailAppt : null;
+      const cur = consultationDetailAppt?.id === editId ? consultationDetailAppt : null;
       if (cur) {
         setStrutturaEditing(cur);
         return;
@@ -462,7 +462,7 @@ export default function AppointmentsList() {
         }
       })();
     },
-    [strutturaDetailAppt],
+    [consultationDetailAppt],
   );
 
   const totalPages = result?.totalPages ?? 1;
@@ -505,7 +505,7 @@ export default function AppointmentsList() {
 
   const handleCreate = async () => {
     if (!createForm.fornitore_id || !createForm.oggetto.trim() || !createForm.data_appuntamento || !createForm.ora_inizio) {
-      setActionError('Compilare fornitore, oggetto, data e ora.');
+      setActionError('Compilare broker, oggetto, data e ora.');
       return;
     }
     if (!createForm.assistito_nome.trim() || !createForm.assistito_cognome.trim()) {
@@ -573,7 +573,7 @@ export default function AppointmentsList() {
       <header className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
         <div>
           <h1 className="text-2xl font-bold tracking-tight text-gray-900">Appuntamenti</h1>
-          <p className="mt-1 max-w-2xl text-sm text-gray-600">Richieste di consulenza tra strutture e fornitori.</p>
+          <p className="mt-1 max-w-2xl text-sm text-gray-600">Richieste di consulenza tra strutture e broker.</p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
           <div
@@ -673,7 +673,7 @@ export default function AppointmentsList() {
             </>
           ) : null}
           {(role === 'admin' || role === 'supervisore' || role === 'struttura') && suppliers.length > 0 ? (
-            <FilterCell id="f-forn" label="Fornitore">
+            <FilterCell id="f-forn" label="Broker">
               <select
                 id="f-forn"
                 className={tf}
@@ -750,7 +750,7 @@ export default function AppointmentsList() {
           onMonthChange={handleMonthChange}
           onSelectAppointment={(a) => {
             if (role === 'fornitore') openFornitoreModal(a);
-            else if (role === 'struttura') openStrutturaModal(a);
+            else if (role === 'struttura' || role === 'admin' || role === 'supervisore') openConsultationModal(a);
             else navigate(`/appuntamenti/${a.id}`);
           }}
         />
@@ -773,7 +773,7 @@ export default function AppointmentsList() {
                       <th className="px-4 py-3 font-semibold text-gray-700">Data</th>
                       <th className="px-4 py-3 font-semibold text-gray-700">Ora</th>
                       <th className="px-4 py-3 font-semibold text-gray-700">Assistito</th>
-                      <th className="px-4 py-3 font-semibold text-gray-700">Fornitore</th>
+                      <th className="px-4 py-3 font-semibold text-gray-700">Broker</th>
                       {(role === 'admin' || role === 'supervisore' || role === 'fornitore') && (
                         <th className="px-4 py-3 font-semibold text-gray-700">Struttura</th>
                       )}
@@ -794,14 +794,25 @@ export default function AppointmentsList() {
                         <tr
                           key={a.id}
                           className={`border-b border-slate-100/90 ${
-                            role === 'fornitore' || role === 'struttura' ? 'cursor-pointer hover:bg-slate-50/90' : ''
+                            role === 'fornitore' ||
+                            role === 'struttura' ||
+                            role === 'admin' ||
+                            role === 'supervisore'
+                              ? 'cursor-pointer hover:bg-slate-50/90'
+                              : ''
                           }`}
                           onClick={(e) => {
-                            if (role !== 'fornitore' && role !== 'struttura') return;
+                            if (
+                              role !== 'fornitore' &&
+                              role !== 'struttura' &&
+                              role !== 'admin' &&
+                              role !== 'supervisore'
+                            )
+                              return;
                             const el = e.target as HTMLElement;
                             if (el.closest('button') || el.closest('[data-appt-actions-root]')) return;
                             if (role === 'fornitore') openFornitoreModal(a);
-                            else openStrutturaModal(a);
+                            else openConsultationModal(a);
                           }}
                         >
                           <td className="px-4 py-3 align-middle">
@@ -833,7 +844,7 @@ export default function AppointmentsList() {
                           <td className="px-4 py-3 align-middle text-right" data-appt-actions-root>
                             <AppointmentRowActions
                               row={a}
-                              onRefresh={role === 'fornitore' || role === 'struttura' ? refreshOpenAppointmentModals : fetchList}
+                              onRefresh={refreshOpenAppointmentModals}
                               onError={(msg) => {
                                 setActionError(msg);
                                 setActionSuccess(null);
@@ -878,7 +889,7 @@ export default function AppointmentsList() {
             <div className="space-y-3">
               <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Dati appuntamento</p>
               <div>
-                <label className="text-sm font-medium text-slate-700">Fornitore *</label>
+                <label className="text-sm font-medium text-slate-700">Broker *</label>
                 <select
                   className={`mt-1 ${modalInput} w-full`}
                   value={createForm.fornitore_id}
@@ -1036,33 +1047,34 @@ export default function AppointmentsList() {
         />
       ) : null}
 
+      {role === 'struttura' || role === 'admin' || role === 'supervisore' ? (
+        <AppointmentStrutturaOverviewModal
+          appointment={consultationDetailAppt}
+          onClose={() => setConsultationDetailAppt(null)}
+          onRefresh={refreshOpenAppointmentModals}
+          onError={(msg) => {
+            setActionError(msg);
+            setActionSuccess(null);
+          }}
+          onSuccess={(msg) => {
+            setActionSuccess(msg);
+            setActionError(null);
+          }}
+          suppliers={suppliers}
+          {...(role === 'struttura' ? { onStrutturaEditRequest: requestStrutturaEdit } : {})}
+        />
+      ) : null}
+
       {role === 'struttura' ? (
-        <>
-          <AppointmentStrutturaOverviewModal
-            appointment={strutturaDetailAppt}
-            onClose={() => setStrutturaDetailAppt(null)}
-            onRefresh={refreshOpenAppointmentModals}
-            onError={(msg) => {
-              setActionError(msg);
-              setActionSuccess(null);
-            }}
-            onSuccess={(msg) => {
-              setActionSuccess(msg);
-              setActionError(null);
-            }}
-            suppliers={suppliers}
-            onStrutturaEditRequest={requestStrutturaEdit}
-          />
-          <AppointmentStrutturaEditModal
-            appointment={strutturaEditing}
-            onClose={() => setStrutturaEditing(null)}
-            onSaved={() => {
-              void refreshOpenAppointmentModals();
-              setActionSuccess('Modifiche salvate.');
-              setActionError(null);
-            }}
-          />
-        </>
+        <AppointmentStrutturaEditModal
+          appointment={strutturaEditing}
+          onClose={() => setStrutturaEditing(null)}
+          onSaved={() => {
+            void refreshOpenAppointmentModals();
+            setActionSuccess('Modifiche salvate.');
+            setActionError(null);
+          }}
+        />
       ) : null}
     </div>
   );

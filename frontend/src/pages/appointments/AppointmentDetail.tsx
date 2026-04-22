@@ -187,7 +187,7 @@ export default function AppointmentDetail() {
           <div className="mt-3 grid gap-3 md:grid-cols-2">
             {(role === 'admin' || role === 'supervisore') && (
               <div className="md:col-span-2">
-                <label className="text-xs text-slate-600">Fornitore</label>
+                <label className="text-xs text-slate-600">Broker</label>
                 <select
                   className="mt-0.5 w-full rounded border border-slate-200 px-2 py-1.5 text-sm"
                   value={form.fornitore_id != null ? String(form.fornitore_id) : ''}
@@ -340,7 +340,7 @@ export default function AppointmentDetail() {
               <dd className="text-right text-slate-900">{detail.oggetto}</dd>
             </div>
             <div className="flex justify-between gap-4">
-              <dt className="text-slate-500">Fornitore</dt>
+              <dt className="text-slate-500">Broker</dt>
               <dd className="text-right text-slate-900">{detail.fornitore ? getUserDisplayName(detail.fornitore) : '—'}</dd>
             </div>
             <div className="flex justify-between gap-4">

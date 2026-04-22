@@ -483,7 +483,7 @@ export default function QuotesList() {
                   {assignees.map((o) => (
                     <option key={o.id} value={String(o.id)}>
                       {getUserDisplayName(o)}
-                      {o.role === 'fornitore' ? ' (Fornitore)' : ' (Operatore)'}
+                      {o.role === 'fornitore' ? ' (Broker)' : ' (Operatore)'}
                     </option>
                   ))}
                 </select>
@@ -792,7 +792,7 @@ export default function QuotesList() {
       <Modal isOpen={assignQuoteId != null} onClose={closeAssignModal} title={assignModalTitle} size="sm">
         <div className="space-y-4">
           <p className="text-sm text-gray-600">
-            Solo amministratore e supervisore possono assegnare. Scegli un operatore o un fornitore come incaricato che
+            Solo amministratore e supervisore possono assegnare. Scegli un operatore o un broker come incaricato che
             lavorerà la pratica.
           </p>
           <div>
@@ -808,7 +808,7 @@ export default function QuotesList() {
               <option value="">Seleziona…</option>
               {assignees.map((o) => (
                 <option key={o.id} value={String(o.id)}>
-                  {getUserDisplayName(o)} ({o.role === 'fornitore' ? 'Fornitore' : 'Operatore'})
+                  {getUserDisplayName(o)} ({o.role === 'fornitore' ? 'Broker' : 'Operatore'})
                 </option>
               ))}
             </select>
