@@ -580,29 +580,33 @@ export default function AppointmentsList() {
         </div>
         <div className="flex flex-wrap items-center gap-2">
           <div
-            className="inline-flex rounded-lg border border-slate-200/95 bg-slate-100/90 p-0.5 shadow-sm"
+            className="inline-flex rounded-md border border-slate-200/95 bg-slate-100/90 p-px shadow-sm"
             role="group"
-            aria-label="Vista elenco"
+            aria-label="Vista appuntamenti"
           >
             <button
               type="button"
               onClick={() => setViewMode('tabella')}
-              className={`inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-medium transition ${
+              aria-label="Vista tabella"
+              aria-pressed={!viewCalendar}
+              title="Tabella"
+              className={`inline-flex size-8 items-center justify-center rounded-[5px] transition ${
                 !viewCalendar ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-600 hover:text-slate-900'
               }`}
             >
-              <LayoutList className="h-4 w-4 opacity-80" />
-              Tabella
+              <LayoutList className="h-3.5 w-3.5 opacity-90" aria-hidden />
             </button>
             <button
               type="button"
               onClick={() => setViewMode('calendario')}
-              className={`inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-medium transition ${
+              aria-label="Vista calendario"
+              aria-pressed={viewCalendar}
+              title="Calendario"
+              className={`inline-flex size-8 items-center justify-center rounded-[5px] transition ${
                 viewCalendar ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-600 hover:text-slate-900'
               }`}
             >
-              <Calendar className="h-4 w-4 opacity-80" />
-              Calendario
+              <Calendar className="h-3.5 w-3.5 opacity-90" aria-hidden />
             </button>
           </div>
           {role === 'struttura' ? (
