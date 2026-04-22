@@ -313,8 +313,10 @@ export default function AppointmentsList() {
         else sp.delete('oggetto');
         if (page > 1) sp.set('page', String(page));
         else sp.delete('page');
-        if (viewCalendar && meseParam) {
-          sp.set('mese', meseParam);
+        if (viewCalendar) {
+          const mkFromRange =
+            dataDa && /^\d{4}-\d{2}-\d{2}$/.test(dataDa) ? dataDa.slice(0, 7) : meseParam;
+          if (mkFromRange) sp.set('mese', mkFromRange);
         }
         return sp;
       },
@@ -566,7 +568,8 @@ export default function AppointmentsList() {
   const tf = 'input-field h-9 w-full min-w-0 py-1.5 text-sm';
   const modalInput = 'input-field text-sm';
   const calendarItems = result?.data ?? [];
-  const monthKeyForCal = meseParam || format(new Date(), 'yyyy-MM');
+  const monthKeyForCal =
+    dataDa && /^\d{4}-\d{2}-\d{2}$/.test(dataDa) ? dataDa.slice(0, 7) : meseParam || format(new Date(), 'yyyy-MM');
 
   return (
     <div className="space-y-6">
