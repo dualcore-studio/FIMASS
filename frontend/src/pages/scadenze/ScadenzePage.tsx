@@ -5,7 +5,6 @@ import {
   useMemo,
   useRef,
   useState,
-  type ReactNode,
 } from 'react';
 import { createPortal } from 'react-dom';
 import { Link } from 'react-router-dom';
@@ -20,15 +19,8 @@ import {
   ShieldCheck,
 } from 'lucide-react';
 import { api, ApiError } from '../../utils/api';
-import type {
-  ScadenzaDetailResponse,
-  ScadenzaPolicyRow,
-  ScadenzeApiResponse,
-  StatoScadenza,
-  StructureOption,
-  User,
-} from '../../types';
-import { formatDate, getUserDisplayName } from '../../utils/helpers';
+import type { ScadenzaDetailResponse, ScadenzaPolicyRow, ScadenzeApiResponse, StatoScadenza } from '../../types';
+import { formatDate } from '../../utils/helpers';
 import { useAuth } from '../../context/AuthContext';
 import Modal from '../../components/ui/Modal';
 
@@ -70,6 +62,24 @@ function sortScadenzeRows(rows: ScadenzaPolicyRow[]): ScadenzaPolicyRow[] {
   });
 }
 
+function normalizeContraenteSearch(s: string): string {
+  return s
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/\p{M}/gu, '')
+    .trim();
+}
+
+/** Match su nome, cognome o ordine invertito: ogni “parola” della ricerca deve comparire nel testo contraente. */
+function contraenteMatchesSearch(contraente: string, query: string): boolean {
+  const q = normalizeContraenteSearch(query);
+  if (!q) return true;
+  const tokens = q.split(/\s+/).filter(Boolean);
+  if (tokens.length === 0) return true;
+  const hay = normalizeContraenteSearch(contraente);
+  return tokens.every((t) => hay.includes(t));
+}
+
 function StatoScadenzaBadge({ stato }: { stato: StatoScadenza }) {
   const cls =
     stato === 'Da rinnovare'
@@ -87,17 +97,6 @@ function StatoScadenzaBadge({ stato }: { stato: StatoScadenza }) {
     >
       {stato}
     </span>
-  );
-}
-
-function FilterCell({ id, label, children }: { id: string; label: string; children: ReactNode }) {
-  return (
-    <div className="flex min-w-[7.5rem] flex-1 flex-col gap-1 sm:min-w-0 sm:max-w-[12rem]">
-      <label htmlFor={id} className="whitespace-nowrap text-[11px] font-medium text-slate-500">
-        {label}
-      </label>
-      {children}
-    </div>
   );
 }
 
@@ -311,14 +310,6 @@ const cellBase = 'px-4 py-3.5 align-middle text-sm text-slate-800';
 const cellEllipsis = `${cellBase} max-w-[10rem] min-w-0 truncate sm:max-w-[12rem]`;
 const cellWide = `${cellBase} min-w-0 max-w-[14rem]`;
 
-const ALL_STATI: StatoScadenza[] = [
-  'Da rinnovare',
-  'Preventivo rinnovo creato',
-  'Scaduta',
-  'Rinnovata',
-  'Non rinnovata',
-];
-
 export default function ScadenzePage() {
   const { user } = useAuth();
   const role = user?.role;
@@ -332,15 +323,6 @@ export default function ScadenzePage() {
 
   const [search, setSearch] = useState('');
   const [debouncedSearch, setDebouncedSearch] = useState('');
-  const [statoFilter, setStatoFilter] = useState<'' | StatoScadenza>('');
-  const [strutturaFilter, setStrutturaFilter] = useState('');
-  const [operatoreFilter, setOperatoreFilter] = useState('');
-  const [soloScadute, setSoloScadute] = useState(false);
-  const [soloDaRinnovare, setSoloDaRinnovare] = useState(false);
-  const [soloPreventivoRinnovo, setSoloPreventivoRinnovo] = useState(false);
-
-  const [structures, setStructures] = useState<StructureOption[]>([]);
-  const [assignees, setAssignees] = useState<User[]>([]);
 
   const [detailOpen, setDetailOpen] = useState(false);
   const [detailLoading, setDetailLoading] = useState(false);
@@ -357,18 +339,10 @@ export default function ScadenzePage() {
   const [nonRinnovataTarget, setNonRinnovataTarget] = useState<ScadenzaPolicyRow | null>(null);
   const [nonRinnovataSubmitting, setNonRinnovataSubmitting] = useState(false);
 
-  const canFilterStruttura = role === 'admin' || role === 'supervisore';
-
   useEffect(() => {
     const t = window.setTimeout(() => setDebouncedSearch(search.trim()), 300);
     return () => window.clearTimeout(t);
   }, [search]);
-
-  useEffect(() => {
-    if (!canFilterStruttura) return;
-    api.get<StructureOption[]>('/users/structures').then(setStructures).catch(() => {});
-    api.get<User[]>('/users/assignees').then(setAssignees).catch(() => {});
-  }, [canFilterStruttura]);
 
   const fetchData = useCallback(async () => {
     setError(null);
@@ -408,34 +382,10 @@ export default function ScadenzePage() {
     if (!raw?.items) return [];
     let rows = raw.items;
     if (debouncedSearch) {
-      const q = debouncedSearch.toLowerCase();
-      rows = rows.filter((r) => r.contraente.toLowerCase().includes(q));
+      rows = rows.filter((r) => contraenteMatchesSearch(r.contraente, debouncedSearch));
     }
-    if (statoFilter) {
-      rows = rows.filter((r) => r.stato_scadenza === statoFilter);
-    }
-    if (strutturaFilter) {
-      const sid = Number(strutturaFilter);
-      rows = rows.filter((r) => Number(r.struttura_id) === sid);
-    }
-    if (operatoreFilter) {
-      const oid = Number(operatoreFilter);
-      rows = rows.filter((r) => Number(r.incaricato_user_id) === oid);
-    }
-    if (soloScadute) rows = rows.filter((r) => r.counts_as_scaduta_kpi);
-    if (soloDaRinnovare) rows = rows.filter((r) => r.stato_scadenza === 'Da rinnovare');
-    if (soloPreventivoRinnovo) rows = rows.filter((r) => r.stato_scadenza === 'Preventivo rinnovo creato');
     return sortScadenzeRows(rows);
-  }, [
-    raw,
-    debouncedSearch,
-    statoFilter,
-    strutturaFilter,
-    operatoreFilter,
-    soloScadute,
-    soloDaRinnovare,
-    soloPreventivoRinnovo,
-  ]);
+  }, [raw, debouncedSearch]);
 
   const monthSummary = raw?.summary;
 
@@ -597,117 +547,18 @@ export default function ScadenzePage() {
       </div>
 
       <div className="rounded-2xl border border-slate-200/80 bg-white/90 px-3 py-3 shadow-sm sm:px-4">
-        <div className="flex w-full flex-col gap-2.5 min-[1000px]:flex-nowrap min-[1000px]:flex-row min-[1000px]:items-end min-[1000px]:gap-2">
-          <span className="sr-only">Filtri scadenze</span>
-          <FilterCell id="scad-search" label="Cerca contraente">
-            <input
-              id="scad-search"
-              type="search"
-              placeholder="Nome o cognome…"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              className={tf}
-            />
-          </FilterCell>
-          <FilterCell id="scad-stato" label="Stato scadenza">
-            <select
-              id="scad-stato"
-              value={statoFilter}
-              onChange={(e) => setStatoFilter(e.target.value as '' | StatoScadenza)}
-              className={tf}
-            >
-              <option value="">Tutti</option>
-              {ALL_STATI.map((s) => (
-                <option key={s} value={s}>
-                  {s}
-                </option>
-              ))}
-            </select>
-          </FilterCell>
-          {canFilterStruttura ? (
-            <>
-              <FilterCell id="scad-struttura" label="Struttura">
-                <select
-                  id="scad-struttura"
-                  value={strutturaFilter}
-                  onChange={(e) => setStrutturaFilter(e.target.value)}
-                  className={tf}
-                >
-                  <option value="">Tutte</option>
-                  {structures.map((s) => (
-                    <option key={s.id} value={String(s.id)}>
-                      {s.denominazione || getUserDisplayName(s)}
-                    </option>
-                  ))}
-                </select>
-              </FilterCell>
-              <FilterCell id="scad-op" label="Operatore">
-                <select
-                  id="scad-op"
-                  value={operatoreFilter}
-                  onChange={(e) => setOperatoreFilter(e.target.value)}
-                  className={tf}
-                >
-                  <option value="">Tutti</option>
-                  {assignees.map((o) => (
-                    <option key={o.id} value={String(o.id)}>
-                      {getUserDisplayName(o)}
-                      {o.role === 'fornitore' ? ' (Fornitore)' : ''}
-                    </option>
-                  ))}
-                </select>
-              </FilterCell>
-            </>
-          ) : null}
-          <FilterCell id="scad-solo-scadute" label="Solo scadute">
-            <button
-              type="button"
-              id="scad-solo-scadute"
-              role="switch"
-              aria-checked={soloScadute}
-              onClick={() => setSoloScadute((v) => !v)}
-              className={`flex h-9 w-full min-w-0 items-center justify-center rounded-lg border text-xs font-semibold transition-colors ${
-                soloScadute
-                  ? 'border-slate-700 bg-slate-800 text-white'
-                  : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'
-              }`}
-            >
-              {soloScadute ? 'Sì' : 'No'}
-            </button>
-          </FilterCell>
-          <FilterCell id="scad-solo-da-rinnovare" label="Solo da rinnovare">
-            <button
-              type="button"
-              id="scad-solo-da-rinnovare"
-              role="switch"
-              aria-checked={soloDaRinnovare}
-              onClick={() => setSoloDaRinnovare((v) => !v)}
-              className={`flex h-9 w-full min-w-0 items-center justify-center rounded-lg border text-xs font-semibold transition-colors ${
-                soloDaRinnovare
-                  ? 'border-rose-600 bg-rose-600 text-white'
-                  : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'
-              }`}
-            >
-              {soloDaRinnovare ? 'Sì' : 'No'}
-            </button>
-          </FilterCell>
-          <FilterCell id="scad-solo-prev" label="Solo prev. rinnovo">
-            <button
-              type="button"
-              id="scad-solo-prev"
-              role="switch"
-              aria-checked={soloPreventivoRinnovo}
-              onClick={() => setSoloPreventivoRinnovo((v) => !v)}
-              className={`flex h-9 w-full min-w-0 items-center justify-center rounded-lg border text-xs font-semibold transition-colors ${
-                soloPreventivoRinnovo
-                  ? 'border-indigo-600 bg-indigo-600 text-white'
-                  : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'
-              }`}
-            >
-              {soloPreventivoRinnovo ? 'Sì' : 'No'}
-            </button>
-          </FilterCell>
-        </div>
+        <label htmlFor="scad-search" className="sr-only">
+          Cerca per nome o cognome del contraente
+        </label>
+        <input
+          id="scad-search"
+          type="search"
+          placeholder="Cerca per nome o cognome…"
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          autoComplete="off"
+          className={`${tf} w-full sm:max-w-[380px] lg:max-w-[420px]`}
+        />
       </div>
 
       <div className="overflow-hidden rounded-2xl border border-slate-200/80 bg-white shadow-sm">
@@ -723,7 +574,9 @@ export default function ScadenzePage() {
             <p className="text-sm font-medium text-slate-800">
               {(raw?.items.length ?? 0) === 0
                 ? 'Nessuna polizza in scadenza nel mese selezionato'
-                : 'Nessun risultato con i filtri applicati'}
+                : debouncedSearch
+                  ? 'Nessun contraente corrisponde alla ricerca'
+                  : 'Nessun risultato'}
             </p>
             <p className="max-w-md text-xs text-slate-500">
               Le scadenze mostrano le polizze in stato EMESSA con data di scadenza (effettiva) nel mese scelto.
