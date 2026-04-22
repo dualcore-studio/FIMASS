@@ -1,15 +1,32 @@
 const express = require('express');
+const { list, getById, upsertById, findOne } = require('../data/store');
 const { loadContext, enrichPolicy } = require('../data/views');
 const { authenticateToken, authorizeRoles } = require('../middleware/auth');
 const { normalizePolicyStato } = require('../utils/policyStato');
 const {
   datePartYmd,
-  isDateBeforeTodayYmd,
   calculatePolicyExpiryDate,
   toIsoDateTime,
   parseDbDateTime,
 } = require('../utils/policyDates');
-const { policyAssigneeUserId } = require('../utils/practiceAssignee');
+const { policyAssigneeUserId, userIsAssignedToPolicy } = require('../utils/practiceAssignee');
+const { logActivity } = require('./logs');
+const { getClientIp } = require('../lib/requestMeta');
+const { writeAuditLog, AUDIT_ACTIONS } = require('../lib/auditLog');
+const { sendQuotePresentedByStructureToAdminMail } = require('../lib/resend');
+const { PRIVACY_POLICY_VERSION } = require('../config/privacyConstants');
+const {
+  RENEWAL_STATUS,
+  DISPLAY,
+  computeScadenzaDisplayStato,
+  countsAsScadutaKpi,
+  countsAsDaRinnovareKpi,
+  ensurePolicyExpirationForEmessaPolicy,
+  mergeExpirationsIntoContext,
+  createRenewalQuoteFromScadenza,
+  reopenRenewalForCorrection,
+  normalizeRenewalStatus,
+} = require('../lib/policyRenewal');
 
 const router = express.Router();
 
@@ -28,7 +45,6 @@ function monthRangeIso({ y, m }) {
   return { start, end };
 }
 
-/** Data scadenza mostrata/filtrata: DB, altrimenti data_emissione + 12 mesi. */
 function effectiveDataScadenza(policy) {
   if (policy.data_scadenza) return policy.data_scadenza;
   if (policy.data_emissione) {
@@ -64,14 +80,14 @@ function compagniaFromQuote(quote) {
   return s || null;
 }
 
-function buildStatoScadenza(policy, ymdScadenza) {
-  if (policy.rinnovata === 1 || policy.rinnovata === true) return 'Rinnovata';
-  if (isDateBeforeTodayYmd(ymdScadenza)) return 'Scaduta';
-  return 'Da rinnovare';
-}
-
 function sortScadenzeRecords(rows) {
-  const rank = { Scaduta: 0, 'Da rinnovare': 1, Rinnovata: 2 };
+  const rank = {
+    Scaduta: 0,
+    'Da rinnovare': 1,
+    'Preventivo rinnovo creato': 2,
+    'Non rinnovata': 3,
+    Rinnovata: 4,
+  };
   return [...rows].sort((a, b) => {
     const dr = (rank[a.stato_scadenza] ?? 9) - (rank[b.stato_scadenza] ?? 9);
     if (dr !== 0) return dr;
@@ -87,7 +103,30 @@ function operatoreLabel(p) {
   return '—';
 }
 
-router.get('/', authenticateToken, authorizeRoles('admin', 'supervisore', 'operatore', 'struttura'), (req, res) => {
+function getUserDisplayName(user) {
+  return user.role === 'struttura' ? user.denominazione : `${user.nome} ${user.cognome}`;
+}
+
+async function generateQuoteNumber() {
+  const year = new Date().getFullYear();
+  const prefix = `PRV-${year}-`;
+  const quotes = await list('quotes');
+  const seq = quotes
+    .map((q) => String(q.numero || ''))
+    .filter((n) => n.startsWith(prefix))
+    .map((n) => Number(n.split('-')[2]) || 0)
+    .reduce((a, b) => Math.max(a, b), 0) + 1;
+  return `PRV-${year}-${String(seq).padStart(5, '0')}`;
+}
+
+function canAccessPolicyForScadenze(req, policy) {
+  if (req.user.role === 'struttura') return Number(policy.struttura_id) === Number(req.user.id);
+  if (req.user.role === 'operatore') return Number(policy.operatore_id) === Number(req.user.id);
+  if (req.user.role === 'fornitore') return Number(policy.fornitore_id) === Number(req.user.id);
+  return ['admin', 'supervisore'].includes(req.user.role);
+}
+
+router.get('/', authenticateToken, authorizeRoles('admin', 'supervisore', 'operatore', 'fornitore', 'struttura'), (req, res) => {
   (async () => {
     const parsedMonth = parseMonthParam(req.query.month);
     if (!parsedMonth) {
@@ -95,7 +134,7 @@ router.get('/', authenticateToken, authorizeRoles('admin', 'supervisore', 'opera
     }
     const { start, end } = monthRangeIso(parsedMonth);
     try {
-      const ctx = await loadContext();
+      let ctx = await mergeExpirationsIntoContext(await loadContext());
       let policies = ctx.policies
         .map((p) => enrichPolicy(p, ctx))
         .filter((p) => normalizePolicyStato(p.stato) === 'EMESSA');
@@ -104,6 +143,8 @@ router.get('/', authenticateToken, authorizeRoles('admin', 'supervisore', 'opera
         policies = policies.filter((p) => Number(p.struttura_id) === Number(req.user.id));
       } else if (req.user.role === 'operatore') {
         policies = policies.filter((p) => Number(p.operatore_id) === Number(req.user.id));
+      } else if (req.user.role === 'fornitore') {
+        policies = policies.filter((p) => Number(p.fornitore_id) === Number(req.user.id));
       }
 
       policies = policies.filter((p) => {
@@ -112,13 +153,23 @@ router.get('/', authenticateToken, authorizeRoles('admin', 'supervisore', 'opera
         return String(ds) >= start && String(ds) <= end;
       });
 
-      const items = policies.map((p) => {
+      for (const p of policies) {
+        if (!ctx.policyExpirationsByPolicyId.get(Number(p.id))) {
+          await ensurePolicyExpirationForEmessaPolicy(p.id);
+        }
+      }
+      ctx = await mergeExpirationsIntoContext(await loadContext());
+
+      const items = [];
+      for (const p of policies) {
+        const pe = ctx.policyExpirationsByPolicyId.get(Number(p.id)) || null;
         const quote = ctx.quotesById.get(Number(p.quote_id)) || {};
         const scadenzaEff = effectiveDataScadenza(p);
         const ymd = datePartYmd(scadenzaEff);
-        const stato_scadenza = buildStatoScadenza(p, ymd);
-        return {
+        const stato_scadenza = computeScadenzaDisplayStato({ pe, policy: p, ymdScadenza: ymd });
+        items.push({
           id: p.id,
+          expiration_id: pe ? pe.id : null,
           quote_id: p.quote_id,
           struttura_id: p.struttura_id,
           incaricato_user_id: policyAssigneeUserId(p),
@@ -129,17 +180,22 @@ router.get('/', authenticateToken, authorizeRoles('admin', 'supervisore', 'opera
           operatore: operatoreLabel(p),
           data_emissione: p.data_emissione || null,
           data_scadenza: scadenzaEff,
-          rinnovata: p.rinnovata === 1 || p.rinnovata === true,
+          rinnovata: stato_scadenza === DISPLAY.RINNOVATA,
           stato_scadenza,
-        };
-      });
+          renewal_status: pe ? normalizeRenewalStatus(pe.renewal_status) : RENEWAL_STATUS.DA_RINNOVARE,
+          renewal_quote_id: pe?.renewal_quote_id ?? null,
+          renewed_by_policy_id: pe?.renewed_by_policy_id ?? null,
+          counts_as_scaduta_kpi: countsAsScadutaKpi(stato_scadenza, ymd),
+          counts_as_da_rinnovare_kpi: countsAsDaRinnovareKpi(pe, p, stato_scadenza),
+        });
+      }
 
       const sorted = sortScadenzeRecords(items);
       const summary = {
         totale: sorted.length,
-        daRinnovare: sorted.filter((r) => r.stato_scadenza === 'Da rinnovare').length,
-        scadute: sorted.filter((r) => r.stato_scadenza === 'Scaduta').length,
-        rinnovate: sorted.filter((r) => r.stato_scadenza === 'Rinnovata').length,
+        daRinnovare: sorted.filter((r) => r.counts_as_da_rinnovare_kpi).length,
+        scadute: sorted.filter((r) => r.counts_as_scaduta_kpi).length,
+        rinnovate: sorted.filter((r) => r.stato_scadenza === DISPLAY.RINNOVATA).length,
       };
       res.json({ month: parsedMonth.key, items: sorted, summary });
     } catch (err) {
@@ -148,5 +204,341 @@ router.get('/', authenticateToken, authorizeRoles('admin', 'supervisore', 'opera
     }
   })();
 });
+
+router.get(
+  '/:policyId',
+  authenticateToken,
+  authorizeRoles('admin', 'supervisore', 'operatore', 'fornitore', 'struttura'),
+  (req, res) => {
+  (async () => {
+    const policyId = Number(req.params.policyId);
+    if (!Number.isFinite(policyId)) return res.status(400).json({ error: 'ID non valido' });
+    try {
+      let ctx = await mergeExpirationsIntoContext(await loadContext());
+      const row = await getById('policies', policyId);
+      if (!row) return res.status(404).json({ error: 'Polizza non trovata' });
+      const policy = enrichPolicy(row, ctx);
+      if (!canAccessPolicyForScadenze(req, policy)) {
+        return res.status(403).json({ error: 'Accesso non autorizzato' });
+      }
+      if (normalizePolicyStato(policy.stato) !== 'EMESSA') {
+        return res.status(400).json({ error: 'Il dettaglio scadenza è disponibile solo per polizze emesse' });
+      }
+
+      let pe = ctx.policyExpirationsByPolicyId.get(policyId);
+      if (!pe) {
+        await ensurePolicyExpirationForEmessaPolicy(policyId);
+        ctx = await mergeExpirationsIntoContext(await loadContext());
+        pe = ctx.policyExpirationsByPolicyId.get(policyId);
+      }
+
+      const quote = ctx.quotesById.get(Number(policy.quote_id)) || {};
+      const scadenzaEff = effectiveDataScadenza(policy);
+      const ymd = datePartYmd(scadenzaEff);
+      const stato_scadenza = computeScadenzaDisplayStato({ pe, policy, ymdScadenza: ymd });
+
+      let renewalQuote = null;
+      if (pe?.renewal_quote_id) {
+        const rq = await getById('quotes', pe.renewal_quote_id);
+        if (rq) renewalQuote = { id: rq.id, numero: rq.numero, stato: rq.stato };
+      }
+      let renewedPolicy = null;
+      if (pe?.renewed_by_policy_id) {
+        const np = await getById('policies', pe.renewed_by_policy_id);
+        if (np) renewedPolicy = { id: np.id, numero: np.numero, stato: np.stato };
+      }
+
+      const logs = await list('activity_logs');
+      const timeline = logs
+        .filter((l) => {
+          if (l.modulo !== 'scadenze') return false;
+          const rid = Number(l.riferimento_id);
+          return (
+            rid === policyId ||
+            (pe?.renewal_quote_id && rid === Number(pe.renewal_quote_id)) ||
+            (pe?.renewed_by_policy_id && rid === Number(pe.renewed_by_policy_id))
+          );
+        })
+        .sort((a, b) => String(a.created_at || '').localeCompare(String(b.created_at || '')))
+        .map((l) => ({
+          azione: l.azione,
+          dettaglio: l.dettaglio,
+          utente_nome: l.utente_nome,
+          ruolo: l.ruolo,
+          created_at: l.created_at,
+        }));
+
+      const baseTimeline = [];
+      if (pe?.created_at) {
+        baseTimeline.push({
+          kind: 'expiration_record',
+          label: 'Scadenza registrata nel sistema',
+          created_at: pe.created_at,
+        });
+      }
+      if (pe?.renewal_quote_id && renewalQuote) {
+        baseTimeline.push({
+          kind: 'renewal_quote',
+          label: `Preventivo rinnovo creato (${renewalQuote.numero})`,
+          created_at: null,
+        });
+      }
+      if (pe?.renewal_completed_at && renewedPolicy) {
+        baseTimeline.push({
+          kind: 'renewed_policy',
+          label: `Polizza emessa ${renewedPolicy.numero} — rinnovo completato`,
+          created_at: pe.renewal_completed_at,
+        });
+      }
+
+      res.json({
+        policy: {
+          id: policy.id,
+          numero: policy.numero,
+          quote_id: policy.quote_id,
+          assistito_id: policy.assistito_id,
+          tipo_assicurazione_id: policy.tipo_assicurazione_id,
+          struttura_id: policy.struttura_id,
+          data_emissione: policy.data_emissione,
+          data_scadenza: scadenzaEff,
+          compagnia: compagniaLabel(policy, quote),
+          contraente: [policy.assistito_cognome, policy.assistito_nome].filter(Boolean).join(' ') || '—',
+          tipologia: policy.tipo_nome || '—',
+        },
+        expiration: pe
+          ? {
+              id: pe.id,
+              renewal_status: normalizeRenewalStatus(pe.renewal_status),
+              renewal_quote_id: pe.renewal_quote_id,
+              renewed_by_policy_id: pe.renewed_by_policy_id,
+              renewal_completed_at: pe.renewal_completed_at,
+              created_at: pe.created_at,
+              updated_at: pe.updated_at,
+            }
+          : null,
+        stato_scadenza,
+        renewal_quote: renewalQuote,
+        renewed_policy: renewedPolicy,
+        timeline: [...baseTimeline, ...timeline.map((t) => ({ kind: 'log', ...t }))],
+      });
+    } catch (err) {
+      console.error('scadenze detail:', err);
+      res.status(500).json({ error: 'Errore nel recupero del dettaglio scadenza' });
+    }
+  })();
+});
+
+router.post(
+  '/:policyId/renewal-quote',
+  authenticateToken,
+  authorizeRoles('struttura'),
+  (req, res) => {
+    (async () => {
+      const sourcePolicyId = Number(req.params.policyId);
+      if (!Number.isFinite(sourcePolicyId)) return res.status(400).json({ error: 'ID non valido' });
+
+      const result = await createRenewalQuoteFromScadenza({
+        req,
+        sourcePolicyId,
+        privacyConsentAccepted: req.body?.privacy_consent_accepted,
+        getUserDisplayName,
+        generateQuoteNumber,
+        logActivity,
+        writeAuditLog,
+        getClientIp,
+        sendQuotePresentedByStructureToAdminMail,
+        PRIVACY_POLICY_VERSION,
+        AUDIT_ACTIONS,
+      });
+
+      if (!result.ok) {
+        const code = result.code || 400;
+        const payload = { error: result.error };
+        if (result.quoteId != null) payload.existing_quote_id = result.quoteId;
+        if (result.numero) payload.existing_quote_numero = result.numero;
+        return res.status(code).json(payload);
+      }
+
+      res.status(201).json({
+        message: 'Preventivo di rinnovo creato con successo',
+        quote_id: result.quoteId,
+        numero: result.numero,
+        expiration_id: result.expirationId,
+      });
+    })().catch((err) => {
+      console.error('renewal-quote:', err);
+      res.status(500).json({ error: 'Errore nella creazione del preventivo di rinnovo' });
+    });
+  },
+);
+
+router.patch(
+  '/:policyId/non-rinnovata',
+  authenticateToken,
+  authorizeRoles('admin', 'supervisore', 'operatore', 'fornitore'),
+  (req, res) => {
+    (async () => {
+      const policyId = Number(req.params.policyId);
+      if (!Number.isFinite(policyId)) return res.status(400).json({ error: 'ID non valido' });
+
+      const policy = await getById('policies', policyId);
+      if (!policy) return res.status(404).json({ error: 'Polizza non trovata' });
+      if (normalizePolicyStato(policy.stato) !== 'EMESSA') {
+        return res.status(400).json({ error: 'Operazione disponibile solo su polizze emesse' });
+      }
+
+      if (req.user.role === 'operatore' || req.user.role === 'fornitore') {
+        if (!userIsAssignedToPolicy(req.user, policy)) {
+          return res.status(403).json({ error: 'Accesso non autorizzato' });
+        }
+      }
+
+      let pe = await findOne('policy_expirations', (e) => Number(e.policy_id) === policyId);
+      if (!pe) pe = await ensurePolicyExpirationForEmessaPolicy(policyId);
+      if (!pe) return res.status(400).json({ error: 'Scadenza non trovata' });
+
+      const st = normalizeRenewalStatus(pe.renewal_status);
+      if (st === RENEWAL_STATUS.RINNOVATA || pe.renewed_by_policy_id) {
+        return res.status(400).json({ error: 'Scadenza già rinnovata' });
+      }
+
+      await upsertById('policy_expirations', pe.id, {
+        renewal_status: RENEWAL_STATUS.NON_RINNOVATA,
+        renewal_quote_id: null,
+      });
+
+      await logActivity({
+        utente_id: req.user.id,
+        utente_nome: getUserDisplayName(req.user),
+        ruolo: req.user.role,
+        azione: 'SCADENZA_NON_RINNOVATA',
+        modulo: 'scadenze',
+        riferimento_id: policyId,
+        riferimento_tipo: 'policy',
+        dettaglio: `Polizza ${policy.numero}: segnata come non rinnovata`,
+      });
+      await writeAuditLog({
+        userId: req.user.id,
+        action: AUDIT_ACTIONS.SCADENZA_STATUS_UPDATE,
+        entityType: 'policy_expiration',
+        entityId: pe.id,
+        metadata: { policy_id: policyId, status: RENEWAL_STATUS.NON_RINNOVATA },
+        ipAddress: getClientIp(req),
+      });
+
+      res.json({ message: 'Scadenza segnata come non rinnovata' });
+    })().catch((err) => {
+      console.error('non-rinnovata:', err);
+      res.status(500).json({ error: 'Errore nell\'aggiornamento' });
+    });
+  },
+);
+
+router.patch(
+  '/:policyId/rinnovata-manuale',
+  authenticateToken,
+  authorizeRoles('admin', 'supervisore'),
+  (req, res) => {
+    (async () => {
+      const policyId = Number(req.params.policyId);
+      if (!Number.isFinite(policyId)) return res.status(400).json({ error: 'ID non valido' });
+      const renewedById =
+        req.body?.renewed_by_policy_id != null && req.body?.renewed_by_policy_id !== ''
+          ? Number(req.body.renewed_by_policy_id)
+          : null;
+
+      const policy = await getById('policies', policyId);
+      if (!policy) return res.status(404).json({ error: 'Polizza non trovata' });
+      if (normalizePolicyStato(policy.stato) !== 'EMESSA') {
+        return res.status(400).json({ error: 'Operazione disponibile solo su polizze emesse' });
+      }
+
+      let pe = await findOne('policy_expirations', (e) => Number(e.policy_id) === policyId);
+      if (!pe) pe = await ensurePolicyExpirationForEmessaPolicy(policyId);
+      if (!pe) return res.status(400).json({ error: 'Scadenza non trovata' });
+
+      if (normalizeRenewalStatus(pe.renewal_status) === RENEWAL_STATUS.NON_RINNOVATA) {
+        return res.status(400).json({
+          error: 'Scadenza non rinnovata: usa la riapertura correttiva o contatta il supporto',
+        });
+      }
+
+      if (renewedById != null && Number.isFinite(renewedById)) {
+        const np = await getById('policies', renewedById);
+        if (!np || normalizePolicyStato(np.stato) !== 'EMESSA') {
+          return res.status(400).json({ error: 'Polizza collegata non valida o non emessa' });
+        }
+        if (Number(np.struttura_id) !== Number(policy.struttura_id)) {
+          return res.status(400).json({ error: 'La polizza emessa deve appartenere alla stessa struttura' });
+        }
+      }
+
+      const completedAt = new Date().toISOString().slice(0, 19).replace('T', ' ');
+      await upsertById('policy_expirations', pe.id, {
+        renewal_status: RENEWAL_STATUS.RINNOVATA,
+        renewed_by_policy_id: Number.isFinite(renewedById) ? renewedById : null,
+        renewal_completed_at: completedAt,
+      });
+      await upsertById('policies', policyId, { rinnovata: 1 });
+
+      await logActivity({
+        utente_id: req.user.id,
+        utente_nome: getUserDisplayName(req.user),
+        ruolo: req.user.role,
+        azione: 'SCADENZA_RINNOVATA_MANUALE',
+        modulo: 'scadenze',
+        riferimento_id: policyId,
+        riferimento_tipo: 'policy',
+        dettaglio: `Polizza ${policy.numero}: rinnovata manualmente${renewedById ? ` (polizza ${renewedById})` : ''}`,
+      });
+      await writeAuditLog({
+        userId: req.user.id,
+        action: AUDIT_ACTIONS.SCADENZA_STATUS_UPDATE,
+        entityType: 'policy_expiration',
+        entityId: pe.id,
+        metadata: {
+          policy_id: policyId,
+          status: RENEWAL_STATUS.RINNOVATA,
+          manual: true,
+          renewed_by_policy_id: renewedById,
+        },
+        ipAddress: getClientIp(req),
+      });
+
+      res.json({ message: 'Scadenza segnata come rinnovata' });
+    })().catch((err) => {
+      console.error('rinnovata-manuale:', err);
+      res.status(500).json({ error: 'Errore nell\'aggiornamento' });
+    });
+  },
+);
+
+router.post(
+  '/:policyId/reopen-renewal',
+  authenticateToken,
+  authorizeRoles('admin', 'supervisore'),
+  (req, res) => {
+    (async () => {
+      const policyId = Number(req.params.policyId);
+      if (!Number.isFinite(policyId)) return res.status(400).json({ error: 'ID non valido' });
+      const out = await reopenRenewalForCorrection(policyId, req.user);
+      if (!out.ok) return res.status(400).json({ error: out.error });
+      await logActivity({
+        utente_id: req.user.id,
+        utente_nome: getUserDisplayName(req.user),
+        ruolo: req.user.role,
+        azione: 'SCADENZA_RIAPERTA_RINNOVO',
+        modulo: 'scadenze',
+        riferimento_id: policyId,
+        riferimento_tipo: 'policy',
+        dettaglio: 'Scadenza riaperta dopo segnalazione non rinnovata',
+      });
+      res.json({ message: 'Scadenza riaperta al flusso rinnovi' });
+    })().catch((err) => {
+      console.error('reopen-renewal:', err);
+      res.status(500).json({ error: 'Errore nell\'operazione' });
+    });
+  },
+);
 
 module.exports = router;

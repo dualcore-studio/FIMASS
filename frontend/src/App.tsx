@@ -77,7 +77,7 @@ function AppRoutes() {
         <Route
           path="scadenze"
           element={
-            <ProtectedRoute roles={['admin', 'supervisore', 'operatore', 'struttura']}>
+            <ProtectedRoute roles={['admin', 'supervisore', 'operatore', 'fornitore', 'struttura']}>
               <ScadenzePage />
             </ProtectedRoute>
           }

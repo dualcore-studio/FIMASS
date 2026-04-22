@@ -341,6 +341,46 @@ function initializeDatabase() {
   migrateFornitoreAndMessagingSqliteIfNeeded();
   migratePrivacyGdprSqliteIfNeeded();
   migratePoliciesScadenzeSqliteIfNeeded();
+  migratePolicyRenewalsSqliteIfNeeded();
+}
+
+/** Tabella scadenze/rinnovi + colonne collegamento su preventivi e polizze (SQLite locale). */
+function migratePolicyRenewalsSqliteIfNeeded() {
+  try {
+    db.exec(`
+      CREATE TABLE IF NOT EXISTS policy_expirations (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        policy_id INTEGER NOT NULL UNIQUE REFERENCES policies(id),
+        renewal_status TEXT NOT NULL DEFAULT 'da_rinnovare',
+        renewal_quote_id INTEGER REFERENCES quotes(id),
+        renewed_by_policy_id INTEGER REFERENCES policies(id),
+        renewal_completed_at TEXT,
+        created_at TEXT DEFAULT (datetime('now')),
+        updated_at TEXT DEFAULT (datetime('now'))
+      );
+      CREATE INDEX IF NOT EXISTS idx_policy_expirations_quote ON policy_expirations(renewal_quote_id);
+    `);
+    const qcols = db.prepare('PRAGMA table_info(quotes)').all();
+    const qNames = new Set(Array.isArray(qcols) ? qcols.map((c) => c.name) : []);
+    if (!qNames.has('is_renewal')) db.exec('ALTER TABLE quotes ADD COLUMN is_renewal INTEGER NOT NULL DEFAULT 0');
+    if (!qNames.has('renewal_source_expiration_id')) {
+      db.exec('ALTER TABLE quotes ADD COLUMN renewal_source_expiration_id INTEGER REFERENCES policy_expirations(id)');
+    }
+    if (!qNames.has('renewal_source_policy_id')) {
+      db.exec('ALTER TABLE quotes ADD COLUMN renewal_source_policy_id INTEGER REFERENCES policies(id)');
+    }
+    const pcols = db.prepare('PRAGMA table_info(policies)').all();
+    const pNames = new Set(Array.isArray(pcols) ? pcols.map((c) => c.name) : []);
+    if (!pNames.has('is_renewal')) db.exec('ALTER TABLE policies ADD COLUMN is_renewal INTEGER NOT NULL DEFAULT 0');
+    if (!pNames.has('renewal_source_expiration_id')) {
+      db.exec('ALTER TABLE policies ADD COLUMN renewal_source_expiration_id INTEGER REFERENCES policy_expirations(id)');
+    }
+    if (!pNames.has('renewal_source_policy_id')) {
+      db.exec('ALTER TABLE policies ADD COLUMN renewal_source_policy_id INTEGER REFERENCES policies(id)');
+    }
+  } catch (e) {
+    console.error('migratePolicyRenewalsSqliteIfNeeded:', e);
+  }
 }
 
 /** Colonne scadenze / rinnovo su polizze emesse (SQLite locale / seed). */

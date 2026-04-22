@@ -130,6 +130,10 @@ export interface Quote {
   preventivo_riepilogo_attachment_id?: number | null;
   preventivo_riepilogo_nome?: string | null;
   has_policy: number;
+  /** Preventivo creato dal flusso rinnovi (Scadenze). */
+  is_renewal?: number | boolean | null;
+  renewal_source_expiration_id?: number | null;
+  renewal_source_policy_id?: number | null;
   /** Record precedente all’introduzione del tracciamento consensi se true. */
   privacy_consent_untracked?: boolean;
   privacy_consent_required?: boolean | null;
@@ -209,14 +213,24 @@ export interface Policy {
   data_emissione?: string | null;
   data_scadenza?: string | null;
   rinnovata?: number | boolean;
+  /** Polizza emessa da rinnovo (nuova emissione collegata a scadenza precedente). */
+  is_renewal?: number | boolean | null;
+  renewal_source_expiration_id?: number | null;
+  renewal_source_policy_id?: number | null;
   history?: StatusHistory[];
   attachments?: Attachment[];
 }
 
-export type StatoScadenza = 'Da rinnovare' | 'Scaduta' | 'Rinnovata';
+export type StatoScadenza =
+  | 'Da rinnovare'
+  | 'Preventivo rinnovo creato'
+  | 'Rinnovata'
+  | 'Scaduta'
+  | 'Non rinnovata';
 
 export interface ScadenzaPolicyRow {
   id: number;
+  expiration_id?: number | null;
   quote_id?: number;
   struttura_id?: number;
   incaricato_user_id?: number | null;
@@ -229,6 +243,40 @@ export interface ScadenzaPolicyRow {
   data_scadenza: string | null;
   rinnovata: boolean;
   stato_scadenza: StatoScadenza;
+  renewal_status?: string;
+  renewal_quote_id?: number | null;
+  renewed_by_policy_id?: number | null;
+  counts_as_scaduta_kpi?: boolean;
+  counts_as_da_rinnovare_kpi?: boolean;
+}
+
+export interface ScadenzaDetailResponse {
+  policy: {
+    id: number;
+    numero: string;
+    quote_id: number;
+    assistito_id: number;
+    tipo_assicurazione_id: number;
+    struttura_id: number;
+    data_emissione: string | null;
+    data_scadenza: string | null;
+    compagnia: string | null;
+    contraente: string;
+    tipologia: string;
+  };
+  expiration: {
+    id: number;
+    renewal_status: string;
+    renewal_quote_id: number | null;
+    renewed_by_policy_id: number | null;
+    renewal_completed_at: string | null;
+    created_at: string;
+    updated_at: string;
+  } | null;
+  stato_scadenza: StatoScadenza;
+  renewal_quote: { id: number; numero: string; stato: string } | null;
+  renewed_policy: { id: number; numero: string; stato: string } | null;
+  timeline: Array<Record<string, unknown>>;
 }
 
 export interface ScadenzeApiResponse {

@@ -5,6 +5,7 @@ const TABLES = [
   'insurance_types',
   'assisted_people',
   'quotes',
+  'policy_expirations',
   'quote_status_history',
   'quote_notes',
   'quote_reminders',

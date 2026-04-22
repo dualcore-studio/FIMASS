@@ -5,8 +5,11 @@ const AUDIT_ACTIONS = {
   QUOTE_VIEW: 'quote_view',
   ATTACHMENT_DOWNLOAD: 'attachment_download',
   QUOTE_CREATE: 'quote_create',
+  QUOTE_RENEWAL_CREATE: 'quote_renewal_create',
   QUOTE_STATUS_UPDATE: 'quote_status_update',
   POLICY_EMISSION_REQUEST: 'policy_emission_request',
+  POLICY_RENEWAL_COMPLETED: 'policy_renewal_completed',
+  SCADENZA_STATUS_UPDATE: 'scadenza_status_update',
   CONVERSATION_OPEN: 'conversation_open',
 };
 

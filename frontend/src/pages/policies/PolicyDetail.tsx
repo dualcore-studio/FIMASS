@@ -123,11 +123,16 @@ export default function PolicyDetail() {
             <ArrowLeft className="h-5 w-5" />
           </button>
           <div>
-            <div className="flex items-center gap-3">
+            <div className="flex flex-wrap items-center gap-3">
               <h1 className="text-2xl font-bold tracking-tight text-gray-900">
                 Polizza {policy.numero}
               </h1>
               <StatusBadge stato={policy.stato} type="policy" />
+              {policy.is_renewal === true || policy.is_renewal === 1 ? (
+                <span className="rounded-md bg-indigo-100 px-2 py-0.5 text-xs font-semibold text-indigo-900 ring-1 ring-indigo-200/80">
+                  Da rinnovo
+                </span>
+              ) : null}
             </div>
             <p className="mt-1 text-sm text-gray-500">
               {policy.tipo_nome} — Creata il {formatDate(policy.created_at)}

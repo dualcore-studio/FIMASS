@@ -1,5 +1,5 @@
 const express = require('express');
-const { list, getById, insert, upsertById, like, paginate, nowIso } = require('../data/store');
+const { list, getById, findOne, insert, upsertById, like, paginate, nowIso } = require('../data/store');
 const { calculatePolicyExpiryDate, toIsoDateTime, parseDbDateTime } = require('../utils/policyDates');
 const { loadContext, enrichPolicy } = require('../data/views');
 const { sortPoliciesForList } = require('../utils/practiceListSort');
@@ -16,6 +16,12 @@ const { sendPolicyEmissionRequestedToOperatorMail } = require('../lib/resend');
 const { sanitizeAttachmentsList } = require('../lib/attachmentPublicJson');
 const { getClientIp } = require('../lib/requestMeta');
 const { writeAuditLog, AUDIT_ACTIONS } = require('../lib/auditLog');
+const {
+  completeRenewalIfIssuedFromRenewalQuote,
+  ensurePolicyExpirationForEmessaPolicy,
+  isTruthyInt,
+  RENEWAL_STATUS,
+} = require('../lib/policyRenewal');
 
 const router = express.Router();
 
@@ -174,6 +180,20 @@ router.patch('/:id/rinnovata', authenticateToken, authorizeRoles('admin', 'super
       }
     }
     await upsertById('policies', req.params.id, { rinnovata: rinnovata ? 1 : 0 });
+    const pe = await findOne('policy_expirations', (e) => Number(e.policy_id) === Number(req.params.id));
+    if (pe) {
+      if (rinnovata) {
+        await upsertById('policy_expirations', pe.id, {
+          renewal_status: RENEWAL_STATUS.RINNOVATA,
+          renewal_completed_at: pe.renewal_completed_at || nowIso(),
+        });
+      } else if (!pe.renewed_by_policy_id) {
+        await upsertById('policy_expirations', pe.id, {
+          renewal_status: RENEWAL_STATUS.DA_RINNOVARE,
+          renewal_completed_at: null,
+        });
+      }
+    }
     await logActivity({
       utente_id: req.user.id,
       utente_nome: getUserDisplayName(req.user),
@@ -269,6 +289,9 @@ router.post('/', authenticateToken, authorizeRoles('struttura'), (req, res) => {
       stato: 'RICHIESTA PRESENTATA',
       dati_specifici: quote.dati_specifici,
       note_struttura: note_struttura || null,
+      is_renewal: isTruthyInt(quote.is_renewal) ? 1 : 0,
+      renewal_source_expiration_id: quote.renewal_source_expiration_id ?? null,
+      renewal_source_policy_id: quote.renewal_source_policy_id ?? null,
     });
     const policyId = result.id;
     await upsertById('quotes', quote_id, { has_policy: 1 });
@@ -389,6 +412,23 @@ router.put('/:id/status', authenticateToken, authorizeRoles('admin', 'supervisor
       riferimento_tipo: 'policy',
       dettaglio: `Polizza ${policy.numero}: ${normalizePolicyStato(policy.stato)} → ${stato}`,
     });
+
+    if (stato === 'EMESSA') {
+      const issued = await getById('policies', req.params.id);
+      if (issued) {
+        await completeRenewalIfIssuedFromRenewalQuote({
+          newPolicy: issued,
+          actingUser: req.user,
+          getUserDisplayName,
+          logActivity,
+          writeAuditLog,
+          getClientIp,
+          req,
+          AUDIT_ACTIONS,
+        });
+        await ensurePolicyExpirationForEmessaPolicy(issued.id);
+      }
+    }
 
     res.json({ message: 'Stato polizza aggiornato' });
   })().catch((err) => {

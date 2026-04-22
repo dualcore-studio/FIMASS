@@ -5,9 +5,12 @@ const API_BASE = envApiBase
 
 class ApiError extends Error {
   status: number;
-  constructor(message: string, status: number) {
+  /** Payload JSON grezzo dal server (es. campi aggiuntivi su 409). */
+  details?: unknown;
+  constructor(message: string, status: number, details?: unknown) {
     super(message);
     this.status = status;
+    this.details = details;
   }
 }
 
@@ -41,7 +44,7 @@ async function request<T>(endpoint: string, options: RequestInit = {}): Promise<
   const data = await response.json();
 
   if (!response.ok) {
-    throw new ApiError(data.error || 'Errore del server', response.status);
+    throw new ApiError(data.error || 'Errore del server', response.status, data);
   }
 
   return data as T;

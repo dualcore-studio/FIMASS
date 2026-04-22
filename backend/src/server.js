@@ -17,6 +17,7 @@ if (!fs.existsSync(uploadsDir)) {
 initializeDatabase();
 bootstrapDatabaseIfEmpty()
   .then(() => require('./migrate/policyExpiryBackfill').migratePoliciesExpiryBackfillIfNeeded())
+  .then(() => require('./migrate/policyRenewalsBootstrap').migratePolicyRenewalsBootstrapIfNeeded())
   .catch((err) => {
     console.error('Bootstrap error:', err);
   });

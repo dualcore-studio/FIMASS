@@ -11,6 +11,7 @@ const TABLES = [
   'quote_notes',
   'quote_reminders',
   'policies',
+  'policy_expirations',
   'policy_status_history',
   'attachments',
   'activity_logs',

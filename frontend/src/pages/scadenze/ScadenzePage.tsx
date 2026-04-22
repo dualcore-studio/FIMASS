@@ -16,13 +16,23 @@ import {
   FilePlus2,
   Loader2,
   RefreshCw,
+  Ban,
+  ShieldCheck,
 } from 'lucide-react';
 import { api, ApiError } from '../../utils/api';
-import type { ScadenzaPolicyRow, ScadenzeApiResponse, StatoScadenza, StructureOption, User } from '../../types';
+import type {
+  ScadenzaDetailResponse,
+  ScadenzaPolicyRow,
+  ScadenzeApiResponse,
+  StatoScadenza,
+  StructureOption,
+  User,
+} from '../../types';
 import { formatDate, getUserDisplayName } from '../../utils/helpers';
 import { useAuth } from '../../context/AuthContext';
+import Modal from '../../components/ui/Modal';
 
-const SCADENZE_MENU_WIDTH = 220;
+const SCADENZE_MENU_WIDTH = 240;
 const SCADENZE_VIEW_MARGIN = 8;
 const SCADENZE_MENU_GAP = 4;
 
@@ -44,10 +54,17 @@ function monthSelectOptions(): { value: string; label: string }[] {
   return out;
 }
 
+const STATO_RANK: Record<StatoScadenza, number> = {
+  Scaduta: 0,
+  'Da rinnovare': 1,
+  'Preventivo rinnovo creato': 2,
+  'Non rinnovata': 3,
+  Rinnovata: 4,
+};
+
 function sortScadenzeRows(rows: ScadenzaPolicyRow[]): ScadenzaPolicyRow[] {
-  const rank: Record<StatoScadenza, number> = { Scaduta: 0, 'Da rinnovare': 1, Rinnovata: 2 };
   return [...rows].sort((a, b) => {
-    const dr = rank[a.stato_scadenza] - rank[b.stato_scadenza];
+    const dr = STATO_RANK[a.stato_scadenza] - STATO_RANK[b.stato_scadenza];
     if (dr !== 0) return dr;
     return String(a.data_scadenza || '').localeCompare(String(b.data_scadenza || ''), 'it');
   });
@@ -59,7 +76,11 @@ function StatoScadenzaBadge({ stato }: { stato: StatoScadenza }) {
       ? 'bg-rose-50 text-rose-800 ring-rose-200/80'
       : stato === 'Scaduta'
         ? 'bg-slate-100 text-slate-700 ring-slate-300/60'
-        : 'bg-emerald-50 text-emerald-800 ring-emerald-200/70';
+        : stato === 'Rinnovata'
+          ? 'bg-emerald-50 text-emerald-800 ring-emerald-200/70'
+          : stato === 'Non rinnovata'
+            ? 'bg-amber-50 text-amber-900 ring-amber-200/70'
+            : 'bg-indigo-50 text-indigo-900 ring-indigo-200/75';
   return (
     <span
       className={`inline-flex max-w-full items-center rounded-md px-2.5 py-1 text-xs font-semibold tracking-tight ring-1 ring-inset ${cls}`}
@@ -84,10 +105,20 @@ type MenuPos = { top: number; left: number; maxHeightPx?: number };
 
 function ScadenzaRowMenu({
   row,
-  onRinnovata,
+  role,
+  onOpenDetail,
+  onAskCreateRenewal,
+  onNonRinnovata,
+  onManualRinnovata,
+  onReopen,
 }: {
   row: ScadenzaPolicyRow;
-  onRinnovata: (id: number) => void;
+  role: string | undefined;
+  onOpenDetail: () => void;
+  onAskCreateRenewal: () => void;
+  onNonRinnovata: () => void;
+  onManualRinnovata: () => void;
+  onReopen: () => void;
 }) {
   const [open, setOpen] = useState(false);
   const wrapRef = useRef<HTMLDivElement>(null);
@@ -149,12 +180,14 @@ function ScadenzaRowMenu({
     };
   }, [open, updatePosition]);
 
-  const canMarkRinnovata = row.stato_scadenza !== 'Rinnovata';
-  // TODO(renewal-flow): usare from_policy in QuoteCreate per precompilare assistito / tipo da polizza origine
-  const renewalHref =
-    row.quote_id != null
-      ? `/preventivi/nuovo?from_policy=${row.id}&from_quote=${row.quote_id}`
-      : `/preventivi/nuovo?from_policy=${row.id}`;
+  const isFinal = row.stato_scadenza === 'Rinnovata' || row.stato_scadenza === 'Non rinnovata';
+  const canCreateRenewal = role === 'struttura' && !isFinal && !row.renewal_quote_id;
+  const canOpenRenewalQuote = Boolean(row.renewal_quote_id);
+  const canNonRinnovata =
+    (role === 'admin' || role === 'supervisore' || role === 'operatore' || role === 'fornitore') && !isFinal;
+  const canManualRinnovata =
+    (role === 'admin' || role === 'supervisore') && row.stato_scadenza !== 'Non rinnovata';
+  const canReopen = (role === 'admin' || role === 'supervisore') && row.stato_scadenza === 'Non rinnovata';
 
   const menu =
     open && typeof document !== 'undefined' ? (
@@ -169,35 +202,87 @@ function ScadenzaRowMenu({
         }}
         role="menu"
       >
+        <button
+          type="button"
+          className="flex w-full items-center gap-2 px-3.5 py-2.5 text-left text-sm text-slate-800 transition hover:bg-slate-50"
+          onClick={() => {
+            setOpen(false);
+            onOpenDetail();
+          }}
+        >
+          <ExternalLink className="size-3.5 shrink-0 text-slate-500" />
+          Apri dettaglio
+        </button>
         <Link
           to={`/polizze/${row.id}`}
           className="flex items-center gap-2 px-3.5 py-2.5 text-sm text-slate-800 transition hover:bg-slate-50"
           onClick={() => setOpen(false)}
         >
           <ExternalLink className="size-3.5 shrink-0 text-slate-500" />
-          Apri
+          Scheda polizza
         </Link>
-        {canMarkRinnovata ? (
+        {canCreateRenewal ? (
           <button
             type="button"
             className="flex w-full items-center gap-2 px-3.5 py-2.5 text-left text-sm text-slate-800 transition hover:bg-slate-50"
             onClick={() => {
               setOpen(false);
-              onRinnovata(row.id);
+              onAskCreateRenewal();
+            }}
+          >
+            <FilePlus2 className="size-3.5 shrink-0 text-slate-500" />
+            Crea preventivo rinnovo
+          </button>
+        ) : null}
+        {canOpenRenewalQuote && row.renewal_quote_id ? (
+          <Link
+            to={`/preventivi/${row.renewal_quote_id}`}
+            className="flex items-center gap-2 px-3.5 py-2.5 text-sm text-slate-800 transition hover:bg-slate-50"
+            onClick={() => setOpen(false)}
+          >
+            <ExternalLink className="size-3.5 shrink-0 text-slate-500" />
+            Apri preventivo rinnovo
+          </Link>
+        ) : null}
+        {canNonRinnovata ? (
+          <button
+            type="button"
+            className="flex w-full items-center gap-2 px-3.5 py-2.5 text-left text-sm text-slate-800 transition hover:bg-slate-50"
+            onClick={() => {
+              setOpen(false);
+              onNonRinnovata();
+            }}
+          >
+            <Ban className="size-3.5 shrink-0 text-slate-500" />
+            Segna come non rinnovata
+          </button>
+        ) : null}
+        {canManualRinnovata && row.stato_scadenza !== 'Rinnovata' ? (
+          <button
+            type="button"
+            className="flex w-full items-center gap-2 px-3.5 py-2.5 text-left text-sm text-amber-900 transition hover:bg-amber-50/80"
+            onClick={() => {
+              setOpen(false);
+              onManualRinnovata();
+            }}
+          >
+            <ShieldCheck className="size-3.5 shrink-0 text-amber-700" />
+            Segna come rinnovata (manuale)
+          </button>
+        ) : null}
+        {canReopen ? (
+          <button
+            type="button"
+            className="flex w-full items-center gap-2 px-3.5 py-2.5 text-left text-sm text-slate-800 transition hover:bg-slate-50"
+            onClick={() => {
+              setOpen(false);
+              onReopen();
             }}
           >
             <RefreshCw className="size-3.5 shrink-0 text-slate-500" />
-            Segna come rinnovata
+            Riapri a rinnovo (correzione)
           </button>
         ) : null}
-        <Link
-          to={renewalHref}
-          className="flex items-center gap-2 px-3.5 py-2.5 text-sm text-slate-800 transition hover:bg-slate-50"
-          onClick={() => setOpen(false)}
-        >
-          <FilePlus2 className="size-3.5 shrink-0 text-slate-500" />
-          Crea preventivo rinnovo
-        </Link>
       </div>
     ) : null;
 
@@ -215,11 +300,7 @@ function ScadenzaRowMenu({
         </button>
       </div>
       {open ? (
-        <div
-          className="fixed inset-0 z-[190]"
-          aria-hidden
-          onClick={() => setOpen(false)}
-        />
+        <div className="fixed inset-0 z-[190]" aria-hidden onClick={() => setOpen(false)} />
       ) : null}
       {menu && createPortal(menu, document.body)}
     </>
@@ -230,6 +311,14 @@ const cellBase = 'px-4 py-3.5 align-middle text-sm text-slate-800';
 const cellEllipsis = `${cellBase} max-w-[10rem] min-w-0 truncate sm:max-w-[12rem]`;
 const cellWide = `${cellBase} min-w-0 max-w-[14rem]`;
 
+const ALL_STATI: StatoScadenza[] = [
+  'Da rinnovare',
+  'Preventivo rinnovo creato',
+  'Scaduta',
+  'Rinnovata',
+  'Non rinnovata',
+];
+
 export default function ScadenzePage() {
   const { user } = useAuth();
   const role = user?.role;
@@ -239,6 +328,7 @@ export default function ScadenzePage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
+  const [actionSuccess, setActionSuccess] = useState<string | null>(null);
 
   const [search, setSearch] = useState('');
   const [debouncedSearch, setDebouncedSearch] = useState('');
@@ -247,9 +337,25 @@ export default function ScadenzePage() {
   const [operatoreFilter, setOperatoreFilter] = useState('');
   const [soloScadute, setSoloScadute] = useState(false);
   const [soloDaRinnovare, setSoloDaRinnovare] = useState(false);
+  const [soloPreventivoRinnovo, setSoloPreventivoRinnovo] = useState(false);
 
   const [structures, setStructures] = useState<StructureOption[]>([]);
   const [assignees, setAssignees] = useState<User[]>([]);
+
+  const [detailOpen, setDetailOpen] = useState(false);
+  const [detailLoading, setDetailLoading] = useState(false);
+  const [detail, setDetail] = useState<ScadenzaDetailResponse | null>(null);
+
+  const [renewalTarget, setRenewalTarget] = useState<ScadenzaPolicyRow | null>(null);
+  const [renewalPrivacy, setRenewalPrivacy] = useState(false);
+  const [renewalSubmitting, setRenewalSubmitting] = useState(false);
+
+  const [manualRinnovataTarget, setManualRinnovataTarget] = useState<ScadenzaPolicyRow | null>(null);
+  const [manualRinnovataPolicyId, setManualRinnovataPolicyId] = useState('');
+  const [manualRinnovataSubmitting, setManualRinnovataSubmitting] = useState(false);
+
+  const [nonRinnovataTarget, setNonRinnovataTarget] = useState<ScadenzaPolicyRow | null>(null);
+  const [nonRinnovataSubmitting, setNonRinnovataSubmitting] = useState(false);
 
   const canFilterStruttura = role === 'admin' || role === 'supervisore';
 
@@ -282,6 +388,22 @@ export default function ScadenzePage() {
     fetchData();
   }, [fetchData]);
 
+  const openDetail = async (policyId: number) => {
+    setDetailOpen(true);
+    setDetailLoading(true);
+    setDetail(null);
+    setActionError(null);
+    try {
+      const d = await api.get<ScadenzaDetailResponse>(`/scadenze/${policyId}`);
+      setDetail(d);
+    } catch (e) {
+      setActionError(e instanceof ApiError ? e.message : 'Impossibile caricare il dettaglio.');
+      setDetailOpen(false);
+    } finally {
+      setDetailLoading(false);
+    }
+  };
+
   const filtered = useMemo(() => {
     if (!raw?.items) return [];
     let rows = raw.items;
@@ -300,8 +422,9 @@ export default function ScadenzePage() {
       const oid = Number(operatoreFilter);
       rows = rows.filter((r) => Number(r.incaricato_user_id) === oid);
     }
-    if (soloScadute) rows = rows.filter((r) => r.stato_scadenza === 'Scaduta');
+    if (soloScadute) rows = rows.filter((r) => r.counts_as_scaduta_kpi);
     if (soloDaRinnovare) rows = rows.filter((r) => r.stato_scadenza === 'Da rinnovare');
+    if (soloPreventivoRinnovo) rows = rows.filter((r) => r.stato_scadenza === 'Preventivo rinnovo creato');
     return sortScadenzeRows(rows);
   }, [
     raw,
@@ -311,14 +434,85 @@ export default function ScadenzePage() {
     operatoreFilter,
     soloScadute,
     soloDaRinnovare,
+    soloPreventivoRinnovo,
   ]);
 
   const monthSummary = raw?.summary;
 
-  const onRinnovata = async (id: number) => {
+  const submitRenewal = async () => {
+    if (!renewalTarget || !renewalPrivacy) return;
+    setRenewalSubmitting(true);
     setActionError(null);
+    setActionSuccess(null);
     try {
-      await api.patch(`/policies/${id}/rinnovata`, { rinnovata: true });
+      await api.post(`/scadenze/${renewalTarget.id}/renewal-quote`, {
+        privacy_consent_accepted: true,
+      });
+      setActionSuccess('Preventivo di rinnovo creato con successo.');
+      setRenewalTarget(null);
+      setRenewalPrivacy(false);
+      await fetchData();
+    } catch (e) {
+      if (e instanceof ApiError && e.status === 409) {
+        const body = e.details as { existing_quote_id?: number; error?: string } | undefined;
+        const id = body?.existing_quote_id;
+        setActionError(
+          id
+            ? `${body?.error || 'Preventivo già presente.'} Puoi aprirlo dalla colonna Azioni (id ${id}).`
+            : body?.error || 'Preventivo di rinnovo già esistente.',
+        );
+      } else {
+        setActionError(e instanceof ApiError ? e.message : 'Operazione non riuscita.');
+      }
+    } finally {
+      setRenewalSubmitting(false);
+    }
+  };
+
+  const submitNonRinnovata = async () => {
+    if (!nonRinnovataTarget) return;
+    setNonRinnovataSubmitting(true);
+    setActionError(null);
+    setActionSuccess(null);
+    try {
+      await api.patch(`/scadenze/${nonRinnovataTarget.id}/non-rinnovata`, {});
+      setActionSuccess('Scadenza segnata come non rinnovata.');
+      setNonRinnovataTarget(null);
+      await fetchData();
+    } catch (e) {
+      setActionError(e instanceof ApiError ? e.message : 'Operazione non riuscita.');
+    } finally {
+      setNonRinnovataSubmitting(false);
+    }
+  };
+
+  const submitManualRinnovata = async () => {
+    if (!manualRinnovataTarget) return;
+    setManualRinnovataSubmitting(true);
+    setActionError(null);
+    setActionSuccess(null);
+    try {
+      const rawId = manualRinnovataPolicyId.trim();
+      await api.patch(`/scadenze/${manualRinnovataTarget.id}/rinnovata-manuale`, {
+        renewed_by_policy_id: rawId ? Number(rawId) : undefined,
+      });
+      setActionSuccess('Scadenza segnata come rinnovata.');
+      setManualRinnovataTarget(null);
+      setManualRinnovataPolicyId('');
+      await fetchData();
+    } catch (e) {
+      setActionError(e instanceof ApiError ? e.message : 'Operazione non riuscita.');
+    } finally {
+      setManualRinnovataSubmitting(false);
+    }
+  };
+
+  const submitReopen = async (row: ScadenzaPolicyRow) => {
+    setActionError(null);
+    setActionSuccess(null);
+    try {
+      await api.post(`/scadenze/${row.id}/reopen-renewal`, {});
+      setActionSuccess('Scadenza riaperta al flusso rinnovi.');
       await fetchData();
     } catch (e) {
       setActionError(e instanceof ApiError ? e.message : 'Operazione non riuscita.');
@@ -361,6 +555,11 @@ export default function ScadenzePage() {
       {actionError ? (
         <div className="rounded-lg border border-red-200 bg-red-50/90 px-4 py-3 text-sm text-red-800">{actionError}</div>
       ) : null}
+      {actionSuccess ? (
+        <div className="rounded-lg border border-emerald-200 bg-emerald-50/90 px-4 py-3 text-sm text-emerald-900">
+          {actionSuccess}
+        </div>
+      ) : null}
 
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         {[
@@ -368,26 +567,31 @@ export default function ScadenzePage() {
             label: 'Totale scadenze mese',
             value: monthSummary?.totale ?? 0,
             accent: 'border-slate-200/80 bg-white shadow-sm',
+            hint: null as string | null,
           },
           {
-            label: 'Da rinnovare',
+            label: 'Da rinnovare (funnel)',
             value: monthSummary?.daRinnovare ?? 0,
             accent: 'border-rose-100/80 bg-gradient-to-br from-rose-50/80 to-white shadow-sm',
+            hint: 'Include pratiche con preventivo di rinnovo ancora aperto',
           },
           {
-            label: 'Scadute',
+            label: 'Scadute (calendario)',
             value: monthSummary?.scadute ?? 0,
             accent: 'border-slate-200/80 bg-slate-50/50 shadow-sm',
+            hint: 'Data passata, non chiuse come rinnovate o non rinnovate',
           },
           {
             label: 'Rinnovate',
             value: monthSummary?.rinnovate ?? 0,
             accent: 'border-emerald-100/80 bg-gradient-to-br from-emerald-50/70 to-white shadow-sm',
+            hint: null,
           },
         ].map((c) => (
           <div key={c.label} className={`rounded-2xl border px-4 py-3.5 ${c.accent}`}>
             <p className="text-xs font-medium text-slate-500">{c.label}</p>
             <p className="mt-1.5 text-2xl font-semibold tabular-nums tracking-tight text-slate-900">{c.value}</p>
+            {c.hint ? <p className="mt-1 text-[11px] leading-snug text-slate-500">{c.hint}</p> : null}
           </div>
         ))}
       </div>
@@ -413,9 +617,11 @@ export default function ScadenzePage() {
               className={tf}
             >
               <option value="">Tutti</option>
-              <option value="Da rinnovare">Da rinnovare</option>
-              <option value="Scaduta">Scaduta</option>
-              <option value="Rinnovata">Rinnovata</option>
+              {ALL_STATI.map((s) => (
+                <option key={s} value={s}>
+                  {s}
+                </option>
+              ))}
             </select>
           </FilterCell>
           {canFilterStruttura ? (
@@ -483,6 +689,22 @@ export default function ScadenzePage() {
               }`}
             >
               {soloDaRinnovare ? 'Sì' : 'No'}
+            </button>
+          </FilterCell>
+          <FilterCell id="scad-solo-prev" label="Solo prev. rinnovo">
+            <button
+              type="button"
+              id="scad-solo-prev"
+              role="switch"
+              aria-checked={soloPreventivoRinnovo}
+              onClick={() => setSoloPreventivoRinnovo((v) => !v)}
+              className={`flex h-9 w-full min-w-0 items-center justify-center rounded-lg border text-xs font-semibold transition-colors ${
+                soloPreventivoRinnovo
+                  ? 'border-indigo-600 bg-indigo-600 text-white'
+                  : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'
+              }`}
+            >
+              {soloPreventivoRinnovo ? 'Sì' : 'No'}
             </button>
           </FilterCell>
         </div>
@@ -587,7 +809,21 @@ export default function ScadenzePage() {
                       <StatoScadenzaBadge stato={row.stato_scadenza} />
                     </td>
                     <td className="w-[7.5rem] min-w-[7.5rem] px-4 py-3.5 text-right align-middle">
-                      <ScadenzaRowMenu row={row} onRinnovata={onRinnovata} />
+                      <ScadenzaRowMenu
+                        row={row}
+                        role={role}
+                        onOpenDetail={() => void openDetail(row.id)}
+                        onAskCreateRenewal={() => {
+                          setRenewalPrivacy(false);
+                          setRenewalTarget(row);
+                        }}
+                        onNonRinnovata={() => setNonRinnovataTarget(row)}
+                        onManualRinnovata={() => {
+                          setManualRinnovataPolicyId('');
+                          setManualRinnovataTarget(row);
+                        }}
+                        onReopen={() => void submitReopen(row)}
+                      />
                     </td>
                   </tr>
                 ))}
@@ -596,6 +832,214 @@ export default function ScadenzePage() {
           </div>
         )}
       </div>
+
+      <Modal
+        isOpen={detailOpen}
+        onClose={() => {
+          setDetailOpen(false);
+          setDetail(null);
+        }}
+        title="Dettaglio scadenza"
+        size="lg"
+      >
+        {detailLoading ? (
+          <div className="flex justify-center py-12">
+            <Loader2 className="size-8 animate-spin text-blue-700" />
+          </div>
+        ) : detail ? (
+          <div className="space-y-4 text-sm">
+            <div className="rounded-lg border border-slate-100 bg-slate-50/80 p-4">
+              <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Polizza</p>
+              <p className="mt-1 font-semibold text-slate-900">
+                {detail.policy.numero} — {detail.policy.contraente}
+              </p>
+              <p className="text-slate-600">{detail.policy.tipologia}</p>
+              <p className="mt-2 text-slate-600">
+                Scadenza: <span className="font-medium">{formatDate(detail.policy.data_scadenza)}</span>
+              </p>
+              <div className="mt-2 flex flex-wrap gap-2">
+                <StatoScadenzaBadge stato={detail.stato_scadenza} />
+                <Link
+                  to={`/polizze/${detail.policy.id}`}
+                  className="inline-flex items-center gap-1 text-xs font-semibold text-blue-700 hover:underline"
+                >
+                  Scheda polizza <ExternalLink className="size-3" />
+                </Link>
+              </div>
+            </div>
+            {detail.renewal_quote ? (
+              <div>
+                <p className="text-xs font-semibold text-slate-500">Preventivo rinnovo</p>
+                <Link
+                  to={`/preventivi/${detail.renewal_quote.id}`}
+                  className="mt-1 inline-flex items-center gap-1 font-medium text-blue-700 hover:underline"
+                >
+                  {detail.renewal_quote.numero} ({detail.renewal_quote.stato})
+                  <ExternalLink className="size-3.5" />
+                </Link>
+              </div>
+            ) : null}
+            {detail.renewed_policy ? (
+              <div>
+                <p className="text-xs font-semibold text-slate-500">Nuova polizza (rinnovo completato)</p>
+                <Link
+                  to={`/polizze/${detail.renewed_policy.id}`}
+                  className="mt-1 inline-flex items-center gap-1 font-medium text-emerald-800 hover:underline"
+                >
+                  {detail.renewed_policy.numero}
+                  <ExternalLink className="size-3.5" />
+                </Link>
+              </div>
+            ) : null}
+            <div>
+              <p className="text-xs font-semibold text-slate-500">Cronologia</p>
+              <ul className="mt-2 max-h-48 space-y-2 overflow-y-auto text-slate-700">
+                {detail.timeline.length === 0 ? (
+                  <li className="text-slate-500">Nessun evento registrato.</li>
+                ) : (
+                  detail.timeline.map((ev, i) => (
+                    <li key={i} className="border-l-2 border-slate-200 pl-3 text-xs">
+                      <span className="font-medium text-slate-800">
+                        {(ev.label as string) || (ev.azione as string) || 'Evento'}
+                      </span>
+                      {ev.created_at ? (
+                        <span className="ml-2 text-slate-500">{formatDate(String(ev.created_at))}</span>
+                      ) : null}
+                      {ev.dettaglio ? <p className="mt-0.5 text-slate-600">{String(ev.dettaglio)}</p> : null}
+                    </li>
+                  ))
+                )}
+              </ul>
+            </div>
+          </div>
+        ) : null}
+      </Modal>
+
+      <Modal
+        isOpen={renewalTarget != null}
+        onClose={() => {
+          setRenewalTarget(null);
+          setRenewalPrivacy(false);
+        }}
+        title="Crea preventivo di rinnovo"
+      >
+        <div className="space-y-4 text-sm text-slate-700">
+          <p>
+            Verrà creato un nuovo preventivo collegato a questa scadenza, con dati precompilati dalla polizza
+            attuale. Lo stato della scadenza passerà a «Preventivo rinnovo creato» fino all’emissione della nuova
+            polizza.
+          </p>
+          <label className="flex cursor-pointer items-start gap-2">
+            <input
+              type="checkbox"
+              checked={renewalPrivacy}
+              onChange={(e) => setRenewalPrivacy(e.target.checked)}
+              className="mt-1"
+            />
+            <span>
+              Dichiaro di aver letto l’informativa privacy e acconsento al trattamento dei dati necessari per la
+              nuova pratica.
+            </span>
+          </label>
+          <div className="flex justify-end gap-2 pt-2">
+            <button
+              type="button"
+              className="rounded-lg border border-slate-200 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
+              onClick={() => {
+                setRenewalTarget(null);
+                setRenewalPrivacy(false);
+              }}
+            >
+              Annulla
+            </button>
+            <button
+              type="button"
+              disabled={!renewalPrivacy || renewalSubmitting}
+              className="rounded-lg bg-blue-700 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-800 disabled:opacity-50"
+              onClick={() => void submitRenewal()}
+            >
+              {renewalSubmitting ? 'Creazione…' : 'Crea preventivo'}
+            </button>
+          </div>
+        </div>
+      </Modal>
+
+      <Modal
+        isOpen={nonRinnovataTarget != null}
+        onClose={() => setNonRinnovataTarget(null)}
+        title="Segna come non rinnovata"
+      >
+        <div className="space-y-4 text-sm text-slate-700">
+          <p>La scadenza resterà visibile nei filtri e nello storico, ma non comparirà tra «Da rinnovare».</p>
+          <div className="flex justify-end gap-2">
+            <button
+              type="button"
+              className="rounded-lg border border-slate-200 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
+              onClick={() => setNonRinnovataTarget(null)}
+            >
+              Annulla
+            </button>
+            <button
+              type="button"
+              disabled={nonRinnovataSubmitting}
+              className="rounded-lg bg-slate-800 px-4 py-2 text-sm font-semibold text-white hover:bg-slate-900 disabled:opacity-50"
+              onClick={() => void submitNonRinnovata()}
+            >
+              {nonRinnovataSubmitting ? 'Salvataggio…' : 'Conferma'}
+            </button>
+          </div>
+        </div>
+      </Modal>
+
+      <Modal
+        isOpen={manualRinnovataTarget != null}
+        onClose={() => {
+          setManualRinnovataTarget(null);
+          setManualRinnovataPolicyId('');
+        }}
+        title="Segna come rinnovata (manuale)"
+      >
+        <div className="space-y-4 text-sm text-slate-700">
+          <p>
+            Uso eccezionale: registra la scadenza come rinnovata senza passare dal flusso automatico. L’operazione è
+            tracciata nei log.
+          </p>
+          <div>
+            <label htmlFor="manual-ren-pol" className="mb-1 block text-xs font-medium text-slate-500">
+              ID polizza emessa collegata (facoltativo)
+            </label>
+            <input
+              id="manual-ren-pol"
+              type="text"
+              inputMode="numeric"
+              value={manualRinnovataPolicyId}
+              onChange={(e) => setManualRinnovataPolicyId(e.target.value)}
+              className={tf}
+              placeholder="es. 42"
+            />
+          </div>
+          <div className="flex justify-end gap-2">
+            <button
+              type="button"
+              className="rounded-lg border border-slate-200 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
+              onClick={() => {
+                setManualRinnovataTarget(null);
+                setManualRinnovataPolicyId('');
+              }}
+            >
+              Annulla
+            </button>
+            <button
+              type="button"
+              disabled={manualRinnovataSubmitting}
+              className="rounded-lg bg-amber-700 px-4 py-2 text-sm font-semibold text-white hover:bg-amber-800 disabled:opacity-50"
+              onClick={() => void submitManualRinnovata()}
+            >
+              {manualRinnovataSubmitting ? 'Salvataggio…' : 'Conferma'}
+            </button>
+          </div>
+        </div>
+      </Modal>
     </div>
   );
 }
