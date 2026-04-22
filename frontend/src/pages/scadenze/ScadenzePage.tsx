@@ -46,40 +46,6 @@ function monthSelectOptions(): { value: string; label: string }[] {
   return out;
 }
 
-const STATO_RANK: Record<StatoScadenza, number> = {
-  Scaduta: 0,
-  'Da rinnovare': 1,
-  'Preventivo rinnovo creato': 2,
-  'Non rinnovata': 3,
-  Rinnovata: 4,
-};
-
-function sortScadenzeRows(rows: ScadenzaPolicyRow[]): ScadenzaPolicyRow[] {
-  return [...rows].sort((a, b) => {
-    const dr = STATO_RANK[a.stato_scadenza] - STATO_RANK[b.stato_scadenza];
-    if (dr !== 0) return dr;
-    return String(a.data_scadenza || '').localeCompare(String(b.data_scadenza || ''), 'it');
-  });
-}
-
-function normalizeContraenteSearch(s: string): string {
-  return s
-    .toLowerCase()
-    .normalize('NFD')
-    .replace(/\p{M}/gu, '')
-    .trim();
-}
-
-/** Match su nome, cognome o ordine invertito: ogni “parola” della ricerca deve comparire nel testo contraente. */
-function contraenteMatchesSearch(contraente: string, query: string): boolean {
-  const q = normalizeContraenteSearch(query);
-  if (!q) return true;
-  const tokens = q.split(/\s+/).filter(Boolean);
-  if (tokens.length === 0) return true;
-  const hay = normalizeContraenteSearch(contraente);
-  return tokens.every((t) => hay.includes(t));
-}
-
 function StatoScadenzaBadge({ stato }: { stato: StatoScadenza }) {
   const cls =
     stato === 'Da rinnovare'
@@ -348,7 +314,9 @@ export default function ScadenzePage() {
     setError(null);
     setLoading(true);
     try {
-      const data = await api.get<ScadenzeApiResponse>(`/scadenze?month=${encodeURIComponent(month)}`);
+      const params = new URLSearchParams({ month });
+      if (debouncedSearch) params.set('search', debouncedSearch);
+      const data = await api.get<ScadenzeApiResponse>(`/scadenze?${params.toString()}`);
       setRaw(data);
     } catch (e) {
       setRaw(null);
@@ -356,7 +324,7 @@ export default function ScadenzePage() {
     } finally {
       setLoading(false);
     }
-  }, [month]);
+  }, [month, debouncedSearch]);
 
   useEffect(() => {
     fetchData();
@@ -378,14 +346,7 @@ export default function ScadenzePage() {
     }
   };
 
-  const filtered = useMemo(() => {
-    if (!raw?.items) return [];
-    let rows = raw.items;
-    if (debouncedSearch) {
-      rows = rows.filter((r) => contraenteMatchesSearch(r.contraente, debouncedSearch));
-    }
-    return sortScadenzeRows(rows);
-  }, [raw, debouncedSearch]);
+  const tableRows = useMemo(() => raw?.items ?? [], [raw]);
 
   const monthSummary = raw?.summary;
 
@@ -517,36 +478,34 @@ export default function ScadenzePage() {
             label: 'Totale scadenze mese',
             value: monthSummary?.totale ?? 0,
             accent: 'border-slate-200/80 bg-white shadow-sm',
-            hint: null as string | null,
           },
           {
-            label: 'Da rinnovare (funnel)',
+            label: 'Da Rinnovare',
             value: monthSummary?.daRinnovare ?? 0,
             accent: 'border-rose-100/80 bg-gradient-to-br from-rose-50/80 to-white shadow-sm',
-            hint: 'Include pratiche con preventivo di rinnovo ancora aperto',
           },
           {
-            label: 'Scadute (calendario)',
+            label: 'Scadute',
             value: monthSummary?.scadute ?? 0,
             accent: 'border-slate-200/80 bg-slate-50/50 shadow-sm',
-            hint: 'Data passata, non chiuse come rinnovate o non rinnovate',
           },
           {
             label: 'Rinnovate',
             value: monthSummary?.rinnovate ?? 0,
             accent: 'border-emerald-100/80 bg-gradient-to-br from-emerald-50/70 to-white shadow-sm',
-            hint: null,
           },
         ].map((c) => (
-          <div key={c.label} className={`rounded-2xl border px-4 py-3.5 ${c.accent}`}>
+          <div
+            key={c.label}
+            className={`flex min-h-[5.5rem] flex-col justify-center rounded-2xl border px-4 py-3.5 ${c.accent}`}
+          >
             <p className="text-xs font-medium text-slate-500">{c.label}</p>
             <p className="mt-1.5 text-2xl font-semibold tabular-nums tracking-tight text-slate-900">{c.value}</p>
-            {c.hint ? <p className="mt-1 text-[11px] leading-snug text-slate-500">{c.hint}</p> : null}
           </div>
         ))}
       </div>
 
-      <div className="flex w-full justify-stretch sm:justify-start">
+      <div className="flex w-full flex-col gap-1.5 justify-stretch sm:justify-start">
         <div className="inline-flex w-full max-w-full rounded-2xl border border-slate-200/80 bg-white/90 px-3 py-2.5 shadow-sm sm:w-fit sm:max-w-none sm:px-3.5 sm:py-3">
           <label htmlFor="scad-search" className="sr-only">
             Cerca per nome o cognome del contraente
@@ -561,6 +520,9 @@ export default function ScadenzePage() {
             className={`${tf} box-border w-full min-w-0 sm:min-w-[300px] sm:w-[380px] lg:w-[420px]`}
           />
         </div>
+        {debouncedSearch ? (
+          <p className="text-[11px] text-slate-500 sm:pl-0.5">Ricerca globale attiva</p>
+        ) : null}
       </div>
 
       <div className="overflow-hidden rounded-2xl border border-slate-200/80 bg-white shadow-sm">
@@ -571,17 +533,19 @@ export default function ScadenzePage() {
           </div>
         ) : error ? (
           <div className="p-8 text-center text-sm text-red-700">{error}</div>
-        ) : filtered.length === 0 ? (
+        ) : tableRows.length === 0 ? (
           <div className="flex min-h-[220px] flex-col items-center justify-center gap-2 px-6 py-12 text-center">
             <p className="text-sm font-medium text-slate-800">
-              {(raw?.items.length ?? 0) === 0
-                ? 'Nessuna polizza in scadenza nel mese selezionato'
-                : debouncedSearch
-                  ? 'Nessun contraente corrisponde alla ricerca'
+              {debouncedSearch
+                ? 'Nessun contraente corrisponde alla ricerca'
+                : (raw?.summary.totale ?? 0) === 0
+                  ? 'Nessuna polizza in scadenza nel mese selezionato'
                   : 'Nessun risultato'}
             </p>
             <p className="max-w-md text-xs text-slate-500">
-              Le scadenze mostrano le polizze in stato EMESSA con data di scadenza (effettiva) nel mese scelto.
+              {debouncedSearch
+                ? 'La ricerca considera tutte le scadenze accessibili al tuo profilo, non solo il mese selezionato.'
+                : 'Le scadenze mostrano le polizze in stato EMESSA con data di scadenza (effettiva) nel mese scelto.'}
             </p>
           </div>
         ) : (
@@ -640,7 +604,7 @@ export default function ScadenzePage() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100/90">
-                {filtered.map((row) => (
+                {tableRows.map((row) => (
                   <tr key={row.id} className="transition-colors duration-150 hover:bg-slate-50/80">
                     <td className={`${cellBase} whitespace-nowrap font-semibold text-slate-900`}>
                       {formatDate(row.data_scadenza)}

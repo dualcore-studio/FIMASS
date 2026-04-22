@@ -104,6 +104,65 @@ function operatoreLabel(p) {
   return '—';
 }
 
+function policyContraenteSearchText(p) {
+  return [p.assistito_cognome, p.assistito_nome].filter(Boolean).join(' ') || '—';
+}
+
+function normalizeContraenteSearch(s) {
+  return String(s || '')
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/\p{M}/gu, '')
+    .trim();
+}
+
+/** Ogni “parola” della ricerca deve comparire nel testo contraente (come il frontend). */
+function contraenteMatchesSearch(policy, query) {
+  const q = normalizeContraenteSearch(query);
+  if (!q) return true;
+  const tokens = q.split(/\s+/).filter(Boolean);
+  if (tokens.length === 0) return true;
+  const hay = normalizeContraenteSearch(policyContraenteSearchText(policy));
+  return tokens.every((t) => hay.includes(t));
+}
+
+function buildScadenzeItemRow(p, ctx) {
+  const pe = ctx.policyExpirationsByPolicyId.get(Number(p.id)) || null;
+  const quote = ctx.quotesById.get(Number(p.quote_id)) || {};
+  const scadenzaEff = effectiveDataScadenza(p);
+  const ymd = datePartYmd(scadenzaEff);
+  const stato_scadenza = computeScadenzaDisplayStato({ pe, policy: p, ymdScadenza: ymd });
+  return {
+    id: p.id,
+    expiration_id: pe ? pe.id : null,
+    quote_id: p.quote_id,
+    struttura_id: p.struttura_id,
+    incaricato_user_id: policyAssigneeUserId(p),
+    contraente: policyContraenteSearchText(p),
+    tipologia: p.tipo_nome || '—',
+    compagnia: compagniaLabel(p, quote),
+    struttura: p.struttura_nome || '—',
+    operatore: operatoreLabel(p),
+    data_emissione: p.data_emissione || null,
+    data_scadenza: scadenzaEff,
+    rinnovata: stato_scadenza === DISPLAY.RINNOVATA,
+    stato_scadenza,
+    renewal_status: pe ? normalizeRenewalStatus(pe.renewal_status) : RENEWAL_STATUS.DA_RINNOVARE,
+    renewal_quote_id: pe?.renewal_quote_id ?? null,
+    renewed_by_policy_id: pe?.renewed_by_policy_id ?? null,
+    counts_as_scaduta_kpi: countsAsScadutaKpi(stato_scadenza, ymd),
+    counts_as_da_rinnovare_kpi: countsAsDaRinnovareKpi(pe, p, stato_scadenza),
+  };
+}
+
+async function ensureExpirationsForPolicies(policies, ctx) {
+  for (const p of policies) {
+    if (!ctx.policyExpirationsByPolicyId.get(Number(p.id))) {
+      await ensurePolicyExpirationForEmessaPolicy(p.id);
+    }
+  }
+}
+
 function getUserDisplayName(user) {
   return user.role === 'struttura' ? user.denominazione : `${user.nome} ${user.cognome}`;
 }
@@ -126,6 +185,7 @@ router.get('/', authenticateToken, authorizeRoles(...SCADENZE_ACCESS_ROLES), (re
     if (!parsedMonth) {
       return res.status(400).json({ error: 'Parametro month=YYYY-MM richiesto' });
     }
+    const searchRaw = String(req.query.search ?? req.query.q ?? '').trim();
     const { start, end } = monthRangeIso(parsedMonth);
     try {
       let ctx = await mergeExpirationsIntoContext(await loadContext());
@@ -137,57 +197,38 @@ router.get('/', authenticateToken, authorizeRoles(...SCADENZE_ACCESS_ROLES), (re
         policies = policies.filter((p) => Number(p.struttura_id) === Number(req.user.id));
       }
 
-      policies = policies.filter((p) => {
+      const policiesWithScadenza = policies.filter((p) => Boolean(effectiveDataScadenza(p)));
+
+      const policiesInMonth = policiesWithScadenza.filter((p) => {
         const ds = effectiveDataScadenza(p);
-        if (!ds) return false;
         return String(ds) >= start && String(ds) <= end;
       });
 
-      for (const p of policies) {
-        if (!ctx.policyExpirationsByPolicyId.get(Number(p.id))) {
-          await ensurePolicyExpirationForEmessaPolicy(p.id);
-        }
-      }
+      await ensureExpirationsForPolicies(policiesInMonth, ctx);
       ctx = await mergeExpirationsIntoContext(await loadContext());
 
-      const items = [];
-      for (const p of policies) {
-        const pe = ctx.policyExpirationsByPolicyId.get(Number(p.id)) || null;
-        const quote = ctx.quotesById.get(Number(p.quote_id)) || {};
-        const scadenzaEff = effectiveDataScadenza(p);
-        const ymd = datePartYmd(scadenzaEff);
-        const stato_scadenza = computeScadenzaDisplayStato({ pe, policy: p, ymdScadenza: ymd });
-        items.push({
-          id: p.id,
-          expiration_id: pe ? pe.id : null,
-          quote_id: p.quote_id,
-          struttura_id: p.struttura_id,
-          incaricato_user_id: policyAssigneeUserId(p),
-          contraente: [p.assistito_cognome, p.assistito_nome].filter(Boolean).join(' ') || '—',
-          tipologia: p.tipo_nome || '—',
-          compagnia: compagniaLabel(p, quote),
-          struttura: p.struttura_nome || '—',
-          operatore: operatoreLabel(p),
-          data_emissione: p.data_emissione || null,
-          data_scadenza: scadenzaEff,
-          rinnovata: stato_scadenza === DISPLAY.RINNOVATA,
-          stato_scadenza,
-          renewal_status: pe ? normalizeRenewalStatus(pe.renewal_status) : RENEWAL_STATUS.DA_RINNOVARE,
-          renewal_quote_id: pe?.renewal_quote_id ?? null,
-          renewed_by_policy_id: pe?.renewed_by_policy_id ?? null,
-          counts_as_scaduta_kpi: countsAsScadutaKpi(stato_scadenza, ymd),
-          counts_as_da_rinnovare_kpi: countsAsDaRinnovareKpi(pe, p, stato_scadenza),
-        });
+      const monthItems = sortScadenzeRecords(policiesInMonth.map((p) => buildScadenzeItemRow(p, ctx)));
+      const summary = {
+        totale: monthItems.length,
+        daRinnovare: monthItems.filter((r) => r.counts_as_da_rinnovare_kpi).length,
+        scadute: monthItems.filter((r) => r.counts_as_scaduta_kpi).length,
+        rinnovate: monthItems.filter((r) => r.stato_scadenza === DISPLAY.RINNOVATA).length,
+      };
+
+      let items = monthItems;
+      if (searchRaw) {
+        const policiesForSearch = policiesWithScadenza.filter((p) => contraenteMatchesSearch(p, searchRaw));
+        await ensureExpirationsForPolicies(policiesForSearch, ctx);
+        ctx = await mergeExpirationsIntoContext(await loadContext());
+        items = sortScadenzeRecords(policiesForSearch.map((p) => buildScadenzeItemRow(p, ctx)));
       }
 
-      const sorted = sortScadenzeRecords(items);
-      const summary = {
-        totale: sorted.length,
-        daRinnovare: sorted.filter((r) => r.counts_as_da_rinnovare_kpi).length,
-        scadute: sorted.filter((r) => r.counts_as_scaduta_kpi).length,
-        rinnovate: sorted.filter((r) => r.stato_scadenza === DISPLAY.RINNOVATA).length,
-      };
-      res.json({ month: parsedMonth.key, items: sorted, summary });
+      res.json({
+        month: parsedMonth.key,
+        items,
+        summary,
+        searchActive: Boolean(searchRaw),
+      });
     } catch (err) {
       console.error('scadenze list:', err);
       res.status(500).json({ error: 'Errore nel recupero scadenze' });

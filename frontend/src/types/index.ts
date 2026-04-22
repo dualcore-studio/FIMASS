@@ -288,6 +288,8 @@ export interface ScadenzeApiResponse {
     scadute: number;
     rinnovate: number;
   };
+  /** Presente quando la lista è filtrata per ricerca contraente su tutte le scadenze accessibili. */
+  searchActive?: boolean;
 }
 
 export interface StatusHistory {
