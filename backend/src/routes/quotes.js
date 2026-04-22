@@ -38,6 +38,7 @@ const {
   getSanitariaPackageByCodice,
   canonicalPacchettoSanitariaSnapshot,
 } = require('../lib/sanitariaPolizzaPackages');
+const { stripSanitariaEditableKeys } = require('../lib/sanitariaQuoteDati');
 const { buildCasaPolizzaRiepilogoPdfBuffer, CASA_RIEPILOGO_PDF_VERSION } = require('../lib/casaPolizzaRiepilogoPdf');
 
 /** Con pacchetto Casa predefinito, non persistere RCT/garanzie manuali (fonte: pacchetto). Allineato al cutoff dopo indirizzo immobile. */
@@ -1178,8 +1179,9 @@ router.post('/', authenticateToken, authorizeRoles('struttura'), (req, res) => {
       const spkg = getSanitariaPackageByCodice(codiceRaw);
       if (spkg) {
         const { pacchetto_sanitaria: _dropPs, sanitaria_preventivo: _dropSp, ...rest } = mergedDati;
+        const restStripped = stripSanitariaEditableKeys(rest, insType);
         mergedDati = {
-          ...rest,
+          ...restStripped,
           pacchetto_sanitaria: canonicalPacchettoSanitariaSnapshot(spkg),
         };
       } else {

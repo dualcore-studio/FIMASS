@@ -43,6 +43,7 @@ import {
   labelForQuoteAttachmentTipo,
   omitCasaDatiAfterIndirizzoImmobile,
 } from '../../config/casaQuoteFlow';
+import { omitSanitariaEditableDati } from '../../config/sanitariaQuoteFlow';
 
 const FRAZIONAMENTO_OPTS = ['Mensile', 'Semestrale', 'Annuale'] as const;
 
@@ -102,16 +103,19 @@ const emptyAssisted: AssistedForm = {
   citta: '',
 };
 
-/** Campi specifici per lo step Dati Specifici: con pacchetto Casa solo fino a indirizzo immobile. */
+/** Campi specifici per lo step Dati Specifici: con pacchetto Casa solo fino a indirizzo immobile; con pacchetto Sanitaria nessun campo (solo riepilogo pacchetto). */
 function activeCampiSpecificiQuoteStep(
   tipo: InsuranceType | null,
   datiSpecifici: Record<string, unknown>,
   casaPackage: CasaPackageDef | null,
+  sanitariaPackage: SanitariaPackageDef | null,
 ): FormField[] {
   if (!tipo) return [];
+  const cod = String(tipo.codice || '').toLowerCase();
+  const hasSelectedSanitariaPackage = cod === 'sanitaria' && sanitariaPackage != null;
+  if (hasSelectedSanitariaPackage) return [];
   const base = activeCampiForFlow(tipo.campi_specifici, datiSpecifici);
-  const hasSelectedCasaPackage =
-    String(tipo.codice || '').toLowerCase() === 'casa' && casaPackage != null;
+  const hasSelectedCasaPackage = cod === 'casa' && casaPackage != null;
   if (!hasSelectedCasaPackage) return base;
   return filterCasaCampiForPackageSelected(base);
 }
@@ -242,7 +246,12 @@ export default function QuoteCreate() {
       }
     }
     if (s === 2 && selectedType) {
-      for (const field of activeCampiSpecificiQuoteStep(selectedType, datiSpecifici, casaPackage)) {
+      for (const field of activeCampiSpecificiQuoteStep(
+        selectedType,
+        datiSpecifici,
+        casaPackage,
+        sanitariaPackage,
+      )) {
         if (field.tipo === 'heading' || field.tipo === 'info') continue;
         if (field.obbligatorio) {
           const val = datiSpecifici[field.nome];
@@ -355,7 +364,11 @@ export default function QuoteCreate() {
         }
       }
       if (cod === 'sanitaria') {
-        const { pacchetto_sanitaria: _ps, sanitaria_preventivo: _sprev, ...restSan } = mergedDati;
+        let work = mergedDati;
+        if (sanitariaPackage) {
+          work = omitSanitariaEditableDati(work, selectedType.campi_specifici);
+        }
+        const { pacchetto_sanitaria: _ps, sanitaria_preventivo: _sprev, ...restSan } = work;
         if (sanitariaPackage) {
           mergedDati = {
             ...restSan,
@@ -558,6 +571,11 @@ export default function QuoteCreate() {
             }}
             onContinueWithPackage={(pkg) => {
               setSanitariaPackage(pkg);
+              setDatiSpecifici((prev) =>
+                selectedType
+                  ? omitSanitariaEditableDati(prev, selectedType.campi_specifici)
+                  : prev,
+              );
               setStepErrors([]);
               setStep(1);
             }}
@@ -591,7 +609,12 @@ export default function QuoteCreate() {
             casaPackage={casaPackage}
             hasSelectedSanitariaPackage={hasSelectedSanitariaPackage}
             sanitariaPackage={sanitariaPackage}
-            fields={activeCampiSpecificiQuoteStep(selectedType, datiSpecifici, casaPackage)}
+            fields={activeCampiSpecificiQuoteStep(
+              selectedType,
+              datiSpecifici,
+              casaPackage,
+              sanitariaPackage,
+            )}
             values={datiSpecifici}
             onChange={updateDatiSpecifici}
           />
@@ -986,7 +1009,9 @@ function Step3DatiSpecifici({
           </div>
         )}
         <p className="py-8 text-center text-sm text-gray-500">
-          Nessun dato specifico richiesto per questa tipologia.
+          {showSanitariaHeader && hasSelectedSanitariaPackage
+            ? 'Con il pacchetto selezionato le garanzie sono quelle del riepilogo: non serve compilare ulteriori opzioni. Puoi passare allo step successivo.'
+            : 'Nessun dato specifico richiesto per questa tipologia.'}
         </p>
       </div>
     );
@@ -1012,7 +1037,9 @@ function Step3DatiSpecifici({
       <p className="mb-6 text-sm text-gray-500">
         {showCasaHeader && hasSelectedCasaPackage
           ? "Compila i dati dell'immobile fino all'indirizzo. Coperture e massimali sono quelli del pacchetto: non compariranno opzioni manuali aggiuntive in questa schermata."
-          : 'Compila i campi richiesti per la tipologia selezionata.'}
+          : showSanitariaHeader && !hasSelectedSanitariaPackage
+            ? 'Seleziona le garanzie desiderate tra le opzioni disponibili (infortuni e sanitaria).'
+            : 'Compila i campi richiesti per la tipologia selezionata.'}
       </p>
       <div className="grid gap-4 sm:grid-cols-2">
         {fields.map((field) => {
