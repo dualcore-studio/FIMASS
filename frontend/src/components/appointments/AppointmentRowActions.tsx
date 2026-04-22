@@ -64,7 +64,6 @@ export default function AppointmentRowActions({
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [confirmLuogo, setConfirmLuogo] = useState('');
   const [confirmLink, setConfirmLink] = useState('');
-  const [confirmTel, setConfirmTel] = useState('');
   const [confirmBusy, setConfirmBusy] = useState(false);
 
   const [reschedOpen, setReschedOpen] = useState(false);
@@ -140,7 +139,6 @@ export default function AppointmentRowActions({
     if (confirmOpen) {
       setConfirmLuogo(row.luogo || '');
       setConfirmLink(row.link_videocall || '');
-      setConfirmTel(row.numero_telefonico_riferimento || '');
     }
   }, [confirmOpen, row]);
 
@@ -159,7 +157,6 @@ export default function AppointmentRowActions({
       await api.post(`/appointments/${row.id}/confirm`, {
         luogo: row.modalita === 'presenza' ? confirmLuogo : undefined,
         link_videocall: row.modalita === 'videocall' ? confirmLink : undefined,
-        numero_telefonico_riferimento: row.modalita === 'telefonata' ? confirmTel : undefined,
       });
       onSuccess?.('Appuntamento confermato.');
       setConfirmOpen(false);
@@ -468,25 +465,16 @@ export default function AppointmentRowActions({
             </div>
           ) : null}
           {row.modalita === 'telefonata' ? (
-            <div>
-              <label className="text-xs text-slate-600">Numero telefonico di riferimento</label>
-              <input
-                className="mt-0.5 w-full rounded border border-slate-200 px-2 py-1.5 text-sm"
-                value={confirmTel}
-                onChange={(e) => setConfirmTel(e.target.value)}
-              />
-            </div>
+            <p className="rounded-lg border border-slate-200/80 bg-slate-50/90 px-3 py-2 text-sm text-slate-700">
+              Contatto telefonico: <strong className="text-slate-900">{row.assistito_telefono || '—'}</strong> (numero
+              assistito)
+            </p>
           ) : null}
-          <div className="flex justify-end gap-2 pt-2">
-            <button type="button" className="rounded border border-slate-200 px-3 py-1.5 text-sm" onClick={() => setConfirmOpen(false)} disabled={confirmBusy}>
+          <div className="mt-1 flex flex-wrap justify-end gap-2 border-t border-slate-200/90 pt-3">
+            <button type="button" className="btn-secondary" onClick={() => setConfirmOpen(false)} disabled={confirmBusy}>
               Indietro
             </button>
-            <button
-              type="button"
-              className="rounded bg-slate-900 px-3 py-1.5 text-sm text-white disabled:opacity-50"
-              onClick={handleConfirm}
-              disabled={confirmBusy}
-            >
+            <button type="button" className="btn-primary" onClick={handleConfirm} disabled={confirmBusy}>
               {confirmBusy ? 'Salvataggio…' : 'Conferma'}
             </button>
           </div>

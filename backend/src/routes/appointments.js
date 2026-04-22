@@ -61,7 +61,21 @@ function findSlotConflict(appointments, { fornitoreId, data, oraInizio, durata, 
   return null;
 }
 
-function validateModalitaFields(modalita, { luogo, link_videocall, numero_telefonico_riferimento }, phase) {
+function isValidEmail(s) {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(s || '').trim());
+}
+
+/** Almeno 5 cifre (ignora spazi, +, trattini). */
+function isValidAssistitoPhone(s) {
+  const digits = String(s || '').replace(/\D/g, '');
+  return digits.length >= 5;
+}
+
+/**
+ * In conferma, per telefonata si usa solo il telefono assistito (nessun ulteriore "numero di riferimento").
+ * @param {'creazione'|'conferma'} phase
+ */
+function validateModalitaFields(modalita, { luogo, link_videocall, assistito_telefono }, phase) {
   const m = String(modalita || '').toLowerCase();
   if (m === 'presenza') {
     if (!String(luogo || '').trim()) {
@@ -72,8 +86,8 @@ function validateModalitaFields(modalita, { luogo, link_videocall, numero_telefo
       return 'Il link videocall è obbligatorio in fase di conferma';
     }
   } else if (m === 'telefonata') {
-    if (!String(numero_telefonico_riferimento || '').trim()) {
-      return 'Il numero telefonico di riferimento è obbligatorio per la telefonata';
+    if (phase === 'conferma' && !String(assistito_telefono || '').trim()) {
+      return 'Il telefono dell’assistito è obbligatorio per confermare la telefonata';
     }
   }
   return null;
@@ -252,7 +266,6 @@ router.post('/', authenticateToken, authorizeRoles('struttura'), (req, res) => {
     const durata_minuti = DURATE_AMMESSE.has(Number(body.durata_minuti)) ? Number(body.durata_minuti) : 60;
     const note = body.note != null ? String(body.note) : null;
     const luogo = body.luogo != null ? String(body.luogo).trim() : '';
-    const numero_telefonico_riferimento = body.numero_telefonico_riferimento != null ? String(body.numero_telefonico_riferimento).trim() : '';
     const assistito_telefono = body.assistito_telefono != null ? String(body.assistito_telefono).trim() : '';
     const assistito_email = body.assistito_email != null ? String(body.assistito_email).trim() : '';
 
@@ -264,12 +277,17 @@ router.post('/', authenticateToken, authorizeRoles('struttura'), (req, res) => {
       }
       if (!APPOINTMENT_MODALITA.has(modalita)) return res.status(400).json({ error: 'Modalità non valida' });
       if (!assistito_nome || !assistito_cognome) return res.status(400).json({ error: 'Nome e cognome assistito obbligatori' });
+      if (!isValidAssistitoPhone(assistito_telefono)) {
+        return res.status(400).json({ error: 'Il telefono assistito non è valido (inserire almeno 5 cifre)' });
+      }
+      if (!assistito_email) return res.status(400).json({ error: 'Email assistito obbligatoria' });
+      if (!isValidEmail(assistito_email)) return res.status(400).json({ error: 'Email assistito non valida' });
       if (!oggetto) return res.status(400).json({ error: 'Oggetto obbligatorio' });
       if (!DATE_RE.test(data_appuntamento)) return res.status(400).json({ error: 'Data appuntamento non valida' });
       if (!TIME_RE.test(ora_inizio)) return res.status(400).json({ error: 'Ora inizio non valida (formato HH:MM)' });
       const vMode = validateModalitaFields(
         modalita,
-        { luogo, link_videocall: null, numero_telefonico_riferimento },
+        { luogo, link_videocall: null, assistito_telefono },
         'creazione',
       );
       if (vMode) return res.status(400).json({ error: vMode });
@@ -293,8 +311,8 @@ router.post('/', authenticateToken, authorizeRoles('struttura'), (req, res) => {
         created_by_user_id: user.id,
         assistito_nome,
         assistito_cognome,
-        assistito_telefono: assistito_telefono || null,
-        assistito_email: assistito_email || null,
+        assistito_telefono,
+        assistito_email,
         modalita,
         oggetto,
         note: note || null,
@@ -304,7 +322,8 @@ router.post('/', authenticateToken, authorizeRoles('struttura'), (req, res) => {
         durata_minuti,
         luogo: luogo || null,
         link_videocall: null,
-        numero_telefonico_riferimento: numero_telefonico_riferimento || null,
+        /** Non più usato per telefonata: usare `assistito_telefono`. Lasciare null. */
+        numero_telefonico_riferimento: null,
         stato: 'RICHIESTO',
         motivo_riprogrammazione: null,
         motivo_annullamento: null,
@@ -340,7 +359,8 @@ router.post('/', authenticateToken, authorizeRoles('struttura'), (req, res) => {
         dataOra: dataOraIt(created),
         note: note || undefined,
         luogo: luogo || undefined,
-        numeroTelefono: numero_telefonico_riferimento || undefined,
+        telefonoAssistito: assistito_telefono || undefined,
+        linkVideocall: null,
       });
 
       const { usersById } = await loadApptsContext();
@@ -412,15 +432,35 @@ router.put('/:id', authenticateToken, authorizeRoles('struttura', 'admin', 'supe
         patch.durata_minuti = DURATE_AMMESSE.has(Number(body.durata_minuti)) ? Number(body.durata_minuti) : Number(apt0.durata_minuti) || 60;
       }
       patch.fornitore_id = user.role === 'struttura' ? apt0.fornitore_id : fornitoreId;
+      if (String(patch.modalita).toLowerCase() === 'telefonata') {
+        patch.numero_telefonico_riferimento = null;
+      }
+
+      const assistTelMerged =
+        patch.assistito_telefono != null && patch.assistito_telefono !== undefined
+          ? String(patch.assistito_telefono).trim()
+          : String(apt0.assistito_telefono || '').trim();
+      const assistEmMerged =
+        patch.assistito_email != null && patch.assistito_email !== undefined
+          ? String(patch.assistito_email).trim()
+          : String(apt0.assistito_email || '').trim();
+      if (!isValidAssistitoPhone(assistTelMerged)) {
+        return res.status(400).json({ error: 'Il telefono assistito non è valido (inserire almeno 5 cifre)' });
+      }
+      if (!isValidEmail(assistEmMerged)) {
+        return res.status(400).json({ error: 'Email assistito obbligatoria o non valida' });
+      }
+      patch.assistito_telefono = assistTelMerged;
+      patch.assistito_email = assistEmMerged;
 
       const mCheck = String(patch.modalita != null ? patch.modalita : apt0.modalita);
-      if (user.role === 'struttura') {
+      if (user.role === 'struttura' || user.role === 'admin' || user.role === 'supervisore') {
         const vMode = validateModalitaFields(
           mCheck,
           {
             luogo: patch.luogo != null ? patch.luogo : apt0.luogo,
             link_videocall: null,
-            numero_telefonico_riferimento: patch.numero_telefonico_riferimento != null ? patch.numero_telefonico_riferimento : apt0.numero_telefonico_riferimento,
+            assistito_telefono: assistTelMerged,
           },
           'creazione',
         );
@@ -511,20 +551,22 @@ router.post('/:id/confirm', authenticateToken, authorizeRoles('fornitore', 'admi
     if (isStatoChiuso(apt0.stato)) return res.status(400).json({ error: 'Appuntamento non modificabile' });
     const newLuogo = body.luogo != null ? String(body.luogo).trim() : apt0.luogo;
     const newLink = body.link_videocall != null ? String(body.link_videocall).trim() : apt0.link_videocall;
-    const newNum = body.numero_telefonico_riferimento != null
-      ? String(body.numero_telefonico_riferimento).trim()
-      : apt0.numero_telefonico_riferimento;
-    const v = validateModalitaFields(apt0.modalita, { luogo: newLuogo, link_videocall: newLink, numero_telefonico_riferimento: newNum }, 'conferma');
+    const v = validateModalitaFields(
+      apt0.modalita,
+      { luogo: newLuogo, link_videocall: newLink, assistito_telefono: apt0.assistito_telefono },
+      'conferma',
+    );
     if (v) return res.status(400).json({ error: v });
     const oldS = String(apt0.stato);
     if (oldS === 'ANNULLATO' || oldS === 'COMPLETATO') {
       return res.status(400).json({ error: 'Stato non valido per conferma' });
     }
+    const isTel = String(apt0.modalita).toLowerCase() === 'telefonata';
     const updated = await upsertById('appointments', id, {
       ...apt0,
       luogo: newLuogo || null,
       link_videocall: newLink || null,
-      numero_telefonico_riferimento: newNum || null,
+      numero_telefonico_riferimento: isTel ? null : apt0.numero_telefonico_riferimento,
       stato: 'CONFERMATO',
     });
     await recordHistory({
@@ -549,7 +591,7 @@ router.post('/:id/confirm', authenticateToken, authorizeRoles('fornitore', 'admi
         dataOra: dataOraIt(updated),
         luogo: newLuogo || undefined,
         linkVideocall: newLink || undefined,
-        numeroTelefono: newNum || undefined,
+        telefonoAssistito: apt0.assistito_telefono || undefined,
         note: apt0.note || undefined,
       });
     }
@@ -622,7 +664,7 @@ router.post('/:id/reschedule', authenticateToken, authorizeRoles('fornitore', 'a
         dataOra: dataOraIt(updated),
         luogo: updated.luogo || undefined,
         linkVideocall: updated.link_videocall || undefined,
-        numeroTelefono: updated.numero_telefonico_riferimento || undefined,
+        telefonoAssistito: updated.assistito_telefono || undefined,
         note: apt0.note || undefined,
         extraMotivo: motivo,
       });
@@ -667,7 +709,7 @@ router.post('/:id/cancel', authenticateToken, authorizeRoles('struttura', 'forni
       dataOra: dataOraIt(apt0),
       luogo: apt0.luogo || undefined,
       linkVideocall: apt0.link_videocall || undefined,
-      numeroTelefono: apt0.numero_telefonico_riferimento || undefined,
+      telefonoAssistito: apt0.assistito_telefono || undefined,
       note: apt0.note || undefined,
       extraMotivo: motivo,
     };

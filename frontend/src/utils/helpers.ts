@@ -136,3 +136,15 @@ export function getCommissionTypeLabel(type: string): string {
   if (type === 'SPORTELLO_AMICO') return 'Sportello Amico';
   return 'Segnalatore';
 }
+
+const CONTACT_EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+export function isValidContactEmail(s: string): boolean {
+  return CONTACT_EMAIL_RE.test(String(s || '').trim());
+}
+
+/** Almeno 5 cifre, ignorando simboli non numerici. */
+export function isValidAssistitoPhone(s: string): boolean {
+  const digits = String(s || '').replace(/\D/g, '');
+  return digits.length >= 5;
+}

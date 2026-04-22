@@ -433,6 +433,8 @@ function modalitaLabel(m) {
  * @param {string} p.modalita
  * @param {string} p.dataOra
  * @param {string} [p.luogo]
+ * @param {string} [p.telefonoAssistito] telefono assistito (modalità telefonata)
+ * @param {string} [p.linkVideocall] link (modalità videocall, raro in fase di richiesta)
  * @param {string} [p.note]
  */
 async function sendAppointmentCreatedToFornitoreMail(p) {
@@ -444,9 +446,11 @@ async function sendAppointmentCreatedToFornitoreMail(p) {
     const modeRow =
       p.modalita === 'presenza' && p.luogo
         ? row('Luogo', p.luogo)
-        : p.modalita === 'telefonata' && p.numeroTelefono
-          ? row('Numero di riferimento', p.numeroTelefono)
-          : '';
+        : p.modalita === 'telefonata' && p.telefonoAssistito
+          ? row('Telefono assistito', p.telefonoAssistito)
+          : p.modalita === 'videocall' && p.linkVideocall
+            ? row('Link videocall', p.linkVideocall)
+            : '';
     const inner = `
       <p style="margin:0 0 16px;">Gentile <strong>${escapeHtml(p.fornitoreName)}</strong>,</p>
       <p style="margin:0 0 16px;">la struttura <strong>${escapeHtml(p.strutturaNome)}</strong> ha richiesto un <strong>nuovo appuntamento di consulenza</strong>.</p>
@@ -489,7 +493,7 @@ async function sendAppointmentUpdateToStrutturaMail(p) {
       dataOra,
       luogo,
       linkVideocall,
-      numeroTelefono,
+      telefonoAssistito,
       note,
       extraMotivo,
     } = p;
@@ -526,7 +530,7 @@ async function sendAppointmentUpdateToStrutturaMail(p) {
         ${row('Oggetto', oggetto || '—')}
         ${luogo && modalita === 'presenza' ? row('Luogo', luogo) : ''}
         ${linkVideocall && modalita === 'videocall' ? row('Link videocall', linkVideocall) : ''}
-        ${numeroTelefono && modalita === 'telefonata' ? row('Numero di riferimento', numeroTelefono) : ''}
+        ${telefonoAssistito && modalita === 'telefonata' ? row('Telefono assistito', telefonoAssistito) : ''}
         ${note ? row('Note', note) : ''}
         ${extraMotivo ? row(kind === 'riprogrammato' ? 'Motivo riprogrammazione' : 'Motivo', extraMotivo) : ''}
       </table>
@@ -553,7 +557,7 @@ async function sendAppointmentAnnullatoToFornitoreMail(p) {
       dataOra,
       luogo,
       linkVideocall,
-      numeroTelefono,
+      telefonoAssistito,
       note,
       extraMotivo,
     } = p;
@@ -571,7 +575,7 @@ async function sendAppointmentAnnullatoToFornitoreMail(p) {
         ${row('Oggetto', oggetto || '—')}
         ${luogo && modalita === 'presenza' ? row('Luogo', luogo) : ''}
         ${linkVideocall && modalita === 'videocall' ? row('Link videocall', linkVideocall) : ''}
-        ${numeroTelefono && modalita === 'telefonata' ? row('Numero di riferimento', numeroTelefono) : ''}
+        ${telefonoAssistito && modalita === 'telefonata' ? row('Telefono assistito', telefonoAssistito) : ''}
         ${note ? row('Note', note) : ''}
         ${extraMotivo ? row('Motivo', extraMotivo) : ''}
       </table>

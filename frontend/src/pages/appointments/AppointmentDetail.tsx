@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { api, ApiError } from '../../utils/api';
 import type { Appointment, AppointmentHistoryEntry } from '../../types';
-import { getUserDisplayName, formatDateTime } from '../../utils/helpers';
+import { getUserDisplayName, formatDateTime, isValidAssistitoPhone, isValidContactEmail } from '../../utils/helpers';
 import { useAuth } from '../../context/AuthContext';
 import StatusBadge from '../../components/common/StatusBadge';
 import AppointmentRowActions from '../../components/appointments/AppointmentRowActions';
@@ -60,14 +60,26 @@ export default function AppointmentDetail() {
 
   const handleSave = async () => {
     if (!id || !detail) return;
+    if (!isValidAssistitoPhone(String(form.assistito_telefono ?? ''))) {
+      setError('Inserire un telefono assistito valido (almeno 5 cifre).');
+      return;
+    }
+    if (!isValidContactEmail(String(form.assistito_email ?? ''))) {
+      setError('Inserire un’email assistito valida.');
+      return;
+    }
+    if (form.modalita === 'presenza' && !String(form.luogo ?? '').trim()) {
+      setError('Indicare il luogo per l’appuntamento in presenza.');
+      return;
+    }
     setSaving(true);
     setError(null);
     try {
       const payload: Record<string, unknown> = {
         assistito_nome: form.assistito_nome,
         assistito_cognome: form.assistito_cognome,
-        assistito_telefono: form.assistito_telefono || null,
-        assistito_email: form.assistito_email || null,
+        assistito_telefono: String(form.assistito_telefono ?? '').trim(),
+        assistito_email: String(form.assistito_email ?? '').trim(),
         modalita: form.modalita,
         oggetto: form.oggetto,
         note: form.note != null ? form.note : null,
@@ -76,7 +88,7 @@ export default function AppointmentDetail() {
         durata_minuti: form.durata_minuti,
         luogo: form.luogo,
         link_videocall: form.link_videocall,
-        numero_telefonico_riferimento: form.numero_telefonico_riferimento,
+        numero_telefonico_riferimento: form.modalita === 'telefonata' ? null : form.numero_telefonico_riferimento,
       };
       if (role === 'admin' || role === 'supervisore') {
         if (form.fornitore_id != null) payload.fornitore_id = form.fornitore_id;
@@ -111,7 +123,7 @@ export default function AppointmentDetail() {
   }
 
   return (
-    <div className="mx-auto max-w-4xl space-y-4 px-4 py-6">
+    <div className="mx-auto max-w-4xl space-y-6 px-4 py-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <Link to="/appuntamenti" className="text-sm text-slate-600 hover:underline">
@@ -143,7 +155,7 @@ export default function AppointmentDetail() {
       {error ? <div className="rounded border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">{error}</div> : null}
 
       {showEdit ? (
-        <div className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
+        <div className="card p-4">
           <h2 className="text-sm font-semibold text-slate-800">Modifica</h2>
           <div className="mt-3 grid gap-3 md:grid-cols-2">
             {(role === 'admin' || role === 'supervisore') && (
@@ -231,44 +243,36 @@ export default function AppointmentDetail() {
                 />
               </div>
             ) : null}
-            {form.modalita === 'telefonata' ? (
-              <div className="md:col-span-2">
-                <label className="text-xs text-slate-600">Numero telefonico di riferimento</label>
-                <input
-                  className="mt-0.5 w-full rounded border border-slate-200 px-2 py-1.5 text-sm"
-                  value={form.numero_telefonico_riferimento || ''}
-                  onChange={(e) => setForm((f) => ({ ...f, numero_telefonico_riferimento: e.target.value }))}
-                />
-              </div>
-            ) : null}
             <div>
-              <label className="text-xs text-slate-600">Assistito nome</label>
+              <label className="text-xs font-medium text-slate-700">Assistito nome</label>
               <input
-                className="mt-0.5 w-full rounded border border-slate-200 px-2 py-1.5 text-sm"
+                className="input-field mt-1 text-sm"
                 value={form.assistito_nome || ''}
                 onChange={(e) => setForm((f) => ({ ...f, assistito_nome: e.target.value }))}
               />
             </div>
             <div>
-              <label className="text-xs text-slate-600">Assistito cognome</label>
+              <label className="text-xs font-medium text-slate-700">Assistito cognome</label>
               <input
-                className="mt-0.5 w-full rounded border border-slate-200 px-2 py-1.5 text-sm"
+                className="input-field mt-1 text-sm"
                 value={form.assistito_cognome || ''}
                 onChange={(e) => setForm((f) => ({ ...f, assistito_cognome: e.target.value }))}
               />
             </div>
             <div>
-              <label className="text-xs text-slate-600">Telefono assistito</label>
+              <label className="text-xs font-medium text-slate-700">Telefono assistito *</label>
               <input
-                className="mt-0.5 w-full rounded border border-slate-200 px-2 py-1.5 text-sm"
+                type="tel"
+                className="input-field mt-1 text-sm"
                 value={form.assistito_telefono || ''}
                 onChange={(e) => setForm((f) => ({ ...f, assistito_telefono: e.target.value }))}
               />
             </div>
             <div>
-              <label className="text-xs text-slate-600">Email assistito</label>
+              <label className="text-xs font-medium text-slate-700">Email assistito *</label>
               <input
-                className="mt-0.5 w-full rounded border border-slate-200 px-2 py-1.5 text-sm"
+                type="email"
+                className="input-field mt-1 text-sm"
                 value={form.assistito_email || ''}
                 onChange={(e) => setForm((f) => ({ ...f, assistito_email: e.target.value }))}
               />
@@ -283,11 +287,11 @@ export default function AppointmentDetail() {
               />
             </div>
           </div>
-          <div className="mt-4 flex justify-end gap-2">
-            <button type="button" className="rounded border border-slate-200 px-3 py-1.5 text-sm" onClick={() => setSearchParams({}, { replace: true })} disabled={saving}>
+          <div className="mt-4 flex flex-wrap justify-end gap-2 border-t border-slate-200/90 pt-4">
+            <button type="button" className="btn-secondary" onClick={() => setSearchParams({}, { replace: true })} disabled={saving}>
               Annulla
             </button>
-            <button type="button" className="rounded bg-slate-900 px-3 py-1.5 text-sm text-white" onClick={handleSave} disabled={saving}>
+            <button type="button" className="btn-primary" onClick={handleSave} disabled={saving}>
               {saving ? 'Salvataggio…' : 'Salva'}
             </button>
           </div>
@@ -295,7 +299,7 @@ export default function AppointmentDetail() {
       ) : null}
 
       <div className="grid gap-4 md:grid-cols-2">
-        <section className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
+        <section className="card p-4">
           <h2 className="text-sm font-semibold text-slate-800">Dati appuntamento</h2>
           <dl className="mt-2 space-y-1 text-sm">
             <div className="flex justify-between gap-4">
@@ -331,7 +335,7 @@ export default function AppointmentDetail() {
           </dl>
         </section>
 
-        <section className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
+        <section className="card p-4">
           <h2 className="text-sm font-semibold text-slate-800">Dati assistito</h2>
           <dl className="mt-2 space-y-1 text-sm">
             <div className="flex justify-between gap-4">
@@ -353,7 +357,7 @@ export default function AppointmentDetail() {
           </dl>
         </section>
 
-        <section className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm md:col-span-2">
+        <section className="card p-4 md:col-span-2">
           <h2 className="text-sm font-semibold text-slate-800">Modalità e riferimenti</h2>
           <p className="mt-1 text-sm text-slate-700">{modalitaLabel(detail.modalita)}</p>
           {detail.modalita === 'presenza' && detail.luogo ? <p className="mt-1 text-sm">Luogo: {detail.luogo}</p> : null}
@@ -362,8 +366,8 @@ export default function AppointmentDetail() {
               Link: <a href={detail.link_videocall} className="text-blue-700 underline" target="_blank" rel="noreferrer">{detail.link_videocall}</a>
             </p>
           ) : null}
-          {detail.modalita === 'telefonata' && detail.numero_telefonico_riferimento ? (
-            <p className="mt-1 text-sm">Numero: {detail.numero_telefonico_riferimento}</p>
+          {detail.modalita === 'telefonata' && detail.assistito_telefono ? (
+            <p className="mt-1 text-sm">Telefono assistito: {detail.assistito_telefono}</p>
           ) : null}
           {detail.note ? (
             <div className="mt-3">
@@ -373,7 +377,7 @@ export default function AppointmentDetail() {
           ) : null}
         </section>
 
-        <section className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm md:col-span-2">
+        <section className="card p-4 md:col-span-2">
           <h2 className="text-sm font-semibold text-slate-800">Storico stati</h2>
           {detail.history && detail.history.length > 0 ? (
             <ul className="mt-2 max-h-80 space-y-3 overflow-y-auto text-sm">
