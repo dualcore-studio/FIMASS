@@ -32,6 +32,7 @@ import {
   compareStringsCaseInsensitive,
   sortDirectionMultiplier,
 } from '../../utils/clientTableSort';
+import { formatDate } from '../../utils/helpers';
 type PeriodPreset =
   | 'oggi'
   | 'ultimi_7'
@@ -768,9 +769,13 @@ export default function Reports() {
                 <ResponsiveContainer width="100%" height="100%">
                   <BarChart data={timelineChartData} margin={{ top: 5, right: 20, left: 0, bottom: 5 }}>
                     <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
-                    <XAxis dataKey="data" tick={{ fontSize: 11 }} />
+                    <XAxis
+                      dataKey="data"
+                      tick={{ fontSize: 11 }}
+                      tickFormatter={(v) => formatDate(String(v))}
+                    />
                     <YAxis allowDecimals={false} tick={{ fontSize: 12 }} />
-                    <Tooltip />
+                    <Tooltip labelFormatter={(v) => formatDate(String(v))} />
                     <Legend />
                     <Bar dataKey="preventivi" name="Preventivi" fill="#3b82f6" radius={[4, 4, 0, 0]} />
                     <Bar dataKey="polizze" name="Polizze" fill="#10b981" radius={[4, 4, 0, 0]} />

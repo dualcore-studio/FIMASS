@@ -1,24 +1,12 @@
 import type { CommissionStructureType } from '../types';
 
-export function formatDate(dateStr: string | null | undefined): string {
-  if (!dateStr) return '-';
-  try {
-    const date = new Date(dateStr);
-    return date.toLocaleDateString('it-IT', { day: '2-digit', month: '2-digit', year: 'numeric' });
-  } catch {
-    return dateStr;
-  }
-}
-
-export function formatDateTime(dateStr: string | null | undefined): string {
-  if (!dateStr) return '-';
-  try {
-    const date = new Date(dateStr);
-    return date.toLocaleDateString('it-IT', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });
-  } catch {
-    return dateStr;
-  }
-}
+export {
+  EMPTY_DATE_PLACEHOLDER,
+  formatDate,
+  formatDateTime,
+  formatDateWeekdayLongIt,
+  parseForDisplay,
+} from './dateDisplay';
 
 export function formatFileSize(bytes: number): string {
   if (bytes < 1024) return bytes + ' B';

@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom';
 import { UserCheck, Clock, AlertTriangle, CheckCircle, ExternalLink, Bell } from 'lucide-react';
 import { api } from '../../utils/api';
 import StatusBadge from '../../components/common/StatusBadge';
-import { formatDate, formatDateTime, getUserDisplayName } from '../../utils/helpers';
+import { formatDate, formatDateTime, formatDateWeekdayLongIt, getUserDisplayName } from '../../utils/helpers';
 import { useAuth } from '../../context/AuthContext';
 import type { Quote, PaginatedResponse, QuoteReminder } from '../../types';
 import DashboardPageHeader from '../../components/dashboard/DashboardPageHeader';
@@ -66,12 +66,7 @@ export default function OperatorDashboard() {
     };
   }, []);
 
-  const todayLabel = new Date().toLocaleDateString('it-IT', {
-    weekday: 'long',
-    day: 'numeric',
-    month: 'long',
-    year: 'numeric',
-  });
+  const todayLabel = formatDateWeekdayLongIt();
 
   if (loading) {
     return (

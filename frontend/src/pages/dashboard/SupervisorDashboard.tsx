@@ -3,7 +3,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { FileText, UserCheck, Clock, CheckCircle } from 'lucide-react';
 import { api } from '../../utils/api';
 import StatusBadge from '../../components/common/StatusBadge';
-import { formatDate, getUserDisplayName, isQuoteClosedForAssignment } from '../../utils/helpers';
+import { formatDate, formatDateWeekdayLongIt, getUserDisplayName, isQuoteClosedForAssignment } from '../../utils/helpers';
 import { useAuth } from '../../context/AuthContext';
 import type { Quote, PaginatedResponse } from '../../types';
 import DashboardPageHeader from '../../components/dashboard/DashboardPageHeader';
@@ -69,12 +69,7 @@ export default function SupervisorDashboard() {
     };
   }, []);
 
-  const todayLabel = new Date().toLocaleDateString('it-IT', {
-    weekday: 'long',
-    day: 'numeric',
-    month: 'long',
-    year: 'numeric',
-  });
+  const todayLabel = formatDateWeekdayLongIt();
 
   if (loading) {
     return (

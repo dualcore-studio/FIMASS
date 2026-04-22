@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom';
 import { FileText, Clock3, Shield, ReceiptText } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import { api, ApiError } from '../../utils/api';
-import { getUserDisplayName, isQuoteClosedForAssignment } from '../../utils/helpers';
+import { formatDateWeekdayLongIt, getUserDisplayName, isQuoteClosedForAssignment } from '../../utils/helpers';
 import { useAuth } from '../../context/AuthContext';
 import type { InProgressQuoteRow, PaginatedResponse, Policy, Quote, User } from '../../types';
 import DashboardPageHeader from '../../components/dashboard/DashboardPageHeader';
@@ -122,12 +122,7 @@ export default function AdminDashboard() {
     void loadDashboard();
   }, [loadDashboard]);
 
-  const todayLabel = new Date().toLocaleDateString('it-IT', {
-    weekday: 'long',
-    day: 'numeric',
-    month: 'long',
-    year: 'numeric',
-  });
+  const todayLabel = formatDateWeekdayLongIt();
 
   if (loading) {
     return (

@@ -1384,7 +1384,7 @@ function Step5Review({
 
         {/* Info aggiuntive */}
         <ReviewSection title="Informazioni Aggiuntive">
-          <ReviewItem label="Data Decorrenza" value={dataDecorrenza ? formatDate(dataDecorrenza) : '-'} />
+          <ReviewItem label="Data Decorrenza" value={dataDecorrenza ? formatDate(dataDecorrenza) : '—'} />
           {CON_FRAZIONAMENTO_ASSISTITO.has(cod) && (
             <ReviewItem label="Frazionamento" value={frazionamento || '-'} />
           )}

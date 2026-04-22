@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom';
 import { Plus, ExternalLink } from 'lucide-react';
 import { api } from '../../utils/api';
 import StatusBadge from '../../components/common/StatusBadge';
-import { formatDate, getUserDisplayName } from '../../utils/helpers';
+import { formatDate, formatDateWeekdayLongIt, getUserDisplayName } from '../../utils/helpers';
 import { useAuth } from '../../context/AuthContext';
 import type { Quote, PaginatedResponse } from '../../types';
 import DashboardPageHeader from '../../components/dashboard/DashboardPageHeader';
@@ -96,12 +96,7 @@ export default function StructureDashboard() {
     };
   }, []);
 
-  const todayLabel = new Date().toLocaleDateString('it-IT', {
-    weekday: 'long',
-    day: 'numeric',
-    month: 'long',
-    year: 'numeric',
-  });
+  const todayLabel = formatDateWeekdayLongIt();
 
   if (loading) {
     return (

@@ -337,7 +337,7 @@ export default function MessagesPage() {
                           ) : null}
                         </div>
                         <time className="shrink-0 text-[11px] tabular-nums text-slate-400">
-                          {c.last_message_at ? formatDateTime(c.last_message_at) : ''}
+                          {c.last_message_at ? formatDateTime(c.last_message_at) : '—'}
                         </time>
                       </div>
                     </Link>
