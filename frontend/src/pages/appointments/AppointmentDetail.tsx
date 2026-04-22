@@ -176,6 +176,9 @@ export default function AppointmentDetail() {
             onSuccess={() => fetchDetail()}
             onNavigateDetail={(x) => navigate(`/appuntamenti/${x}`)}
             suppliers={suppliers}
+            hideOpenInMenu
+            showInlineDelete
+            onAfterDelete={() => navigate('/appuntamenti')}
           />
         </div>
       </div>

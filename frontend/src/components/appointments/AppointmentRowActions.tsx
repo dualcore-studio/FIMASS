@@ -35,6 +35,10 @@ type Props = {
   confirmLink?: string;
   /** Lato struttura: apre modifica in modale invece della pagina dedicata. */
   onStrutturaEditRequest?: (id: number) => void;
+  /** Dopo DELETE riuscito: es. navigazione via da pagina dettaglio (evita refresh su risorsa eliminata). */
+  onAfterDelete?: () => void;
+  /** Pulsante Elimina esplicito accanto ad «Azioni» (es. pagina dettaglio). */
+  showInlineDelete?: boolean;
 };
 
 const toolbarBtn =
@@ -54,6 +58,8 @@ export default function AppointmentRowActions({
   confirmLuogo: confirmLuogoExternal,
   confirmLink: confirmLinkExternal,
   onStrutturaEditRequest,
+  onAfterDelete,
+  showInlineDelete = false,
 }: Props) {
   const navigate = useNavigate();
   const { user } = useAuth();
@@ -252,10 +258,14 @@ export default function AppointmentRowActions({
     setDeleteBusy(true);
     try {
       await api.delete(`/appointments/${row.id}`);
-      onSuccess?.('Appuntamento eliminato.');
       setDeleteOpen(false);
       closeMenu();
-      onRefresh();
+      if (onAfterDelete) {
+        onAfterDelete();
+      } else {
+        onSuccess?.('Appuntamento eliminato.');
+        await onRefresh();
+      }
     } catch (e) {
       onError(e instanceof ApiError ? e.message : 'Errore');
     } finally {
@@ -652,7 +662,16 @@ export default function AppointmentRowActions({
   }
 
   return (
-    <div className="relative inline-block text-left" ref={wrapRef}>
+    <div className="relative inline-flex flex-wrap items-center gap-2 text-left" ref={wrapRef}>
+      {showInlineDelete && showAdminActions ? (
+        <button
+          type="button"
+          className="rounded-md border border-red-200 bg-white px-2 py-1 text-xs font-medium text-red-700 shadow-sm hover:bg-red-50"
+          onClick={() => setDeleteOpen(true)}
+        >
+          Elimina appuntamento
+        </button>
+      ) : null}
       <button
         type="button"
         data-appt-actions-trigger
