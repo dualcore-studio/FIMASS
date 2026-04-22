@@ -16,6 +16,7 @@ import {
   Banknote,
   MessageSquare,
   ShieldCheck,
+  CalendarClock,
 } from 'lucide-react';
 import { SCADENZE_ACCESS_ROLES } from '../../constants/scadenzeAccess';
 
@@ -27,6 +28,7 @@ const menuItems = [
   { path: '/scadenze', label: 'Scadenze', icon: CalendarRange, roles: [...SCADENZE_ACCESS_ROLES] },
   { path: '/assistiti', label: 'Assistiti', icon: UserCheck, roles: ['admin', 'supervisore', 'operatore', 'fornitore', 'struttura'] },
   { path: '/messaggi', label: 'Messaggi', icon: MessageSquare, roles: ['admin', 'supervisore', 'operatore', 'fornitore', 'struttura'] },
+  { path: '/appuntamenti', label: 'Appuntamenti', icon: CalendarClock, roles: ['admin', 'supervisore', 'fornitore', 'struttura'] },
   { path: '/provvigioni', label: 'Provvigioni', icon: Banknote, roles: ['admin', 'fornitore', 'struttura'] },
   { path: '/report', label: 'Report', icon: BarChart3, roles: ['admin', 'supervisore', 'fornitore'] },
   { path: '/log-attivita', label: 'Log Attività', icon: ClipboardList, roles: ['admin', 'supervisore'] },

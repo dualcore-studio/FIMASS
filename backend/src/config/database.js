@@ -342,6 +342,55 @@ function initializeDatabase() {
   migratePrivacyGdprSqliteIfNeeded();
   migratePoliciesScadenzeSqliteIfNeeded();
   migratePolicyRenewalsSqliteIfNeeded();
+  migrateAppointmentsSqliteIfNeeded();
+}
+
+function migrateAppointmentsSqliteIfNeeded() {
+  try {
+    db.exec(`
+      CREATE TABLE IF NOT EXISTS appointments (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        struttura_id INTEGER NOT NULL REFERENCES users(id),
+        fornitore_id INTEGER NOT NULL REFERENCES users(id),
+        created_by_user_id INTEGER REFERENCES users(id),
+        assistito_nome TEXT NOT NULL,
+        assistito_cognome TEXT NOT NULL,
+        assistito_telefono TEXT,
+        assistito_email TEXT,
+        modalita TEXT NOT NULL,
+        oggetto TEXT NOT NULL,
+        note TEXT,
+        data_appuntamento TEXT NOT NULL,
+        ora_inizio TEXT NOT NULL,
+        ora_fine TEXT NOT NULL,
+        durata_minuti INTEGER NOT NULL DEFAULT 60,
+        luogo TEXT,
+        link_videocall TEXT,
+        numero_telefonico_riferimento TEXT,
+        stato TEXT NOT NULL DEFAULT 'RICHIESTO',
+        motivo_riprogrammazione TEXT,
+        motivo_annullamento TEXT,
+        created_at TEXT DEFAULT (datetime('now')),
+        updated_at TEXT DEFAULT (datetime('now'))
+      );
+      CREATE INDEX IF NOT EXISTS idx_appointments_fornitore_data ON appointments(fornitore_id, data_appuntamento);
+      CREATE INDEX IF NOT EXISTS idx_appointments_struttura ON appointments(struttura_id);
+      CREATE INDEX IF NOT EXISTS idx_appointments_stato ON appointments(stato);
+
+      CREATE TABLE IF NOT EXISTS appointment_status_history (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        appointment_id INTEGER NOT NULL REFERENCES appointments(id) ON DELETE CASCADE,
+        stato_precedente TEXT,
+        stato_nuovo TEXT NOT NULL,
+        utente_id INTEGER REFERENCES users(id),
+        nota TEXT,
+        created_at TEXT DEFAULT (datetime('now'))
+      );
+      CREATE INDEX IF NOT EXISTS idx_appointment_hist_app ON appointment_status_history(appointment_id);
+    `);
+  } catch (e) {
+    console.error('migrateAppointmentsSqliteIfNeeded:', e);
+  }
 }
 
 /** Tabella scadenze/rinnovi + colonne collegamento su preventivi e polizze (SQLite locale). */

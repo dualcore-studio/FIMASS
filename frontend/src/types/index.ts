@@ -358,6 +358,59 @@ export interface AuditLogEntry {
   created_at: string;
 }
 
+export type AppointmentStato = 'RICHIESTO' | 'CONFERMATO' | 'DA RIPROGRAMMARE' | 'COMPLETATO' | 'ANNULLATO';
+export type AppointmentModalita = 'presenza' | 'videocall' | 'telefonata';
+
+export interface AppointmentUserRef {
+  id: number;
+  nome: string | null;
+  cognome: string | null;
+  denominazione: string | null;
+  email: string;
+  telefono?: string | null;
+  role: string;
+}
+
+export interface Appointment {
+  id: number;
+  struttura_id: number;
+  fornitore_id: number;
+  created_by_user_id: number | null;
+  assistito_nome: string;
+  assistito_cognome: string;
+  assistito_telefono: string | null;
+  assistito_email: string | null;
+  modalita: AppointmentModalita;
+  oggetto: string;
+  note: string | null;
+  data_appuntamento: string;
+  ora_inizio: string;
+  ora_fine: string;
+  durata_minuti: number;
+  luogo: string | null;
+  link_videocall: string | null;
+  numero_telefonico_riferimento: string | null;
+  stato: AppointmentStato;
+  motivo_riprogrammazione: string | null;
+  motivo_annullamento: string | null;
+  created_at: string;
+  updated_at: string;
+  struttura?: AppointmentUserRef | null;
+  fornitore?: AppointmentUserRef | null;
+  creato_da?: AppointmentUserRef | null;
+}
+
+export interface AppointmentHistoryEntry {
+  id: number;
+  appointment_id: number;
+  stato_precedente: string | null;
+  stato_nuovo: string;
+  utente_id: number | null;
+  nota: string | null;
+  created_at: string;
+  utente?: AppointmentUserRef | null;
+}
+
 export interface PaginatedResponse<T> {
   data: T[];
   total: number;

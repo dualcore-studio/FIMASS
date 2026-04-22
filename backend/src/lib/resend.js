@@ -40,6 +40,12 @@ function buildMessagesConversationUrl(conversationId) {
   return `${appUrl}/messaggi/${conversationId}`;
 }
 
+function buildAppointmentUrl(appointmentId) {
+  const { appUrl } = getMailEnv();
+  if (!appUrl || appointmentId == null) return null;
+  return `${appUrl}/appuntamenti/${appointmentId}`;
+}
+
 function emailShell(title, innerHtml) {
   return `<!DOCTYPE html>
 <html lang="it">
@@ -408,6 +414,176 @@ async function sendPortalMessageNotificationMail({
   }
 }
 
+function modalitaLabel(m) {
+  const x = String(m || '').toLowerCase();
+  if (x === 'presenza') return 'In presenza';
+  if (x === 'videocall') return 'Videocall';
+  if (x === 'telefonata') return 'Telefonata';
+  return String(m || '—');
+}
+
+/**
+ * @param {object} p
+ * @param {string} p.to
+ * @param {string} p.fornitoreName
+ * @param {number} p.appointmentId
+ * @param {string} p.oggetto
+ * @param {string} p.strutturaNome
+ * @param {string} p.assistitoNome
+ * @param {string} p.modalita
+ * @param {string} p.dataOra
+ * @param {string} [p.luogo]
+ * @param {string} [p.note]
+ */
+async function sendAppointmentCreatedToFornitoreMail(p) {
+  try {
+    const url = buildAppointmentUrl(p.appointmentId);
+    const linkBlock = url
+      ? `<p style="margin:20px 0 0;"><a href="${escapeHtml(url)}" style="display:inline-block;background:#0f172a;color:#f8fafc;text-decoration:none;padding:10px 18px;border-radius:6px;font-weight:600;">Apri l&apos;appuntamento nel portale</a></p>`
+      : '';
+    const modeRow =
+      p.modalita === 'presenza' && p.luogo
+        ? row('Luogo', p.luogo)
+        : p.modalita === 'telefonata' && p.numeroTelefono
+          ? row('Numero di riferimento', p.numeroTelefono)
+          : '';
+    const inner = `
+      <p style="margin:0 0 16px;">Gentile <strong>${escapeHtml(p.fornitoreName)}</strong>,</p>
+      <p style="margin:0 0 16px;">la struttura <strong>${escapeHtml(p.strutturaNome)}</strong> ha richiesto un <strong>nuovo appuntamento di consulenza</strong>.</p>
+      <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="border-collapse:collapse;">
+        ${row('Assistito', `${p.assistitoNome || '—'}`)}
+        ${row('Modalità', modalitaLabel(p.modalita))}
+        ${row('Data e ora', p.dataOra || '—')}
+        ${row('Oggetto', p.oggetto || '—')}
+        ${row('Fornitore assegnato', p.fornitoreName)}
+        ${p.note ? row('Note', p.note) : ''}
+        ${modeRow}
+      </table>
+      ${linkBlock}
+    `;
+    const html = emailShell('Nuova richiesta appuntamento', inner);
+    await sendHtmlEmail({
+      to: p.to,
+      subject: 'Nuova richiesta appuntamento — FIMASS',
+      html,
+    });
+  } catch (err) {
+    console.error('[FIMASS email] sendAppointmentCreatedToFornitoreMail:', err);
+  }
+}
+
+/**
+ * @param {'confermato'|'riprogrammato'|'annullato'} p.kind
+ */
+async function sendAppointmentUpdateToStrutturaMail(p) {
+  try {
+    const {
+      kind,
+      to,
+      strutturaNome,
+      appointmentId,
+      oggetto,
+      fornitoreName,
+      assistitoNome,
+      modalita,
+      dataOra,
+      luogo,
+      linkVideocall,
+      numeroTelefono,
+      note,
+      extraMotivo,
+    } = p;
+    const url = buildAppointmentUrl(appointmentId);
+    const linkBlock = url
+      ? `<p style="margin:20px 0 0;"><a href="${escapeHtml(url)}" style="display:inline-block;background:#0f172a;color:#f8fafc;text-decoration:none;padding:10px 18px;border-radius:6px;font-weight:600;">Apri l&apos;appuntamento</a></p>`
+      : '';
+    const title =
+      kind === 'confermato'
+        ? 'Appuntamento confermato'
+        : kind === 'riprogrammato'
+          ? 'Appuntamento da riprogrammare'
+          : 'Appuntamento annullato';
+    const subject =
+      kind === 'confermato'
+        ? 'Appuntamento confermato — FIMASS'
+        : kind === 'riprogrammato'
+          ? 'Appuntamento: nuova proposta data — FIMASS'
+          : 'Appuntamento annullato — FIMASS';
+    const intro =
+      kind === 'confermato'
+        ? 'Il fornitore ha <strong>confermato</strong> l&apos;appuntamento.'
+        : kind === 'riprogrammato'
+          ? 'Il fornitore ha proposto una <strong>nuova data/ora</strong> (stato: da riprogrammare).'
+          : 'L&apos;appuntamento è stato <strong>annullato</strong>.';
+    const inner = `
+      <p style="margin:0 0 16px;">Spett.le <strong>${escapeHtml(strutturaNome || 'struttura')}</strong>,</p>
+      <p style="margin:0 0 16px;">${intro}</p>
+      <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="border-collapse:collapse;">
+        ${row('Assistito', assistitoNome || '—')}
+        ${row('Modalità', modalitaLabel(modalita))}
+        ${row('Data e ora', dataOra || '—')}
+        ${row('Fornitore', fornitoreName || '—')}
+        ${row('Oggetto', oggetto || '—')}
+        ${luogo && modalita === 'presenza' ? row('Luogo', luogo) : ''}
+        ${linkVideocall && modalita === 'videocall' ? row('Link videocall', linkVideocall) : ''}
+        ${numeroTelefono && modalita === 'telefonata' ? row('Numero di riferimento', numeroTelefono) : ''}
+        ${note ? row('Note', note) : ''}
+        ${extraMotivo ? row(kind === 'riprogrammato' ? 'Motivo riprogrammazione' : 'Motivo', extraMotivo) : ''}
+      </table>
+      ${linkBlock}
+    `;
+    const html = emailShell(title, inner);
+    await sendHtmlEmail({ to, subject, html });
+  } catch (err) {
+    console.error('[FIMASS email] sendAppointmentUpdateToStrutturaMail:', err);
+  }
+}
+
+/** Annullamento da struttura o notifica fornitore (controparte). */
+async function sendAppointmentAnnullatoToFornitoreMail(p) {
+  try {
+    const {
+      to,
+      fornitoreName,
+      appointmentId,
+      oggetto,
+      strutturaNome,
+      assistitoNome,
+      modalita,
+      dataOra,
+      luogo,
+      linkVideocall,
+      numeroTelefono,
+      note,
+      extraMotivo,
+    } = p;
+    const url = buildAppointmentUrl(appointmentId);
+    const linkBlock = url
+      ? `<p style="margin:20px 0 0;"><a href="${escapeHtml(url)}" style="display:inline-block;background:#0f172a;color:#f8fafc;text-decoration:none;padding:10px 18px;border-radius:6px;font-weight:600;">Apri l&apos;appuntamento</a></p>`
+      : '';
+    const inner = `
+      <p style="margin:0 0 16px;">Gentile <strong>${escapeHtml(fornitoreName || 'fornitore')}</strong>,</p>
+      <p style="margin:0 0 16px;">La struttura <strong>${escapeHtml(strutturaNome || '—')}</strong> ha <strong>annullato</strong> l&apos;appuntamento.</p>
+      <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="border-collapse:collapse;">
+        ${row('Assistito', assistitoNome || '—')}
+        ${row('Modalità', modalitaLabel(modalita))}
+        ${row('Data e ora', dataOra || '—')}
+        ${row('Oggetto', oggetto || '—')}
+        ${luogo && modalita === 'presenza' ? row('Luogo', luogo) : ''}
+        ${linkVideocall && modalita === 'videocall' ? row('Link videocall', linkVideocall) : ''}
+        ${numeroTelefono && modalita === 'telefonata' ? row('Numero di riferimento', numeroTelefono) : ''}
+        ${note ? row('Note', note) : ''}
+        ${extraMotivo ? row('Motivo', extraMotivo) : ''}
+      </table>
+      ${linkBlock}
+    `;
+    const html = emailShell('Appuntamento annullato dalla struttura', inner);
+    await sendHtmlEmail({ to, subject: 'Appuntamento annullato — FIMASS', html });
+  } catch (err) {
+    console.error('[FIMASS email] sendAppointmentAnnullatoToFornitoreMail:', err);
+  }
+}
+
 async function sendQuotePresentedByStructureToAdminMail({
   to,
   adminName,
@@ -449,6 +625,7 @@ module.exports = {
   buildPolicyUrl,
   buildScadenzeUrl,
   buildMessagesConversationUrl,
+  buildAppointmentUrl,
   sendHtmlEmailResult,
   sendScadenzeReminderMail,
   sendQuoteAssignedToOperatorMail,
@@ -456,4 +633,7 @@ module.exports = {
   sendPolicyEmissionRequestedToOperatorMail,
   sendQuotePresentedByStructureToAdminMail,
   sendPortalMessageNotificationMail,
+  sendAppointmentCreatedToFornitoreMail,
+  sendAppointmentUpdateToStrutturaMail,
+  sendAppointmentAnnullatoToFornitoreMail,
 };

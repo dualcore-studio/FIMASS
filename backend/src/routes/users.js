@@ -96,6 +96,22 @@ router.get(
   })();
 });
 
+/** Solo fornitori attivi (appuntamenti, filtri). */
+router.get('/suppliers', authenticateToken, authorizeRoles('struttura', 'admin', 'supervisore'), (req, res) => {
+  (async () => {
+    const suppliers = (await list('users', (u) => u.role === 'fornitore' && u.stato === 'attivo'))
+      .sort((a, b) => `${a.cognome || ''} ${a.nome || ''}`.localeCompare(`${b.cognome || ''} ${b.nome || ''}`, 'it'))
+      .map((u) => ({
+        id: u.id,
+        nome: u.nome,
+        cognome: u.cognome,
+        email: u.email,
+        role: 'fornitore',
+      }));
+    res.json(suppliers);
+  })();
+});
+
 router.get('/structures', authenticateToken, authorizeRoles('admin', 'supervisore', 'operatore', 'fornitore'), (req, res) => {
   (async () => {
     const structures = (await list('users', (u) => u.role === 'struttura' && u.stato === 'attivo'))

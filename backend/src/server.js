@@ -41,6 +41,7 @@ function createApp() {
   app.use('/api/attachments', require('./routes/attachments'));
   app.use('/api/commissions', require('./routes/commissions'));
   app.use('/api/conversations', require('./routes/conversations'));
+  app.use('/api/appointments', require('./routes/appointments'));
   app.use('/api/cron', require('./routes/cron'));
   app.use('/api/admin/scadenze-reminders', require('./routes/adminScadenzeReminders'));
 

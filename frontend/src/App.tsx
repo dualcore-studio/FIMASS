@@ -24,6 +24,8 @@ import Settings from './pages/settings/Settings';
 import CommissionsPage from './pages/commissions/CommissionsPage';
 import CommissionForm from './pages/commissions/CommissionForm';
 import MessagesPage from './pages/messaging/MessagesPage';
+import AppointmentsList from './pages/appointments/AppointmentsList';
+import AppointmentDetail from './pages/appointments/AppointmentDetail';
 import type { ReactNode } from 'react';
 import { PortalBackgroundLayers } from './components/layout/PortalBackground';
 import { SCADENZE_ACCESS_ROLES } from './constants/scadenzeAccess';
@@ -94,6 +96,22 @@ function AppRoutes() {
               roles={['admin', 'supervisore', 'operatore', 'fornitore', 'struttura']}
             >
               <MessagesPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="appuntamenti"
+          element={
+            <ProtectedRoute roles={['admin', 'supervisore', 'fornitore', 'struttura']}>
+              <AppointmentsList />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="appuntamenti/:id"
+          element={
+            <ProtectedRoute roles={['admin', 'supervisore', 'fornitore', 'struttura']}>
+              <AppointmentDetail />
             </ProtectedRoute>
           }
         />

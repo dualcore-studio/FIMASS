@@ -20,6 +20,8 @@ const TABLES = [
   'conversation_reads',
   'audit_logs',
   'scadenze_reminder_logs',
+  'appointments',
+  'appointment_status_history',
 ];
 
 function nowIso() {
