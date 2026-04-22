@@ -368,17 +368,18 @@ export default function UserEdit() {
                 Tipo provvigione struttura <span className="text-red-500">*</span>
               </label>
               <p className="mb-2 text-xs text-gray-500">
-                Modificabile solo dall&apos;admin. Percentuali sulla provvigione Sportello Amico: Segnalatore 30% · Partner
-                60% · Sportello Amico 100%.
+                Modificabile solo dall&apos;admin. Percentuali provvigione struttura sulla provvigione broker: Segnalatore
+                30% · Partner 50% · rete Sportello Amico 50%. In ogni pratica, la quota organizzazione Sportello Amico
+                (65% della provv. broker) è mostrata e salvata a parte.
               </p>
               <select
                 value={commissionType}
                 onChange={(e) => setCommissionType(e.target.value as CommissionStructureType)}
                 className="input-field"
               >
-                <option value="SEGNALATORE">Segnalatore (30%)</option>
-                <option value="PARTNER">Partner (60%)</option>
-                <option value="SPORTELLO_AMICO">Sportello Amico (100%)</option>
+                <option value="SEGNALATORE">Segnalatore (30% provv. broker)</option>
+                <option value="PARTNER">Partner (50% provv. broker)</option>
+                <option value="SPORTELLO_AMICO">Sportello Amico – rete (50% provv. broker)</option>
               </select>
             </div>
 

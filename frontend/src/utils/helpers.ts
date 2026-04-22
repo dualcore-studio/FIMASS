@@ -106,11 +106,15 @@ export function formatEuro(value: number | null | undefined): string {
   return new Intl.NumberFormat('it-IT', { style: 'currency', currency: 'EUR' }).format(Number(value));
 }
 
+/** % della provvigione broker per la quota struttura (convenzione vigente). */
 export function commissionPercentForType(type: string): number {
-  if (type === 'PARTNER') return 60;
-  if (type === 'SPORTELLO_AMICO') return 100;
+  if (type === 'PARTNER') return 50;
+  if (type === 'SPORTELLO_AMICO') return 50;
   return 30;
 }
+
+/** Quota Sportello Amico sull’accordo: 65% della provvigione broker (solo calcolo / esposizione). */
+export const SPORTELLO_AMICO_QUOTA_OF_BROKER = 0.65;
 
 export function normalizeCommissionStructureType(type: string | null | undefined): CommissionStructureType {
   const u = String(type ?? '').toUpperCase();

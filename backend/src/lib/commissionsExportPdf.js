@@ -71,29 +71,33 @@ function pipeCommissionsListPdf(opts, res) {
   const summParts = [
     `Polizze: ${summary.totale_polizze}`,
     `Totale premi: ${fmtEuro(summary.totale_premi)}`,
-    `Totale provvigioni strutture: ${fmtEuro(summary.totale_provigioni_strutture)}`,
   ];
-  if (isAdmin && summary.totale_sportello_amico != null) {
-    summParts.splice(2, 0, `Tot. provv. Sportello Amico: ${fmtEuro(summary.totale_sportello_amico)}`);
+  if (isAdmin && summary.totale_provigioni_broker != null) {
+    summParts.push(`Tot. provv. broker: ${fmtEuro(summary.totale_provigioni_broker)}`);
   }
+  if (isAdmin && summary.totale_sportello_amico != null) {
+    summParts.push(`Quota S.A. (65%): ${fmtEuro(summary.totale_sportello_amico)}`);
+  }
+  summParts.push(`Totale provvigioni strutture: ${fmtEuro(summary.totale_provigioni_strutture)}`);
   doc.text(summParts.join('   ·   '), margin, y, { width: usableW });
   y += 22;
 
   /** @type {{ header: string; w: number; cell: (r: object) => string }[]} */
   const cols = isAdmin
     ? [
-        { header: 'Data', w: 0.07, cell: (r) => fmtDate(r.date) },
-        { header: 'Cliente', w: 0.13, cell: (r) => ellipsize(r.customer_name, 28) },
-        { header: 'N. polizza', w: 0.09, cell: (r) => ellipsize(r.policy_number, 16) },
-        { header: 'Struttura', w: 0.11, cell: (r) => ellipsize(r.structure_name || '—', 22) },
-        { header: 'Portale', w: 0.07, cell: (r) => ellipsize(r.portal || '—', 12) },
-        { header: 'Compagnia', w: 0.08, cell: (r) => ellipsize(r.company || '—', 14) },
-        { header: 'Premio', w: 0.09, cell: (r) => fmtEuro(r.policy_premium) },
-        { header: 'Fatt. cliente', w: 0.08, cell: (r) => fmtEuro(r.client_invoice) },
-        { header: 'Prov. S.A.', w: 0.07, cell: (r) => fmtEuro(r.sportello_amico_commission) },
-        { header: 'Tipo', w: 0.06, cell: (r) => commissionTypeLabel(r.structure_commission_type) },
-        { header: '%', w: 0.04, cell: (r) => `${r.structure_commission_percentage ?? '—'}%` },
-        { header: 'Prov. struttura', w: 0.08, cell: (r) => fmtEuro(r.structure_commission_amount) },
+        { header: 'Data', w: 0.065, cell: (r) => fmtDate(r.date) },
+        { header: 'Cliente', w: 0.11, cell: (r) => ellipsize(r.customer_name, 26) },
+        { header: 'N. polizza', w: 0.08, cell: (r) => ellipsize(r.policy_number, 16) },
+        { header: 'Struttura', w: 0.1, cell: (r) => ellipsize(r.structure_name || '—', 20) },
+        { header: 'Portale', w: 0.065, cell: (r) => ellipsize(r.portal || '—', 12) },
+        { header: 'Compagnia', w: 0.07, cell: (r) => ellipsize(r.company || '—', 14) },
+        { header: 'Premio', w: 0.08, cell: (r) => fmtEuro(r.policy_premium) },
+        { header: 'Fatt. cliente', w: 0.07, cell: (r) => fmtEuro(r.client_invoice) },
+        { header: 'Prov. broker', w: 0.07, cell: (r) => fmtEuro(r.provvigioni_broker ?? r.broker_commission) },
+        { header: 'Quota S.A.', w: 0.065, cell: (r) => fmtEuro(r.sportello_amico_commission) },
+        { header: 'Tipo', w: 0.055, cell: (r) => commissionTypeLabel(r.structure_commission_type) },
+        { header: '%', w: 0.035, cell: (r) => `${r.structure_commission_percentage ?? '—'}%` },
+        { header: 'Prov. struttura', w: 0.075, cell: (r) => fmtEuro(r.structure_commission_amount) },
       ]
     : [
         { header: 'Data', w: 0.1, cell: (r) => fmtDate(r.date) },

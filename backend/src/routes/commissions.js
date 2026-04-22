@@ -16,10 +16,12 @@ const { pipeCommissionsListPdf } = require('../lib/commissionsExportPdf');
 const router = express.Router();
 
 const COMMISSION_TYPES = new Set(['SEGNALATORE', 'PARTNER', 'SPORTELLO_AMICO']);
+/** % della provvigione broker spettante alla struttura (SPORTELLO_AMICO: stesso criterio partner rete). */
+const SPORTELLO_AMICO_ORG_PCT = 0.65;
 
-function pctForType(t) {
-  if (t === 'PARTNER') return 60;
-  if (t === 'SPORTELLO_AMICO') return 100;
+function structurePctForType(t) {
+  if (t === 'PARTNER') return 50;
+  if (t === 'SPORTELLO_AMICO') return 50;
   return 30;
 }
 
@@ -29,15 +31,53 @@ function roundMoney(n) {
   return Math.round(x * 100) / 100;
 }
 
-function computeStructureCommission(sportelloAmico, structureCommissionType) {
+/**
+ * @param {number} provvigioniBroker
+ * @param {string} structureCommissionType
+ * @returns {{ structure_commission_type: string, structure_commission_percentage: number, structure_commission_amount: number, sportello_amico_commission: number }}
+ */
+function computeFromProvvigioniBroker(provvigioniBroker, structureCommissionType) {
   const type = COMMISSION_TYPES.has(structureCommissionType) ? structureCommissionType : 'SEGNALATORE';
-  const pct = pctForType(type);
-  const base = Number(sportelloAmico);
-  const safeBase = Number.isFinite(base) ? base : 0;
+  const pct = structurePctForType(type);
+  const base = Number(provvigioniBroker);
+  const safe = Number.isFinite(base) && base >= 0 ? base : 0;
   return {
     structure_commission_type: type,
     structure_commission_percentage: pct,
-    structure_commission_amount: roundMoney(safeBase * (pct / 100)),
+    structure_commission_amount: roundMoney(safe * (pct / 100)),
+    sportello_amico_commission: roundMoney(safe * SPORTELLO_AMICO_ORG_PCT),
+  };
+}
+
+/**
+ * Compat: record con solo importo S.A. legacy (prima la base era S.A. manuale).
+ * @param {object} r
+ * @returns {number}
+ */
+function effectiveProvvigioniBrokerFromRow(r) {
+  const b = Number(r.broker_commission);
+  if (Number.isFinite(b) && b >= 0) return b;
+  const sa = Number(r.sportello_amico_commission);
+  if (Number.isFinite(sa) && sa > 0) return roundMoney(sa / SPORTELLO_AMICO_ORG_PCT);
+  return 0;
+}
+
+/** Ricalcola in output (liste/dettagli/export) per coerenza con la convenzione e dati pre-migrazione. */
+function enrichCommissionRow(r) {
+  if (!r || typeof r !== 'object') return r;
+  const broker = effectiveProvvigioniBrokerFromRow(r);
+  const t =
+    r.structure_commission_type && COMMISSION_TYPES.has(r.structure_commission_type)
+      ? r.structure_commission_type
+      : 'SEGNALATORE';
+  const computed = computeFromProvvigioniBroker(broker, t);
+  return {
+    ...r,
+    provvigioni_broker: broker,
+    broker_commission: broker,
+    sportello_amico_commission: computed.sportello_amico_commission,
+    structure_commission_percentage: computed.structure_commission_percentage,
+    structure_commission_amount: computed.structure_commission_amount,
   };
 }
 
@@ -60,6 +100,14 @@ function parseRequiredMoney(v) {
   if (v === '' || v === null || v === undefined) return NaN;
   const n = Number(v);
   return Number.isFinite(n) ? n : NaN;
+}
+
+function parseProvvigioniBrokerInput(body) {
+  const raw =
+    body.provvigioni_broker !== undefined && body.provvigioni_broker !== null
+      ? body.provvigioni_broker
+      : body.broker_commission;
+  return parseRequiredMoney(raw);
 }
 
 function normalizeDateInput(v) {
@@ -89,25 +137,34 @@ function rowMatchesFilters(row, { search, structureId, company, portal, dataDa, 
 
 function summarize(rows) {
   let totalePremi = 0;
+  let totaleBroker = 0;
   let totaleSa = 0;
   let totaleStrutture = 0;
   for (const r of rows) {
-    totalePremi += Number(r.policy_premium) || 0;
-    totaleSa += Number(r.sportello_amico_commission) || 0;
-    totaleStrutture += Number(r.structure_commission_amount) || 0;
+    const e = enrichCommissionRow(r);
+    totalePremi += Number(e.policy_premium) || 0;
+    totaleBroker += Number(e.provvigioni_broker) || 0;
+    totaleSa += Number(e.sportello_amico_commission) || 0;
+    totaleStrutture += Number(e.structure_commission_amount) || 0;
   }
   return {
     totale_polizze: rows.length,
     totale_premi: roundMoney(totalePremi),
+    totale_provigioni_broker: roundMoney(totaleBroker),
     totale_sportello_amico: roundMoney(totaleSa),
     totale_provigioni_strutture: roundMoney(totaleStrutture),
   };
 }
 
-/** La struttura non deve ricevere importi di provvigione Sportello Amico (solo la propria quota). */
-function stripSportelloAmicoFromRow(row) {
+/** La struttura non vede provv. broker, quota S.A. o dettagli oltre la propria provvigione. */
+function stripStrutturaSensitiveFields(row) {
   if (!row || typeof row !== 'object') return row;
-  const { sportello_amico_commission: _sa, ...rest } = row;
+  const {
+    sportello_amico_commission: _sa,
+    provvigioni_broker: _pb,
+    broker_commission: _br,
+    ...rest
+  } = row;
   return rest;
 }
 
@@ -154,11 +211,12 @@ router.get('/', authenticateToken, assertCommissionReader, (req, res) => {
 
     const sortKey = sortByField && typeof sortByField === 'string' ? sortByField : 'date';
     const dir = sortDir === 'asc' ? 'asc' : 'desc';
-    rows = sortBy(rows, sortKey, dir);
+    const enriched = rows.map(enrichCommissionRow);
+    rows = sortBy(enriched, sortKey, dir);
 
     const payload = paginate(rows, page, limit);
     const data =
-      req.user.role === 'struttura' ? payload.data.map(stripSportelloAmicoFromRow) : payload.data;
+      req.user.role === 'struttura' ? payload.data.map(stripStrutturaSensitiveFields) : payload.data;
     res.json({ ...payload, data, summary });
   })().catch((err) => {
     console.error('commissions list:', err);
@@ -207,7 +265,8 @@ router.get('/export-pdf', authenticateToken, assertCommissionReader, (req, res) 
 
     const sortKey = sortByField && typeof sortByField === 'string' ? sortByField : 'date';
     const dir = sortDir === 'asc' ? 'asc' : 'desc';
-    rows = sortBy(rows, sortKey, dir);
+    const enrichedExport = rows.map(enrichCommissionRow);
+    rows = sortBy(enrichedExport, sortKey, dir);
 
     pipeCommissionsListPdf(
       {
@@ -230,7 +289,8 @@ router.get('/:id', authenticateToken, assertCommissionReader, (req, res) => {
     if (req.user.role === 'struttura' && Number(row.structure_id) !== Number(req.user.id)) {
       return res.status(403).json({ error: 'Accesso non autorizzato' });
     }
-    res.json(req.user.role === 'struttura' ? stripSportelloAmicoFromRow(row) : row);
+    const out = enrichCommissionRow(row);
+    res.json(req.user.role === 'struttura' ? stripStrutturaSensitiveFields(out) : out);
   })().catch((err) => {
     console.error('commissions get:', err);
     res.status(500).json({ error: 'Errore nel recupero provvigione' });
@@ -248,21 +308,26 @@ router.post('/', authenticateToken, authorizeRoles('admin', 'fornitore'), (req, 
       company,
       policy_premium: policyPremiumRaw,
       broker_commission: brokerCommissionRaw,
+      provvigioni_broker: provvigioniBrokerRaw,
       client_invoice: clientInvoiceRaw,
-      sportello_amico_commission: saRaw,
       notes,
     } = req.body;
 
     const customer_name = customerName != null ? String(customerName).trim() : '';
     const policy_number = policyNumber != null ? String(policyNumber).trim() : '';
     const structure_id = Number(structureIdRaw);
-    const sportello_amico_commission = parseRequiredMoney(saRaw);
+    const provvigioni_broker = parseProvvigioniBrokerInput({
+      provvigioni_broker: provvigioniBrokerRaw,
+      broker_commission: brokerCommissionRaw,
+    });
 
     if (!customer_name) return res.status(400).json({ error: 'Nome cliente obbligatorio' });
     if (!policy_number) return res.status(400).json({ error: 'Numero polizza obbligatorio' });
     if (!Number.isFinite(structure_id)) return res.status(400).json({ error: 'Struttura obbligatoria' });
-    if (!Number.isFinite(sportello_amico_commission)) {
-      return res.status(400).json({ error: 'Provvigioni Sportello Amico obbligatorie e devono essere un numero valido' });
+    if (!Number.isFinite(provvigioni_broker) || provvigioni_broker < 0) {
+      return res
+        .status(400)
+        .json({ error: 'Provvigioni broker obbligatorie e devono essere un importo valido (≥ 0)' });
     }
 
     const structure = await getById('users', structure_id);
@@ -272,15 +337,14 @@ router.post('/', authenticateToken, authorizeRoles('admin', 'fornitore'), (req, 
     const ct = structure.commission_type && COMMISSION_TYPES.has(structure.commission_type)
       ? structure.commission_type
       : 'SEGNALATORE';
-    const computed = computeStructureCommission(sportello_amico_commission, ct);
+    const computed = computeFromProvvigioniBroker(provvigioni_broker, ct);
 
     const d = normalizeDateInput(date);
     if (!d) return res.status(400).json({ error: 'Data non valida (usare AAAA-MM-GG)' });
 
     const policy_premium = parseOptionalNumber(policyPremiumRaw);
-    const broker_commission = parseOptionalNumber(brokerCommissionRaw);
     const client_invoice = parseOptionalNumber(clientInvoiceRaw);
-    if ([policy_premium, broker_commission, client_invoice].some((n) => Number.isNaN(n))) {
+    if ([policy_premium, client_invoice].some((n) => Number.isNaN(n))) {
       return res.status(400).json({ error: 'Importi non validi' });
     }
 
@@ -294,9 +358,9 @@ router.post('/', authenticateToken, authorizeRoles('admin', 'fornitore'), (req, 
       portal: portal != null ? String(portal).trim() || null : null,
       company: company != null ? String(company).trim() || null : null,
       policy_premium: policy_premium ?? null,
-      broker_commission: broker_commission ?? null,
+      broker_commission: provvigioni_broker,
       client_invoice: client_invoice ?? null,
-      sportello_amico_commission,
+      sportello_amico_commission: computed.sportello_amico_commission,
       structure_commission_type: computed.structure_commission_type,
       structure_commission_percentage: computed.structure_commission_percentage,
       structure_commission_amount: computed.structure_commission_amount,
@@ -314,7 +378,7 @@ router.post('/', authenticateToken, authorizeRoles('admin', 'fornitore'), (req, 
       dettaglio: `Creata provvigione polizza ${policy_number} per struttura ${structure.denominazione || structure_id}`,
     });
 
-    res.status(201).json(row);
+    res.status(201).json(enrichCommissionRow(row));
   })().catch((err) => {
     console.error('commissions create:', err);
     res.status(500).json({ error: 'Errore nella creazione provvigione' });
@@ -338,8 +402,8 @@ router.put('/:id', authenticateToken, authorizeRoles('admin', 'fornitore'), (req
       company,
       policy_premium: policyPremiumRaw,
       broker_commission: brokerCommissionRaw,
+      provvigioni_broker: provvigioniBrokerRaw,
       client_invoice: clientInvoiceRaw,
-      sportello_amico_commission: saRaw,
       notes,
     } = req.body;
 
@@ -350,14 +414,23 @@ router.put('/:id', authenticateToken, authorizeRoles('admin', 'fornitore'), (req
     const structure_id =
       structureIdRaw !== undefined ? Number(structureIdRaw) : Number(current.structure_id);
 
-    const sportello_amico_commission =
-      saRaw !== undefined ? parseRequiredMoney(saRaw) : Number(current.sportello_amico_commission);
+    const hasBrokerInBody =
+      (provvigioniBrokerRaw !== undefined && provvigioniBrokerRaw !== null) ||
+      (brokerCommissionRaw !== undefined && brokerCommissionRaw !== null);
+    const provvigioni_broker = hasBrokerInBody
+      ? parseProvvigioniBrokerInput({
+          provvigioni_broker: provvigioniBrokerRaw,
+          broker_commission: brokerCommissionRaw,
+        })
+      : effectiveProvvigioniBrokerFromRow(current);
 
     if (!customer_name) return res.status(400).json({ error: 'Nome cliente obbligatorio' });
     if (!policy_number) return res.status(400).json({ error: 'Numero polizza obbligatorio' });
     if (!Number.isFinite(structure_id)) return res.status(400).json({ error: 'Struttura obbligatoria' });
-    if (!Number.isFinite(sportello_amico_commission)) {
-      return res.status(400).json({ error: 'Provvigioni Sportello Amico obbligatorie e devono essere un numero valido' });
+    if (!Number.isFinite(provvigioni_broker) || provvigioni_broker < 0) {
+      return res
+        .status(400)
+        .json({ error: 'Provvigioni broker obbligatorie e devono essere un importo valido (≥ 0)' });
     }
 
     const structure = await getById('users', structure_id);
@@ -367,7 +440,7 @@ router.put('/:id', authenticateToken, authorizeRoles('admin', 'fornitore'), (req
     const ct = structure.commission_type && COMMISSION_TYPES.has(structure.commission_type)
       ? structure.commission_type
       : 'SEGNALATORE';
-    const computed = computeStructureCommission(sportello_amico_commission, ct);
+    const computed = computeFromProvvigioniBroker(provvigioni_broker, ct);
 
     const d =
       date !== undefined ? normalizeDateInput(date) : normalizeDateInput(current.date);
@@ -375,11 +448,9 @@ router.put('/:id', authenticateToken, authorizeRoles('admin', 'fornitore'), (req
 
     const policy_premium =
       policyPremiumRaw !== undefined ? parseOptionalNumber(policyPremiumRaw) : Number(current.policy_premium);
-    const broker_commission =
-      brokerCommissionRaw !== undefined ? parseOptionalNumber(brokerCommissionRaw) : Number(current.broker_commission);
     const client_invoice =
       clientInvoiceRaw !== undefined ? parseOptionalNumber(clientInvoiceRaw) : Number(current.client_invoice);
-    if ([policy_premium, broker_commission, client_invoice].some((n) => Number.isNaN(n))) {
+    if ([policy_premium, client_invoice].some((n) => Number.isNaN(n))) {
       return res.status(400).json({ error: 'Importi non validi' });
     }
 
@@ -393,9 +464,9 @@ router.put('/:id', authenticateToken, authorizeRoles('admin', 'fornitore'), (req
       portal: portal !== undefined ? String(portal).trim() || null : current.portal,
       company: company !== undefined ? String(company).trim() || null : current.company,
       policy_premium: policy_premium ?? null,
-      broker_commission: broker_commission ?? null,
+      broker_commission: provvigioni_broker,
       client_invoice: client_invoice ?? null,
-      sportello_amico_commission,
+      sportello_amico_commission: computed.sportello_amico_commission,
       structure_commission_type: computed.structure_commission_type,
       structure_commission_percentage: computed.structure_commission_percentage,
       structure_commission_amount: computed.structure_commission_amount,
@@ -413,7 +484,7 @@ router.put('/:id', authenticateToken, authorizeRoles('admin', 'fornitore'), (req
       dettaglio: `Aggiornata provvigione #${id} polizza ${policy_number}`,
     });
 
-    res.json(updated);
+    res.json(enrichCommissionRow(updated));
   })().catch((err) => {
     console.error('commissions update:', err);
     res.status(500).json({ error: 'Errore nell\'aggiornamento provvigione' });

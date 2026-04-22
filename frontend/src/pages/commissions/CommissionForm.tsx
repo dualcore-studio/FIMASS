@@ -8,6 +8,7 @@ import {
   formatEuro,
   getCommissionTypeBadgeClass,
   getCommissionTypeLabel,
+  SPORTELLO_AMICO_QUOTA_OF_BROKER,
 } from '../../utils/helpers';
 
 function roundMoney(n: number): number {
@@ -35,7 +36,7 @@ export default function CommissionForm() {
   const [company, setCompany] = useState('');
   const [policyPremium, setPolicyPremium] = useState('');
   const [clientInvoice, setClientInvoice] = useState('');
-  const [sportelloAmico, setSportelloAmico] = useState('');
+  const [provvigioniBroker, setProvvigioniBroker] = useState('');
   const [notes, setNotes] = useState('');
 
   useEffect(() => {
@@ -72,7 +73,19 @@ export default function CommissionForm() {
         setCompany(row.company ?? '');
         setPolicyPremium(row.policy_premium != null ? String(row.policy_premium) : '');
         setClientInvoice(row.client_invoice != null ? String(row.client_invoice) : '');
-        setSportelloAmico(String(row.sportello_amico_commission));
+        {
+          const pb = row.provvigioni_broker ?? row.broker_commission;
+          if (pb != null && String(pb) !== '' && Number.isFinite(Number(pb))) {
+            setProvvigioniBroker(String(pb));
+          } else {
+            const sa = row.sportello_amico_commission;
+            if (sa != null && Number.isFinite(Number(sa)) && Number(sa) > 0) {
+              setProvvigioniBroker(String(roundMoney(Number(sa) / SPORTELLO_AMICO_QUOTA_OF_BROKER)));
+            } else {
+              setProvvigioniBroker('');
+            }
+          }
+        }
         setNotes(row.notes ?? '');
       } catch (e) {
         if (!cancelled) {
@@ -90,16 +103,20 @@ export default function CommissionForm() {
   const selectedStructure = structures.find((s) => s.id === Number(structureId));
   const previewType = selectedStructure?.commission_type ?? 'SEGNALATORE';
   const previewPct = commissionPercentForType(previewType);
-  const saNum = Number(String(sportelloAmico).replace(',', '.'));
-  const previewAmount = Number.isFinite(saNum) ? roundMoney(saNum * (previewPct / 100)) : 0;
+  const brokerNum = Number(String(provvigioniBroker).replace(',', '.'));
+  const hasValidBroker = Number.isFinite(brokerNum) && brokerNum >= 0;
+  const previewStructAmount = structureId && hasValidBroker ? roundMoney(brokerNum * (previewPct / 100)) : null;
+  const previewSaQuota = structureId && hasValidBroker ? roundMoney(brokerNum * SPORTELLO_AMICO_QUOTA_OF_BROKER) : null;
 
   const validate = (): boolean => {
     const fe: Record<string, string> = {};
     if (!customerName.trim()) fe.customerName = 'Obbligatorio.';
     if (!policyNumber.trim()) fe.policyNumber = 'Obbligatorio.';
     if (!structureId || !Number.isFinite(Number(structureId))) fe.structureId = 'Obbligatorio.';
-    const sa = Number(String(sportelloAmico).replace(',', '.'));
-    if (!Number.isFinite(sa)) fe.sportelloAmico = 'Importo obbligatorio e valido.';
+    const br = Number(String(provvigioniBroker).replace(',', '.'));
+    if (provvigioniBroker.trim() === '' || !Number.isFinite(br) || br < 0) {
+      fe.provvigioniBroker = 'Inserire la provvigione broker (numero ≥ 0).';
+    }
     setFieldErrors(fe);
     if (Object.keys(fe).length > 0) {
       setError('Correggi i campi evidenziati.');
@@ -121,9 +138,8 @@ export default function CommissionForm() {
       portal: portal.trim() || null,
       company: company.trim() || null,
       policy_premium: policyPremium.trim() === '' ? null : Number(String(policyPremium).replace(',', '.')),
-      broker_commission: null,
+      provvigioni_broker: Number(String(provvigioniBroker).replace(',', '.')),
       client_invoice: clientInvoice.trim() === '' ? null : Number(String(clientInvoice).replace(',', '.')),
-      sportello_amico_commission: Number(String(sportelloAmico).replace(',', '.')),
       notes: notes.trim() || null,
     };
 
@@ -181,8 +197,8 @@ export default function CommissionForm() {
         </h1>
         <p className="mt-1 text-sm text-gray-600">
           {isCreate
-            ? 'Inserisci i dati economici della polizza; la quota struttura si calcola in automatico.'
-            : 'Aggiorna i dati; la quota struttura si ricalcola se cambiano struttura o provvigione Sportello Amico.'}
+            ? 'Inserisci i dati economici; la provvigione struttura e la quota Sportello Amico (65%) si calcolano sulla provvigione broker.'
+            : 'Aggiorna i dati; le quote si ricalcolano da provvigione broker e tipologia struttura.'}
         </p>
       </header>
 
@@ -245,7 +261,11 @@ export default function CommissionForm() {
           </div>
         </div>
 
-        <div className="grid gap-4 border-t border-gray-100 pt-6 sm:grid-cols-2">
+        <div className="space-y-2 border-t border-gray-100 pt-6">
+          <p className="text-sm font-medium text-gray-800">Dati economici</p>
+          <p className="text-xs text-gray-500">La base per i calcoli automatici è la provvigione broker.</p>
+        </div>
+        <div className="grid gap-4 sm:grid-cols-2">
           <div>
             <label className="mb-1 block text-sm font-medium text-gray-700">Premio polizza (€)</label>
             <input
@@ -270,26 +290,31 @@ export default function CommissionForm() {
               className="input-field"
             />
           </div>
-          <div>
+          <div className="sm:col-span-2">
             <label className="mb-1 block text-sm font-medium text-gray-700">
-              Provvigioni Sportello Amico (€) <span className="text-red-500">*</span>
+              Provvigioni broker (€) <span className="text-red-500">*</span>
             </label>
             <input
               type="number"
               inputMode="decimal"
               step="0.01"
               min="0"
-              value={sportelloAmico}
-              onChange={(e) => setSportelloAmico(e.target.value)}
+              value={provvigioniBroker}
+              onChange={(e) => setProvvigioniBroker(e.target.value)}
               className="input-field"
+              required
             />
-            {fieldErrors.sportelloAmico ? (
-              <p className="mt-1 text-xs text-red-600">{fieldErrors.sportelloAmico}</p>
+            <p className="mt-1 text-xs text-gray-500">
+              Importo obbligatorio; su questo valore si applicano le percentuali struttura (segnalatore 30%,
+              partner 50%) e la quota Sportello Amico 65%.
+            </p>
+            {fieldErrors.provvigioniBroker ? (
+              <p className="mt-1 text-xs text-red-600">{fieldErrors.provvigioniBroker}</p>
             ) : null}
           </div>
         </div>
 
-        <div className="rounded-xl border border-gray-100 bg-gray-50/80 p-4 sm:grid sm:grid-cols-2 sm:gap-4">
+        <div className="rounded-xl border border-gray-100 bg-gray-50/80 p-4 sm:grid sm:grid-cols-2 sm:gap-6">
           <div className="space-y-2">
             <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">Tipo struttura (automatico)</p>
             {structureId ? (
@@ -300,12 +325,26 @@ export default function CommissionForm() {
               <p className="text-sm text-gray-500">Seleziona una struttura</p>
             )}
           </div>
-          <div className="mt-4 space-y-2 sm:mt-0">
-            <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">Percentuale e provvigione struttura</p>
-            <p className="text-lg font-semibold text-gray-900">{previewPct}%</p>
-            <p className="text-sm text-gray-700">
-              Provvigione struttura: <span className="font-semibold">{formatEuro(previewAmount)}</span>
-            </p>
+          <div className="mt-4 space-y-3 sm:mt-0">
+            <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">Riepilogo</p>
+            {structureId && hasValidBroker ? (
+              <ul className="space-y-2 text-sm text-gray-700">
+                <li>
+                  <span className="text-gray-500">Percentuale struttura</span>
+                  <span className="ml-1 font-semibold text-gray-900">{previewPct}%</span>
+                </li>
+                <li>
+                  <span className="text-gray-500">Provvigione struttura (€)</span>
+                  <span className="ml-1 font-semibold text-gray-900">{formatEuro(previewStructAmount)}</span>
+                </li>
+                <li>
+                  <span className="text-gray-500">Quota Sportello Amico (65%) (€)</span>
+                  <span className="ml-1 font-semibold text-gray-900">{formatEuro(previewSaQuota)}</span>
+                </li>
+              </ul>
+            ) : (
+              <p className="text-sm text-gray-500">Seleziona struttura e inserisci la provvigione broker per il calcolo.</p>
+            )}
           </div>
         </div>
 

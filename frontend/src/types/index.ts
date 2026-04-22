@@ -37,9 +37,11 @@ export interface Commission {
   portal: string | null;
   company: string | null;
   policy_premium: number | null;
+  /** Base di calcolo economico (stesso valore persistito in broker_commission). */
+  provvigioni_broker?: number | null;
   broker_commission?: number | null;
   client_invoice: number | null;
-  /** Assente nelle risposte API per il ruolo struttura. */
+  /** Quota S.A. (65% provv. broker), assente per il ruolo struttura. */
   sportello_amico_commission?: number | null;
   structure_commission_type: CommissionStructureType;
   structure_commission_percentage: number;
@@ -53,7 +55,9 @@ export interface CommissionsListResponse extends PaginatedResponse<Commission> {
   summary: {
     totale_polizze: number;
     totale_premi: number;
-    /** Solo per admin: totale provvigioni Sportello Amico. */
+    /** Solo admin/fornitore: somma provvigioni broker. */
+    totale_provigioni_broker?: number;
+    /** Solo admin/fornitore: somma quota Sportello Amico (65% su ogni provv. broker). */
     totale_sportello_amico?: number;
     totale_provigioni_strutture: number;
   };

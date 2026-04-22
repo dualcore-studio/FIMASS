@@ -235,7 +235,7 @@ export default function CommissionsPage() {
           </h1>
           <p className="mt-1 max-w-2xl text-sm text-gray-600">
             {isFullAccess
-              ? 'Registrazione manuale delle polizze emesse con dati economici e calcolo automatico delle quote struttura.'
+              ? 'Registrazione delle polizze: base provvigione broker, calcolo automatico provvigione struttura (30% / 50%) e quota Sportello Amico (65%).'
               : 'Elenco delle provvigioni registrate per la tua struttura.'}
           </p>
         </div>
@@ -253,11 +253,16 @@ export default function CommissionsPage() {
 
       {summary ? (
         isFullAccess ? (
-          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
             <SummaryCard title="Totale polizze" value={String(summary.totale_polizze)} accent="slate" />
             <SummaryCard title="Totale premi" value={formatEuro(summary.totale_premi)} accent="blue" />
             <SummaryCard
-              title="Totale provvigioni Sportello Amico"
+              title="Totale provvigioni broker"
+              value={formatEuro(summary.totale_provigioni_broker)}
+              accent="slate"
+            />
+            <SummaryCard
+              title="Quota Sportello Amico (65%)"
               value={formatEuro(summary.totale_sportello_amico)}
               accent="amber"
             />
@@ -426,12 +431,22 @@ export default function CommissionsPage() {
                   ) : null}
                   {isFullAccess ? (
                     <SortableTh
+                      sortKey="provvigioni_broker"
+                      activeKey={tableSort.sortBy}
+                      direction={tableSort.sortDir}
+                      onRequestSort={tableSort.requestSort}
+                    >
+                      Prov. broker
+                    </SortableTh>
+                  ) : null}
+                  {isFullAccess ? (
+                    <SortableTh
                       sortKey="sportello_amico_commission"
                       activeKey={tableSort.sortBy}
                       direction={tableSort.sortDir}
                       onRequestSort={tableSort.requestSort}
                     >
-                      Prov. S.A.
+                      Quota S.A. 65%
                     </SortableTh>
                   ) : null}
                   <th className="px-4 py-3 font-semibold text-gray-700">Tipo</th>
@@ -450,7 +465,7 @@ export default function CommissionsPage() {
               <tbody>
                 {rows.length === 0 ? (
                   <tr>
-                    <td colSpan={isFullAccess ? 13 : 8} className="px-4 py-12 text-center text-gray-500">
+                    <td colSpan={isFullAccess ? 14 : 8} className="px-4 py-12 text-center text-gray-500">
                       Nessuna provvigione con i filtri selezionati.
                     </td>
                   </tr>
@@ -468,6 +483,11 @@ export default function CommissionsPage() {
                       <td className="whitespace-nowrap px-4 py-3 text-gray-800">{formatEuro(r.policy_premium)}</td>
                       {isFullAccess ? (
                         <td className="whitespace-nowrap px-4 py-3 text-gray-800">{formatEuro(r.client_invoice)}</td>
+                      ) : null}
+                      {isFullAccess ? (
+                        <td className="whitespace-nowrap px-4 py-3 text-gray-800">
+                          {formatEuro(r.provvigioni_broker ?? r.broker_commission ?? null)}
+                        </td>
                       ) : null}
                       {isFullAccess ? (
                         <td className="whitespace-nowrap px-4 py-3 text-gray-800">{formatEuro(r.sportello_amico_commission)}</td>
@@ -555,8 +575,8 @@ export default function CommissionsPage() {
       {isStruttura ? (
         <p className="flex items-center gap-2 text-xs text-gray-500">
           <Banknote className="h-4 w-4 shrink-0 opacity-70" strokeWidth={1.75} />
-          Qui vedi solo le provvigioni registrate a nome della tua struttura e l&apos;importo che ti spetta (non gli importi
-          Sportello Amico).
+          Vedi le provvigioni della tua struttura e l&apos;importo che ti spetta; non sono mostrati provv. broker, quota
+          Sportello Amico o altri importi riferiti al network.
         </p>
       ) : null}
     </div>
