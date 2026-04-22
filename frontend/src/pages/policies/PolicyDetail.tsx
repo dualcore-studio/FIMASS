@@ -25,6 +25,11 @@ import {
   detailColSpanFromDisplayString,
   formatDetailRecordKey,
 } from '../../components/detail';
+import {
+  formatGaranzieRichiesteRcLine,
+  isRcVeicoliTipo,
+  RC_DATI_SPEC_KEYS_TO_HIDE,
+} from '../../utils/rcAutoGaranzie';
 
 type Tab = 'dati' | 'allegati' | 'storico';
 
@@ -250,6 +255,15 @@ function TabDati({ policy }: { policy: Policy }) {
       ? `${[policy.fornitore_nome, policy.fornitore_cognome].filter(Boolean).join(' ')} (Fornitore)`
       : '';
 
+  const policyDs =
+    policy.dati_specifici && typeof policy.dati_specifici === 'object'
+      ? (policy.dati_specifici as Record<string, unknown>)
+      : null;
+  const garanzieRichiesteLine =
+    isRcVeicoliTipo(policy.tipo_codice) && policyDs != null
+      ? formatGaranzieRichiesteRcLine(policyDs)
+      : null;
+
   return (
     <div className="grid gap-4 lg:grid-cols-2">
       <DetailSectionCard title="Assistito">
@@ -339,10 +353,20 @@ function TabDati({ policy }: { policy: Policy }) {
       {policy.dati_specifici && Object.keys(policy.dati_specifici).length > 0 && (
         <DetailSectionCard title="Dati specifici" className="lg:col-span-2">
           <CompactInfoGrid columns="responsive-3">
+            {garanzieRichiesteLine != null ? (
+              <DetailField
+                label="Garanzie richieste"
+                value={garanzieRichiesteLine}
+                colSpan={detailColSpanFromDisplayString(garanzieRichiesteLine)}
+              />
+            ) : null}
             {Object.entries(policy.dati_specifici)
               .filter(
                 ([key]) =>
-                  !String(key).startsWith('_') && key !== 'pacchetto_casa' && key !== 'casa_preventivo',
+                  !String(key).startsWith('_')
+                  && key !== 'pacchetto_casa'
+                  && key !== 'casa_preventivo'
+                  && !(isRcVeicoliTipo(policy.tipo_codice) && RC_DATI_SPEC_KEYS_TO_HIDE.has(key)),
               )
               .map(([key, value]) => {
                 const formatted = formatUnknownValueForDisplay(value);

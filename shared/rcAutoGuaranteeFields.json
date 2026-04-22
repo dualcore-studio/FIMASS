@@ -1,13 +1,13 @@
 {
-  "rc": "RC Auto",
+  "rc": "RC",
   "furto": "Furto e Incendio",
   "inf": "Infortunio Conducente",
-  "ass": "Assistenza Stradale",
   "tutela": "Tutela Legale",
-  "cristalli": "Cristalli",
   "atti": "Atti Vandalici",
-  "bonus": "Eventi Naturali",
   "socio": "Eventi Sociopolitici",
+  "ass": "Assistenza Stradale",
+  "cristalli": "Cristalli",
+  "bonus": "Eventi Naturali",
   "kasko_coll": "Kasko Collisione",
   "kasko": "Kasko Completa"
 }

@@ -1,5 +1,6 @@
 /**
- * Garanzie RC Auto dai flag booleani nei dati specifici della pratica (chiavi in shared/rcAutoGuaranteeFields.json).
+ * Garanzie RC Auto dai flag booleani e/o `garanzie_selezionate` nei dati specifici.
+ * Mappa chiavi → etichette: shared/rcAutoGuaranteeFields.json
  */
 
 const path = require('path');
@@ -8,6 +9,51 @@ const path = require('path');
 const RC_AUTO_GUARANTEE_FIELDS = require(path.join(__dirname, '..', '..', '..', 'shared', 'rcAutoGuaranteeFields.json'));
 
 const NEST_KEYS = ['formData', 'form', 'values', 'fields', 'campi'];
+
+const MULTI_OPTION_TO_LABEL = {
+  'rc auto': 'RC',
+  'furto e incendio': 'Furto e Incendio',
+  'atti vandalici': 'Atti Vandalici',
+  cristalli: 'Cristalli',
+  'eventi naturali': 'Eventi Naturali',
+  'assistenza stradale': 'Assistenza Stradale',
+  'tutela legale': 'Tutela Legale',
+  'altre garanzie': 'Altre garanzie',
+};
+
+const LABEL_ORDER = [...Object.values(RC_AUTO_GUARANTEE_FIELDS), 'Altre garanzie'];
+
+function labelOrderIndex(label) {
+  const i = LABEL_ORDER.indexOf(label);
+  return i >= 0 ? i : 1000;
+}
+
+function sortGaranzieLabels(labels) {
+  return [...labels].sort((a, b) => {
+    const d = labelOrderIndex(a) - labelOrderIndex(b);
+    if (d !== 0) return d;
+    return a.localeCompare(b, 'it');
+  });
+}
+
+function mapMultiselectOption(raw) {
+  const k = String(raw || '').trim().toLowerCase();
+  if (!k) return '';
+  return MULTI_OPTION_TO_LABEL[k] ?? String(raw).trim();
+}
+
+function findGaranzieSelezionateArray(datiSpecifici) {
+  const direct = datiSpecifici.garanzie_selezionate;
+  if (Array.isArray(direct)) return direct;
+  for (const nk of NEST_KEYS) {
+    const v = datiSpecifici[nk];
+    if (v && typeof v === 'object' && !Array.isArray(v)) {
+      const inner = v.garanzie_selezionate;
+      if (Array.isArray(inner)) return inner;
+    }
+  }
+  return null;
+}
 
 function normalizeNome(s) {
   return String(s || '').trim();
@@ -18,7 +64,6 @@ function isRcAutoGuaranteeFieldTrue(val) {
 }
 
 /**
- * Oggetto che contiene i booleani garanzia (stesso livello per tutte le chiavi).
  * @param {Record<string, unknown> | null | undefined} datiSpecifici
  * @returns {Record<string, unknown>}
  */
@@ -41,13 +86,7 @@ function resolveRcAutoGuaranteeSource(datiSpecifici) {
   return datiSpecifici;
 }
 
-/**
- * @param {Record<string, unknown> | null | undefined} datiSpecifici
- * @returns {string[]} etichette garanzia nell'ordine della mappa
- */
-function getRcGaranzieSelezionate(datiSpecifici) {
-  if (!datiSpecifici || typeof datiSpecifici !== 'object') return [];
-
+function getRcGaranzieFromBooleans(datiSpecifici) {
   const src = resolveRcAutoGuaranteeSource(datiSpecifici);
   const out = [];
   for (const [key, label] of Object.entries(RC_AUTO_GUARANTEE_FIELDS)) {
@@ -56,6 +95,26 @@ function getRcGaranzieSelezionate(datiSpecifici) {
     }
   }
   return out;
+}
+
+function getRcGaranzieFromMultiselect(datiSpecifici) {
+  const arr = findGaranzieSelezionateArray(datiSpecifici);
+  if (!arr || arr.length === 0) return [];
+  const labels = arr.map((x) => mapMultiselectOption(x)).filter((s) => s.length > 0);
+  return sortGaranzieLabels([...new Set(labels)]);
+}
+
+/**
+ * @param {Record<string, unknown> | null | undefined} datiSpecifici
+ * @returns {string[]}
+ */
+function getRcGaranzieSelezionate(datiSpecifici) {
+  if (!datiSpecifici || typeof datiSpecifici !== 'object') return [];
+
+  const fromBools = getRcGaranzieFromBooleans(datiSpecifici);
+  if (fromBools.length > 0) return fromBools;
+
+  return getRcGaranzieFromMultiselect(datiSpecifici);
 }
 
 function isRcAutoTipoCodice(codice) {

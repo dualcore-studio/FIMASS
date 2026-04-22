@@ -31,6 +31,7 @@ import {
   activeChecklistForFlow,
   mandatoryChecklistMissing,
 } from '../../utils/insuranceTypeConfig';
+import { formatGaranzieRichiesteRcLine, isRcVeicoliTipo, RC_DATI_SPEC_KEYS_TO_HIDE } from '../../utils/rcAutoGaranzie';
 import { PRIVACY_POLICY_VERSION } from '../../config/privacyConfig';
 import CasaPolizzaPackageStep from '../../components/quotes/CasaPolizzaPackageStep';
 import { formatPremioCasaIt, type CasaPackageDef } from '../../config/casaPolizzaPackages';
@@ -1315,6 +1316,8 @@ function Step5Review({
   const skipDatiKeys = new Set<string>();
   if (CON_FRAZIONAMENTO_ASSISTITO.has(cod)) skipDatiKeys.add('frazionamento');
   if (cod === 'rc_prof') skipDatiKeys.add('indirizzo_studio_professionale');
+  const codTipo = String(selectedType.codice || '').toLowerCase();
+  const isRcFlow = isRcVeicoliTipo(selectedType.codice);
   const datiEntries = Object.entries(mergedDati).filter(
     ([k]) =>
       !String(k).startsWith('_')
@@ -1322,9 +1325,9 @@ function Step5Review({
       && !(
         String(selectedType.codice || '').toLowerCase() === 'casa'
         && (k === 'pacchetto_casa' || k === 'casa_preventivo')
-      ),
+      )
+      && !(isRcFlow && RC_DATI_SPEC_KEYS_TO_HIDE.has(k)),
   );
-  const codTipo = String(selectedType.codice || '').toLowerCase();
 
   return (
     <div>
@@ -1393,8 +1396,11 @@ function Step5Review({
         </ReviewSection>
 
         {/* Dati specifici */}
-        {datiEntries.length > 0 && (
+        {(datiEntries.length > 0 || isRcFlow) && (
           <ReviewSection title="Dati Specifici">
+            {isRcFlow ? (
+              <ReviewItem label="Garanzie richieste" value={formatGaranzieRichiesteRcLine(mergedDati)} />
+            ) : null}
             {datiEntries
               .filter(([key]) => {
                 const field = selectedType.campi_specifici.find((f) => f.nome === key);

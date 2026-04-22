@@ -49,6 +49,11 @@ import {
   detailColSpanFromDisplayString,
   formatDetailRecordKey,
 } from '../../components/detail';
+import {
+  formatGaranzieRichiesteRcLine,
+  isRcVeicoliTipo,
+  RC_DATI_SPEC_KEYS_TO_HIDE,
+} from '../../utils/rcAutoGaranzie';
 
 type Tab = 'dati' | 'allegati' | 'note' | 'storico' | 'preventivo';
 
@@ -575,6 +580,15 @@ function TabDati({ quote, viewerRole }: { quote: Quote; viewerRole?: string }) {
         ? [quote.fornitore_nome, quote.fornitore_cognome].filter(Boolean).join(' ')
         : '';
 
+  const dsRecord =
+    quote.dati_specifici && typeof quote.dati_specifici === 'object'
+      ? (quote.dati_specifici as Record<string, unknown>)
+      : null;
+  const garanzieRichiesteLine =
+    isRcVeicoliTipo(quote.tipo_codice) && dsRecord != null
+      ? formatGaranzieRichiesteRcLine(dsRecord)
+      : null;
+
   return (
     <div className="grid gap-4 lg:grid-cols-2">
       {showPrivacyPanel ? (
@@ -708,10 +722,20 @@ function TabDati({ quote, viewerRole }: { quote: Quote; viewerRole?: string }) {
       {quote.dati_specifici && Object.keys(quote.dati_specifici).length > 0 && (
         <DetailSectionCard title="Dati specifici" className="lg:col-span-2">
           <CompactInfoGrid columns="responsive-3">
+            {garanzieRichiesteLine != null ? (
+              <DetailField
+                label="Garanzie richieste"
+                value={garanzieRichiesteLine}
+                colSpan={detailColSpanFromDisplayString(garanzieRichiesteLine)}
+              />
+            ) : null}
             {Object.entries(quote.dati_specifici)
               .filter(
                 ([key]) =>
-                  !String(key).startsWith('_') && key !== 'pacchetto_casa' && key !== 'casa_preventivo',
+                  !String(key).startsWith('_')
+                  && key !== 'pacchetto_casa'
+                  && key !== 'casa_preventivo'
+                  && !(isRcVeicoliTipo(quote.tipo_codice) && RC_DATI_SPEC_KEYS_TO_HIDE.has(key)),
               )
               .map(([key, value]) => {
                 const formatted = formatUnknownValueForDisplay(value);
