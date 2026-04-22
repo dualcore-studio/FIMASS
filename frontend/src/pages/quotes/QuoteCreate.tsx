@@ -34,6 +34,7 @@ import {
 import { formatGaranzieRichiesteRcLine, isRcVeicoliTipo, RC_DATI_SPEC_KEYS_TO_HIDE } from '../../utils/rcAutoGaranzie';
 import { PRIVACY_POLICY_VERSION } from '../../config/privacyConfig';
 import CasaPolizzaPackageStep from '../../components/quotes/CasaPolizzaPackageStep';
+import AffittoPolizzaIntroStep from '../../components/quotes/AffittoPolizzaIntroStep';
 import SanitariaPolizzaPackageStep from '../../components/quotes/SanitariaPolizzaPackageStep';
 import { formatPremioCasaIt, type CasaPackageDef } from '../../config/casaPolizzaPackages';
 import { formatPremioStartingIt, type SanitariaPackageDef } from '../../config/sanitariaPolizzaPackages';
@@ -44,6 +45,7 @@ import {
   omitCasaDatiAfterIndirizzoImmobile,
 } from '../../config/casaQuoteFlow';
 import { omitSanitariaEditableDati } from '../../config/sanitariaQuoteFlow';
+import { getProdottoAffittoPayloadForQuote } from '../../config/affittoPolizzaProduct';
 
 const FRAZIONAMENTO_OPTS = ['Mensile', 'Semestrale', 'Annuale'] as const;
 
@@ -289,6 +291,12 @@ export default function QuoteCreate() {
       return;
     }
     setStepErrors([]);
+    if (step === 0 && selectedType && String(selectedType.codice || '').toLowerCase() === 'affitto') {
+      setDatiSpecifici((prev) => ({
+        ...prev,
+        prodotto_affitto: getProdottoAffittoPayloadForQuote(),
+      }));
+    }
     setStep((s) => Math.min(s + 1, STEPS.length - 1));
   };
 
@@ -296,7 +304,7 @@ export default function QuoteCreate() {
     setStepErrors([]);
     if (step === 0 && selectedType) {
       const t = String(selectedType.codice || '').toLowerCase();
-      if (t === 'casa' || t === 'sanitaria') {
+      if (t === 'casa' || t === 'sanitaria' || t === 'affitto') {
         setSelectedType(null);
         setCasaPackage(null);
         setSanitariaPackage(null);
@@ -322,6 +330,12 @@ export default function QuoteCreate() {
       }
     }
     setStepErrors([]);
+    if (step === 0 && target > 0 && selectedType && String(selectedType.codice || '').toLowerCase() === 'affitto') {
+      setDatiSpecifici((prev) => ({
+        ...prev,
+        prodotto_affitto: getProdottoAffittoPayloadForQuote(),
+      }));
+    }
     setStep(target);
   };
 
@@ -377,6 +391,9 @@ export default function QuoteCreate() {
         } else {
           mergedDati = { ...restSan, sanitaria_preventivo: { personalizzato: true } };
         }
+      }
+      if (cod === 'affitto' && mergedDati.prodotto_affitto == null) {
+        mergedDati = { ...mergedDati, prodotto_affitto: getProdottoAffittoPayloadForQuote() };
       }
 
       const body = {
@@ -508,7 +525,7 @@ export default function QuoteCreate() {
         {step === 0
           && !(
             selectedType
-            && ['casa', 'sanitaria'].includes(String(selectedType.codice || '').toLowerCase())
+            && ['casa', 'sanitaria', 'affitto'].includes(String(selectedType.codice || '').toLowerCase())
           ) && (
             <Step1Types
             types={insuranceTypes}
@@ -528,7 +545,7 @@ export default function QuoteCreate() {
               setCasaPackage(null);
               setSanitariaPackage(null);
               const cod = String(t.codice || '').toLowerCase();
-              if (cod === 'casa' || cod === 'sanitaria') {
+              if (cod === 'casa' || cod === 'sanitaria' || cod === 'affitto') {
                 setStep(0);
               } else {
                 setStep(1);
@@ -584,6 +601,15 @@ export default function QuoteCreate() {
               setStepErrors([]);
               setStep(1);
             }}
+          />
+        )}
+        {step === 0 && selectedType && String(selectedType.codice || '').toLowerCase() === 'affitto' && (
+          <AffittoPolizzaIntroStep
+            onBackToTipologie={() => {
+              setSelectedType(null);
+              setStepErrors([]);
+            }}
+            onContinue={() => goNext()}
           />
         )}
         {step === 1 && selectedType && (
@@ -661,7 +687,7 @@ export default function QuoteCreate() {
             step === 0
             && !(
               selectedType
-              && ['casa', 'sanitaria'].includes(String(selectedType.codice || '').toLowerCase())
+              && ['casa', 'sanitaria', 'affitto'].includes(String(selectedType.codice || '').toLowerCase())
             )
           }
           className="btn-secondary disabled:opacity-40"
@@ -1457,6 +1483,7 @@ function Step5Review({
         String(selectedType.codice || '').toLowerCase() === 'sanitaria'
         && (k === 'pacchetto_sanitaria' || k === 'sanitaria_preventivo')
       )
+      && !(codTipo === 'affitto' && k === 'prodotto_affitto')
       && !(isRcFlow && RC_DATI_SPEC_KEYS_TO_HIDE.has(k)),
   );
 
@@ -1534,6 +1561,33 @@ function Step5Review({
             </div>
           </ReviewSection>
         )}
+
+        {codTipo === 'affitto'
+          && mergedDati.prodotto_affitto != null
+          && typeof mergedDati.prodotto_affitto === 'object' ? (
+          <ReviewSection title="Prodotto Tutela Affitto">
+            {(() => {
+              const o = mergedDati.prodotto_affitto as Record<string, unknown>;
+              return (
+                <>
+                  <ReviewItem label="Codice prodotto" value={String(o.product_code ?? '—')} />
+                  <ReviewItem label="Nome prodotto" value={String(o.product_name ?? '—')} />
+                  <div className="sm:col-span-2 rounded-lg border border-slate-100 bg-slate-50/80 px-4 py-3">
+                    <p className="text-xs font-medium uppercase tracking-wide text-gray-500">Premio a partire da (indicativo)</p>
+                    <p className="mt-1 text-base font-bold text-[#0B4EA2]">
+                      {String(o.starting_price_label ?? '—')}
+                    </p>
+                  </div>
+                  <ReviewItem label="PDF riepilogo" value={String(o.riepilogo_pdf ?? '—')} />
+                  <ReviewItem
+                    label="Scheda introduttiva"
+                    value={o.intro_visualizzata === true ? 'Sì, visualizzata in fase di richiesta' : '—'}
+                  />
+                </>
+              );
+            })()}
+          </ReviewSection>
+        ) : null}
 
         {/* Assistito */}
         <ReviewSection title="Dati Assistito">
