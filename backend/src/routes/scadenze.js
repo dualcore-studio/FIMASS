@@ -9,7 +9,8 @@ const {
   toIsoDateTime,
   parseDbDateTime,
 } = require('../utils/policyDates');
-const { policyAssigneeUserId, userIsAssignedToPolicy } = require('../utils/practiceAssignee');
+const { policyAssigneeUserId } = require('../utils/practiceAssignee');
+const { SCADENZE_ACCESS_ROLES, userCanAccessScadenzePolicy } = require('../lib/scadenzeAccess');
 const { logActivity } = require('./logs');
 const { getClientIp } = require('../lib/requestMeta');
 const { writeAuditLog, AUDIT_ACTIONS } = require('../lib/auditLog');
@@ -119,14 +120,7 @@ async function generateQuoteNumber() {
   return `PRV-${year}-${String(seq).padStart(5, '0')}`;
 }
 
-function canAccessPolicyForScadenze(req, policy) {
-  if (req.user.role === 'struttura') return Number(policy.struttura_id) === Number(req.user.id);
-  if (req.user.role === 'operatore') return Number(policy.operatore_id) === Number(req.user.id);
-  if (req.user.role === 'fornitore') return Number(policy.fornitore_id) === Number(req.user.id);
-  return ['admin', 'supervisore'].includes(req.user.role);
-}
-
-router.get('/', authenticateToken, authorizeRoles('admin', 'supervisore', 'operatore', 'fornitore', 'struttura'), (req, res) => {
+router.get('/', authenticateToken, authorizeRoles(...SCADENZE_ACCESS_ROLES), (req, res) => {
   (async () => {
     const parsedMonth = parseMonthParam(req.query.month);
     if (!parsedMonth) {
@@ -141,10 +135,6 @@ router.get('/', authenticateToken, authorizeRoles('admin', 'supervisore', 'opera
 
       if (req.user.role === 'struttura') {
         policies = policies.filter((p) => Number(p.struttura_id) === Number(req.user.id));
-      } else if (req.user.role === 'operatore') {
-        policies = policies.filter((p) => Number(p.operatore_id) === Number(req.user.id));
-      } else if (req.user.role === 'fornitore') {
-        policies = policies.filter((p) => Number(p.fornitore_id) === Number(req.user.id));
       }
 
       policies = policies.filter((p) => {
@@ -208,7 +198,7 @@ router.get('/', authenticateToken, authorizeRoles('admin', 'supervisore', 'opera
 router.get(
   '/:policyId',
   authenticateToken,
-  authorizeRoles('admin', 'supervisore', 'operatore', 'fornitore', 'struttura'),
+  authorizeRoles(...SCADENZE_ACCESS_ROLES),
   (req, res) => {
   (async () => {
     const policyId = Number(req.params.policyId);
@@ -218,7 +208,7 @@ router.get(
       const row = await getById('policies', policyId);
       if (!row) return res.status(404).json({ error: 'Polizza non trovata' });
       const policy = enrichPolicy(row, ctx);
-      if (!canAccessPolicyForScadenze(req, policy)) {
+      if (!userCanAccessScadenzePolicy(req.user, policy)) {
         return res.status(403).json({ error: 'Accesso non autorizzato' });
       }
       if (normalizePolicyStato(policy.stato) !== 'EMESSA') {
@@ -375,7 +365,7 @@ router.post(
 router.patch(
   '/:policyId/non-rinnovata',
   authenticateToken,
-  authorizeRoles('admin', 'supervisore', 'operatore', 'fornitore'),
+  authorizeRoles(...SCADENZE_ACCESS_ROLES),
   (req, res) => {
     (async () => {
       const policyId = Number(req.params.policyId);
@@ -387,10 +377,8 @@ router.patch(
         return res.status(400).json({ error: 'Operazione disponibile solo su polizze emesse' });
       }
 
-      if (req.user.role === 'operatore' || req.user.role === 'fornitore') {
-        if (!userIsAssignedToPolicy(req.user, policy)) {
-          return res.status(403).json({ error: 'Accesso non autorizzato' });
-        }
+      if (!userCanAccessScadenzePolicy(req.user, policy)) {
+        return res.status(403).json({ error: 'Accesso non autorizzato' });
       }
 
       let pe = await findOne('policy_expirations', (e) => Number(e.policy_id) === policyId);

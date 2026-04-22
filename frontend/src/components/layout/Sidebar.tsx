@@ -17,13 +17,14 @@ import {
   MessageSquare,
   ShieldCheck,
 } from 'lucide-react';
+import { SCADENZE_ACCESS_ROLES } from '../../constants/scadenzeAccess';
 
 const menuItems = [
   { path: '/', label: 'Dashboard', icon: LayoutDashboard, roles: ['admin', 'supervisore', 'operatore', 'fornitore', 'struttura'] },
   { path: '/utenti', label: 'Utenti', icon: Users, roles: ['admin', 'supervisore'] },
   { path: '/preventivi', label: 'Preventivi', icon: FileText, roles: ['admin', 'supervisore', 'operatore', 'fornitore', 'struttura'] },
   { path: '/polizze', label: 'Polizze', icon: Shield, roles: ['admin', 'supervisore', 'operatore', 'fornitore', 'struttura'] },
-  { path: '/scadenze', label: 'Scadenze', icon: CalendarRange, roles: ['admin', 'supervisore', 'operatore', 'fornitore', 'struttura'] },
+  { path: '/scadenze', label: 'Scadenze', icon: CalendarRange, roles: [...SCADENZE_ACCESS_ROLES] },
   { path: '/assistiti', label: 'Assistiti', icon: UserCheck, roles: ['admin', 'supervisore', 'operatore', 'fornitore', 'struttura'] },
   { path: '/messaggi', label: 'Messaggi', icon: MessageSquare, roles: ['admin', 'supervisore', 'operatore', 'fornitore', 'struttura'] },
   { path: '/provvigioni', label: 'Provvigioni', icon: Banknote, roles: ['admin', 'fornitore', 'struttura'] },

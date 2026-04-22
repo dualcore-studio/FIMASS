@@ -26,6 +26,7 @@ import CommissionForm from './pages/commissions/CommissionForm';
 import MessagesPage from './pages/messaging/MessagesPage';
 import type { ReactNode } from 'react';
 import { PortalBackgroundLayers } from './components/layout/PortalBackground';
+import { SCADENZE_ACCESS_ROLES } from './constants/scadenzeAccess';
 
 function ProtectedRoute({ children, roles }: { children: ReactNode; roles?: string[] }) {
   const { user, isLoading } = useAuth();
@@ -77,7 +78,7 @@ function AppRoutes() {
         <Route
           path="scadenze"
           element={
-            <ProtectedRoute roles={['admin', 'supervisore', 'operatore', 'fornitore', 'struttura']}>
+            <ProtectedRoute roles={[...SCADENZE_ACCESS_ROLES]}>
               <ScadenzePage />
             </ProtectedRoute>
           }

@@ -183,7 +183,7 @@ function ScadenzaRowMenu({
   const canCreateRenewal = role === 'struttura' && !isFinal && !row.renewal_quote_id;
   const canOpenRenewalQuote = Boolean(row.renewal_quote_id);
   const canNonRinnovata =
-    (role === 'admin' || role === 'supervisore' || role === 'operatore' || role === 'fornitore') && !isFinal;
+    (role === 'admin' || role === 'supervisore' || role === 'struttura') && !isFinal;
   const canManualRinnovata =
     (role === 'admin' || role === 'supervisore') && row.stato_scadenza !== 'Non rinnovata';
   const canReopen = (role === 'admin' || role === 'supervisore') && row.stato_scadenza === 'Non rinnovata';
@@ -546,19 +546,21 @@ export default function ScadenzePage() {
         ))}
       </div>
 
-      <div className="rounded-2xl border border-slate-200/80 bg-white/90 px-3 py-3 shadow-sm sm:px-4">
-        <label htmlFor="scad-search" className="sr-only">
-          Cerca per nome o cognome del contraente
-        </label>
-        <input
-          id="scad-search"
-          type="search"
-          placeholder="Cerca per nome o cognome…"
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          autoComplete="off"
-          className={`${tf} w-full sm:max-w-[380px] lg:max-w-[420px]`}
-        />
+      <div className="flex w-full justify-stretch sm:justify-start">
+        <div className="inline-flex w-full max-w-full rounded-2xl border border-slate-200/80 bg-white/90 px-3 py-2.5 shadow-sm sm:w-fit sm:max-w-none sm:px-3.5 sm:py-3">
+          <label htmlFor="scad-search" className="sr-only">
+            Cerca per nome o cognome del contraente
+          </label>
+          <input
+            id="scad-search"
+            type="search"
+            placeholder="Cerca per nome o cognome…"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            autoComplete="off"
+            className={`${tf} box-border w-full min-w-0 sm:min-w-[300px] sm:w-[380px] lg:w-[420px]`}
+          />
+        </div>
       </div>
 
       <div className="overflow-hidden rounded-2xl border border-slate-200/80 bg-white shadow-sm">
