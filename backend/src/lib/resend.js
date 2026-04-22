@@ -543,6 +543,41 @@ async function sendAppointmentUpdateToStrutturaMail(p) {
   }
 }
 
+/**
+ * Conferma appuntamento in videocall: notifica all'assistito con link riunione.
+ */
+async function sendAppointmentVideocallConfirmedToAssistitoMail(p) {
+  try {
+    const { to, assistitoNome, fornitoreName, oggetto, dataOra, linkVideocall } = p;
+    const safeLink = String(linkVideocall || '').trim();
+    const linkRow = safeLink
+      ? `<tr>
+      <td style="padding:8px 0;border-bottom:1px solid #f1f5f9;color:#64748b;width:38%;vertical-align:top;">${escapeHtml('Link per la videocall')}</td>
+      <td style="padding:8px 0;border-bottom:1px solid #f1f5f9;font-weight:500;vertical-align:top;word-break:break-all;"><a href="${escapeHtml(safeLink)}" style="color:#1d4ed8;">${escapeHtml(safeLink)}</a></td>
+    </tr>`
+      : '';
+    const inner = `
+      <p style="margin:0 0 16px;">Gentile <strong>${escapeHtml(assistitoNome || 'assistito')}</strong>,</p>
+      <p style="margin:0 0 16px;">Le comunichiamo che il suo <strong>appuntamento in videocall</strong> è stato <strong>confermato</strong>.</p>
+      <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="border-collapse:collapse;">
+        ${row('Data e ora', dataOra || '—')}
+        ${row('Professionista / fornitore', fornitoreName || '—')}
+        ${row('Oggetto', oggetto || '—')}
+        ${linkRow}
+      </table>
+      <p style="margin:20px 0 0;font-size:14px;color:#475569;">Per partecipare, utilizzi il link indicato sopra all&apos;orario concordato. Se non dovesse aprirsi, copi l&apos;indirizzo nel browser.</p>
+    `;
+    const html = emailShell('Appuntamento videocall confermato', inner);
+    await sendHtmlEmail({
+      to,
+      subject: 'Appuntamento videocall confermato — FIMASS',
+      html,
+    });
+  } catch (err) {
+    console.error('[FIMASS email] sendAppointmentVideocallConfirmedToAssistitoMail:', err);
+  }
+}
+
 /** Annullamento da struttura o notifica fornitore (controparte). */
 async function sendAppointmentAnnullatoToFornitoreMail(p) {
   try {
@@ -639,5 +674,6 @@ module.exports = {
   sendPortalMessageNotificationMail,
   sendAppointmentCreatedToFornitoreMail,
   sendAppointmentUpdateToStrutturaMail,
+  sendAppointmentVideocallConfirmedToAssistitoMail,
   sendAppointmentAnnullatoToFornitoreMail,
 };

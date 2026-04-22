@@ -25,3 +25,51 @@ export function strutturaCanEditTable(stato: AppointmentStato | string): boolean
   const s = String(stato || '').toUpperCase();
   return s === 'RICHIESTO' || s === 'DA RIPROGRAMMARE';
 }
+
+/** Badge stato appuntamento — allineato a calendario e tabella. */
+export function appointmentStatusBadgeClasses(stato: string): string {
+  const key = String(stato || '').trim().toUpperCase();
+  const map: Record<string, string> = {
+    RICHIESTO: 'bg-sky-100 text-sky-950 border border-sky-200/90',
+    CONFERMATO: 'bg-blue-100 text-blue-950 border border-blue-200/90',
+    'DA RIPROGRAMMARE': 'bg-orange-100 text-orange-950 border border-orange-200/90',
+    ANNULLATO: 'bg-red-100 text-red-950 border border-red-200/90',
+    COMPLETATO: 'bg-emerald-100 text-emerald-950 border border-emerald-200/90',
+  };
+  return map[key] || 'bg-slate-100 text-slate-800 border border-slate-200/90';
+}
+
+/** Chip evento calendario (fondo + bordo sinistro). */
+export function appointmentCalendarChipClass(stato: AppointmentStato): string {
+  switch (stato) {
+    case 'RICHIESTO':
+      return 'border-l-sky-500 bg-sky-100/85';
+    case 'CONFERMATO':
+      return 'border-l-blue-600 bg-blue-100/85';
+    case 'DA RIPROGRAMMARE':
+      return 'border-l-orange-500 bg-orange-100/85';
+    case 'ANNULLATO':
+      return 'border-l-red-500 bg-red-100/85';
+    case 'COMPLETATO':
+      return 'border-l-emerald-600 bg-emerald-100/85';
+    default:
+      return 'border-l-slate-400 bg-slate-100/80';
+  }
+}
+
+export function appointmentCalendarDotClass(stato: AppointmentStato): string {
+  switch (stato) {
+    case 'RICHIESTO':
+      return 'bg-sky-500';
+    case 'CONFERMATO':
+      return 'bg-blue-600';
+    case 'DA RIPROGRAMMARE':
+      return 'bg-orange-500';
+    case 'ANNULLATO':
+      return 'bg-red-500';
+    case 'COMPLETATO':
+      return 'bg-emerald-600';
+    default:
+      return 'bg-slate-400';
+  }
+}

@@ -3,17 +3,13 @@ import { it } from 'date-fns/locale';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { createPortal } from 'react-dom';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import type { Appointment, AppointmentStato } from '../../types';
+import type { Appointment } from '../../types';
 import { getUserDisplayName } from '../../utils/helpers';
-import { modalitaLabel } from '../../utils/appointmentLabels';
+import { appointmentCalendarChipClass, appointmentCalendarDotClass, modalitaLabel } from '../../utils/appointmentLabels';
+import { parseMonthKey } from '../../utils/appointmentCalendarMonth';
 
 const WEEKDAYS = ['Lun', 'Mar', 'Mer', 'Gio', 'Ven', 'Sab', 'Dom'];
 const MAX_VISIBLE_DEFAULT = 4;
-
-function parseMonthKey(m: string | null): Date {
-  if (!m || !/^\d{4}-\d{2}$/.test(m)) return startOfMonth(new Date());
-  return startOfMonth(parse(`${m}-01`, 'yyyy-MM-dd', new Date()));
-}
 
 function dayKey(apt: Appointment): string {
   return String(apt.data_appuntamento || '').slice(0, 10);
@@ -29,41 +25,6 @@ function formatTimeRange(a: Appointment): string {
   const end = String(a.ora_fine || '').slice(0, 5);
   if (start && end) return `${start} – ${end}`;
   return start || '—';
-}
-
-/** Accento leggero: bordo sinistro + fondo tenuissimo (stile agenda). */
-function eventAccentClass(stato: AppointmentStato): string {
-  switch (stato) {
-    case 'RICHIESTO':
-      return 'border-l-slate-400/80 bg-slate-100/[0.45]';
-    case 'CONFERMATO':
-      return 'border-l-emerald-500/75 bg-emerald-50/[0.4]';
-    case 'DA RIPROGRAMMARE':
-      return 'border-l-amber-500/80 bg-amber-50/[0.45]';
-    case 'ANNULLATO':
-      return 'border-l-red-400/85 bg-red-50/[0.35]';
-    case 'COMPLETATO':
-      return 'border-l-slate-500/60 bg-slate-50/[0.35]';
-    default:
-      return 'border-l-slate-300/70 bg-slate-50/30';
-  }
-}
-
-function dotClass(stato: AppointmentStato): string {
-  switch (stato) {
-    case 'RICHIESTO':
-      return 'bg-slate-500/70';
-    case 'CONFERMATO':
-      return 'bg-emerald-500/80';
-    case 'DA RIPROGRAMMARE':
-      return 'bg-amber-500/85';
-    case 'ANNULLATO':
-      return 'bg-red-500/75';
-    case 'COMPLETATO':
-      return 'bg-slate-500/60';
-    default:
-      return 'bg-slate-400/70';
-  }
 }
 
 type Props = {
@@ -224,10 +185,10 @@ export default function AppointmentsMonthCalendar({ monthKey, items, loading, on
                           onClick={() => onSelectAppointment(a)}
                           onMouseEnter={(e) => showTip(e, a)}
                           onMouseLeave={clearTipSoon}
-                          className={`flex w-full min-w-0 items-center gap-0.5 border-l-2 py-0.5 pl-1 pr-0.5 text-left text-[11px] leading-[1.25] text-slate-800 transition hover:brightness-[0.98] ${eventAccentClass(a.stato)}`}
+                          className={`flex w-full min-w-0 items-center gap-0.5 border-l-2 py-0.5 pl-1 pr-0.5 text-left text-[11px] leading-[1.25] text-slate-800 transition hover:brightness-[0.98] ${appointmentCalendarChipClass(a.stato)}`}
                           style={{ minHeight: 22, maxHeight: 24 }}
                         >
-                          <span className={`mt-[1px] h-1.5 w-1.5 shrink-0 rounded-full ${dotClass(a.stato)}`} aria-hidden />
+                          <span className={`mt-[1px] h-1.5 w-1.5 shrink-0 rounded-full ${appointmentCalendarDotClass(a.stato)}`} aria-hidden />
                           <span className="min-w-0 flex-1 truncate tabular-nums">
                             <span className="tabular-nums text-slate-600">{time}</span>
                             <span className="text-slate-600"> </span>
@@ -298,5 +259,3 @@ export default function AppointmentsMonthCalendar({ monthKey, items, loading, on
     </div>
   );
 }
-
-export { parseMonthKey };

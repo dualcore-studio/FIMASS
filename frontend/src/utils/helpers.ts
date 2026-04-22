@@ -1,4 +1,5 @@
 import type { CommissionStructureType } from '../types';
+import { appointmentStatusBadgeClasses } from './appointmentLabels';
 
 export {
   EMPTY_DATE_PLACEHOLDER,
@@ -58,17 +59,9 @@ export function getQuoteStatusColor(stato: string): string {
  * Polizze: stessa palette dei preventivi dove ha senso nel flusso
  * (presentata → celeste, in verifica → giallo, ecc.).
  */
-/** Appuntamenti: workflow richiesta → conferma / riprogrammazione → chiusura. */
+/** Appuntamenti: palette condivisa con vista calendario (vedi appointmentLabels). */
 export function getAppointmentStatusColor(stato: string): string {
-  const key = String(stato || '').trim().toUpperCase();
-  const colors: Record<string, string> = {
-    RICHIESTO: STATUS_CLASS_PRESENTATA,
-    CONFERMATO: STATUS_CLASS_COMPLETATA,
-    'DA RIPROGRAMMARE': STATUS_CLASS_LAVORAZIONE,
-    COMPLETATO: 'bg-[var(--badge-soft-slate-bg)] text-[var(--badge-soft-slate-text)]',
-    ANNULLATO: 'bg-red-50 text-red-900',
-  };
-  return colors[key] || 'bg-[var(--badge-soft-slate-bg)] text-[var(--badge-soft-slate-text)]';
+  return appointmentStatusBadgeClasses(stato);
 }
 
 export function getPolicyStatusColor(stato: string): string {

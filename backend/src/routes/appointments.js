@@ -14,6 +14,7 @@ const { TIME_RE, addMinutesToOra, intervalsOverlap, sameData } = require('../uti
 const {
   sendAppointmentCreatedToFornitoreMail,
   sendAppointmentUpdateToStrutturaMail,
+  sendAppointmentVideocallConfirmedToAssistitoMail,
   sendAppointmentAnnullatoToFornitoreMail,
 } = require('../lib/resend');
 
@@ -594,6 +595,19 @@ router.post('/:id/confirm', authenticateToken, authorizeRoles('fornitore', 'admi
         telefonoAssistito: apt0.assistito_telefono || undefined,
         note: apt0.note || undefined,
       });
+    }
+    if (String(apt0.modalita).toLowerCase() === 'videocall') {
+      const assistTo = String(apt0.assistito_email || '').trim();
+      if (assistTo) {
+        await sendAppointmentVideocallConfirmedToAssistitoMail({
+          to: assistTo,
+          assistitoNome: assistitoLabel(apt0),
+          fornitoreName: forn ? getUserDisplayName(forn) : '—',
+          oggetto: apt0.oggetto,
+          dataOra: dataOraIt(updated),
+          linkVideocall: newLink || '',
+        });
+      }
     }
     const { usersById } = await loadApptsContext();
     logActivity({ utente_id: user.id, utente_nome: getUserDisplayName(await getById('users', user.id)), ruolo: user.role, azione: 'appuntamento_confermato', modulo: 'appuntamenti', riferimento_id: Number(id), riferimento_tipo: 'appointment' });

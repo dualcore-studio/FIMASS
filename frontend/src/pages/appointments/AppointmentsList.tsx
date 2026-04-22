@@ -12,7 +12,8 @@ import { TABLE_PAGE_SIZE } from '../../constants/tablePagination';
 import { useSyncPageToTotalPages } from '../../hooks/useSyncPageToTotalPages';
 import AppointmentRowActions from '../../components/appointments/AppointmentRowActions';
 import AppointmentFornitoreOverviewModal from '../../components/appointments/AppointmentFornitoreOverviewModal';
-import AppointmentsMonthCalendar, { parseMonthKey } from '../../components/appointments/AppointmentsMonthCalendar';
+import AppointmentsMonthCalendar from '../../components/appointments/AppointmentsMonthCalendar';
+import { parseMonthKey } from '../../utils/appointmentCalendarMonth';
 import { modalitaBadgeClass, modalitaLabel } from '../../utils/appointmentLabels';
 import { getUserDisplayName, isValidAssistitoPhone, isValidContactEmail } from '../../utils/helpers';
 

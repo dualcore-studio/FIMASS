@@ -6,9 +6,8 @@ import type { Appointment } from '../../types';
 import { api, ApiError } from '../../utils/api';
 import { useAuth } from '../../context/AuthContext';
 import Modal from '../ui/Modal';
-import StatusBadge from '../common/StatusBadge';
-import { formatDateTime } from '../../utils/helpers';
-import { isAppointmentClosed, modalitaLabel, strutturaCanEditTable } from '../../utils/appointmentLabels';
+import { modalitaLabel, strutturaCanEditTable, isAppointmentClosed } from '../../utils/appointmentLabels';
+import AppointmentHistoryModal from './AppointmentHistoryModal';
 
 const MENU_WIDTH = 240;
 const VIEW_MARGIN = 8;
@@ -26,13 +25,17 @@ type Props = {
   suppliers?: { id: number; nome: string | null; cognome: string | null }[];
   /** Nasconde la voce «Apri» (es. modale dettaglio già aperta) */
   hideOpenInMenu?: boolean;
+  uiVariant?: 'menu' | 'toolbar';
+  /** Se false, non mostrare il controllo «Storico stati» (es. gestito dal contenitore). */
+  historyInActions?: boolean;
+  /** Conferma senza modale intermedio: usa i valori passati dal contenitore (luogo / link videocall). */
+  embeddedConfirm?: boolean;
+  confirmLuogo?: string;
+  confirmLink?: string;
 };
 
-function actorLabel(u: { nome?: string | null; cognome?: string | null; denominazione?: string | null; role?: string } | null | undefined) {
-  if (!u) return '—';
-  if (u.role === 'struttura' && u.denominazione) return u.denominazione;
-  return [u.nome, u.cognome].filter(Boolean).join(' ') || '—';
-}
+const toolbarBtn =
+  'inline-flex items-center justify-center rounded-lg px-3 py-1.5 text-sm font-medium shadow-sm transition disabled:cursor-not-allowed disabled:opacity-50';
 
 export default function AppointmentRowActions({
   row,
@@ -42,6 +45,11 @@ export default function AppointmentRowActions({
   onNavigateDetail,
   suppliers = [],
   hideOpenInMenu = false,
+  uiVariant = 'menu',
+  historyInActions = true,
+  embeddedConfirm = false,
+  confirmLuogo: confirmLuogoExternal,
+  confirmLink: confirmLinkExternal,
 }: Props) {
   const navigate = useNavigate();
   const { user } = useAuth();
@@ -52,17 +60,6 @@ export default function AppointmentRowActions({
   const [menuPos, setMenuPos] = useState<MenuPos>({ top: 0, left: 0 });
 
   const [histOpen, setHistOpen] = useState(false);
-  const [histLoading, setHistLoading] = useState(false);
-  const [histRows, setHistRows] = useState<
-    {
-      id: number;
-      stato_precedente: string | null;
-      stato_nuovo: string;
-      nota: string | null;
-      created_at: string;
-      utente?: { nome?: string | null; cognome?: string | null; denominazione?: string | null; role?: string } | null;
-    }[]
-  >([]);
 
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [confirmLuogo, setConfirmLuogo] = useState('');
@@ -121,23 +118,6 @@ export default function AppointmentRowActions({
     return () => window.removeEventListener('scroll', onScroll, true);
   }, [open, updatePosition]);
 
-  const loadHistory = async () => {
-    setHistLoading(true);
-    try {
-      const data = await api.get<typeof histRows>(`/appointments/${row.id}/history`);
-      setHistRows(data);
-    } catch (e) {
-      onError(e instanceof ApiError ? e.message : 'Errore caricamento storico');
-    } finally {
-      setHistLoading(false);
-    }
-  };
-
-  const openHistory = () => {
-    setHistOpen(true);
-    loadHistory();
-  };
-
   useEffect(() => {
     if (confirmOpen) {
       setConfirmLuogo(row.luogo || '');
@@ -155,11 +135,13 @@ export default function AppointmentRowActions({
   }, [reschedOpen, row]);
 
   const handleConfirm = async () => {
-    if (row.modalita === 'presenza' && !confirmLuogo.trim()) {
+    const luogoVal = embeddedConfirm ? String(confirmLuogoExternal ?? '').trim() : confirmLuogo;
+    const linkVal = embeddedConfirm ? String(confirmLinkExternal ?? '').trim() : confirmLink;
+    if (row.modalita === 'presenza' && !luogoVal.trim()) {
       onError('Indicare il luogo.');
       return;
     }
-    if (row.modalita === 'videocall' && !confirmLink.trim()) {
+    if (row.modalita === 'videocall' && !linkVal.trim()) {
       onError('Indicare il link videocall.');
       return;
     }
@@ -170,8 +152,8 @@ export default function AppointmentRowActions({
     setConfirmBusy(true);
     try {
       await api.post(`/appointments/${row.id}/confirm`, {
-        luogo: row.modalita === 'presenza' ? confirmLuogo : undefined,
-        link_videocall: row.modalita === 'videocall' ? confirmLink : undefined,
+        luogo: row.modalita === 'presenza' ? luogoVal : undefined,
+        link_videocall: row.modalita === 'videocall' ? linkVal : undefined,
       });
       onSuccess?.('Appuntamento confermato.');
       setConfirmOpen(false);
@@ -392,16 +374,18 @@ export default function AppointmentRowActions({
           Riassegna fornitore
         </button>
       ) : null}
-      <button
-        type="button"
-        className="block w-full px-3 py-2 text-left hover:bg-slate-50"
-        onClick={() => {
-          openHistory();
-          closeMenu();
-        }}
-      >
-        Storico stati
-      </button>
+      {historyInActions ? (
+        <button
+          type="button"
+          className="block w-full px-3 py-2 text-left hover:bg-slate-50"
+          onClick={() => {
+            setHistOpen(true);
+            closeMenu();
+          }}
+        >
+          Storico stati
+        </button>
+      ) : null}
       {showAdminActions ? (
         <button
           type="button"
@@ -417,46 +401,16 @@ export default function AppointmentRowActions({
     </div>
   ) : null;
 
-  return (
-    <div className="relative inline-block text-left" ref={wrapRef}>
-      <button
-        type="button"
-        data-appt-actions-trigger
-        className="inline-flex items-center gap-1 rounded-md border border-slate-200 bg-white px-2 py-1 text-xs font-medium text-slate-700 shadow-sm hover:bg-slate-50"
-        aria-expanded={open}
-        onClick={() => setOpen((v) => !v)}
-      >
-        Azioni
-        <ChevronDown className="h-3.5 w-3.5 opacity-70" />
-      </button>
-      {open ? createPortal(menuContent, document.body) : null}
-      {open ? (
-        <button type="button" className="fixed inset-0 z-[70] cursor-default bg-transparent" aria-label="Chiudi menu" onClick={closeMenu} />
-      ) : null}
+  const onConfermaToolbar = () => {
+    if (embeddedConfirm) void handleConfirm();
+    else setConfirmOpen(true);
+  };
 
-      <Modal isOpen={histOpen} onClose={() => setHistOpen(false)} title="Storico stati" size="md">
-        {histLoading ? (
-          <p className="text-sm text-slate-500">Caricamento…</p>
-        ) : histRows.length === 0 ? (
-          <p className="text-sm text-slate-500">Nessun record.</p>
-        ) : (
-          <ul className="max-h-[min(60vh,400px)] space-y-4 overflow-y-auto pr-1">
-            {histRows.map((h) => (
-              <li key={h.id} className="border-b border-slate-100 pb-3 text-sm last:border-0">
-                <div className="flex flex-wrap items-center gap-2">
-                  {h.stato_precedente ? <StatusBadge stato={h.stato_precedente} type="appointment" /> : null}
-                  {h.stato_precedente ? <span className="text-slate-400">→</span> : null}
-                  <StatusBadge stato={h.stato_nuovo} type="appointment" />
-                </div>
-                <p className="mt-1 text-xs text-slate-500">
-                  {actorLabel(h.utente)} · {formatDateTime(h.created_at)}
-                </p>
-                {h.nota ? <p className="mt-2 rounded border border-slate-100 bg-slate-50 px-2 py-1 text-slate-800">{h.nota}</p> : null}
-              </li>
-            ))}
-          </ul>
-        )}
-      </Modal>
+  const showConfirmToolbarBtn = canConfirm && (row.stato === 'RICHIESTO' || row.stato === 'DA RIPROGRAMMARE');
+
+  const actionModals = (
+    <>
+      <AppointmentHistoryModal appointmentId={row.id} isOpen={histOpen} onClose={() => setHistOpen(false)} onError={onError} />
 
       <Modal isOpen={confirmOpen} onClose={() => !confirmBusy && setConfirmOpen(false)} title="Conferma appuntamento" size="md">
         <div className="space-y-4">
@@ -622,6 +576,81 @@ export default function AppointmentRowActions({
           </button>
         </div>
       </Modal>
+    </>
+  );
+
+  if (uiVariant === 'toolbar') {
+    return (
+      <>
+        <div className="flex flex-wrap items-center gap-2" data-appt-actions-root>
+          {showConfirmToolbarBtn ? (
+            <button
+              type="button"
+              className={`${toolbarBtn} bg-blue-600 text-white hover:bg-blue-700`}
+              onClick={onConfermaToolbar}
+              disabled={embeddedConfirm && confirmBusy}
+            >
+              {embeddedConfirm && confirmBusy ? 'Salvataggio…' : 'Conferma'}
+            </button>
+          ) : null}
+          {canResched ? (
+            <button
+              type="button"
+              className={`${toolbarBtn} bg-orange-500 text-white hover:bg-orange-600`}
+              onClick={() => setReschedOpen(true)}
+              disabled={resBusy}
+            >
+              Riprogramma
+            </button>
+          ) : null}
+          {canCancel ? (
+            <button
+              type="button"
+              className={`${toolbarBtn} bg-red-600 text-white hover:bg-red-700`}
+              onClick={() => setCancelOpen(true)}
+              disabled={cancelBusy}
+            >
+              Annulla
+            </button>
+          ) : null}
+          {canComplete && row.stato !== 'ANNULLATO' ? (
+            <button
+              type="button"
+              className={`${toolbarBtn} bg-emerald-600 text-white hover:bg-emerald-700`}
+              onClick={() => setCompleteOpen(true)}
+              disabled={completeBusy}
+            >
+              Completa
+            </button>
+          ) : null}
+          {historyInActions ? (
+            <button type="button" className="btn-secondary !px-3 !py-1.5 text-xs font-medium" onClick={() => setHistOpen(true)}>
+              Storico stati
+            </button>
+          ) : null}
+        </div>
+        {actionModals}
+      </>
+    );
+  }
+
+  return (
+    <div className="relative inline-block text-left" ref={wrapRef}>
+      <button
+        type="button"
+        data-appt-actions-trigger
+        className="inline-flex items-center gap-1 rounded-md border border-slate-200 bg-white px-2 py-1 text-xs font-medium text-slate-700 shadow-sm hover:bg-slate-50"
+        aria-expanded={open}
+        onClick={() => setOpen((v) => !v)}
+      >
+        Azioni
+        <ChevronDown className="h-3.5 w-3.5 opacity-70" />
+      </button>
+      {open ? createPortal(menuContent, document.body) : null}
+      {open ? (
+        <button type="button" className="fixed inset-0 z-[70] cursor-default bg-transparent" aria-label="Chiudi menu" onClick={closeMenu} />
+      ) : null}
+      {actionModals}
     </div>
   );
 }
