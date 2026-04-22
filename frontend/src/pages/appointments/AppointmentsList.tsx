@@ -12,6 +12,8 @@ import { TABLE_PAGE_SIZE } from '../../constants/tablePagination';
 import { useSyncPageToTotalPages } from '../../hooks/useSyncPageToTotalPages';
 import AppointmentRowActions from '../../components/appointments/AppointmentRowActions';
 import AppointmentFornitoreOverviewModal from '../../components/appointments/AppointmentFornitoreOverviewModal';
+import AppointmentStrutturaOverviewModal from '../../components/appointments/AppointmentStrutturaOverviewModal';
+import AppointmentStrutturaEditModal from '../../components/appointments/AppointmentStrutturaEditModal';
 import AppointmentsMonthCalendar from '../../components/appointments/AppointmentsMonthCalendar';
 import { parseMonthKey } from '../../utils/appointmentCalendarMonth';
 import { modalitaBadgeClass, modalitaLabel } from '../../utils/appointmentLabels';
@@ -126,8 +128,11 @@ export default function AppointmentsList() {
   const meseParam = searchParams.get('mese') ?? '';
   const calInitRef = useRef(false);
   const fornitoreModalIdRef = useRef<number | null>(null);
+  const strutturaModalIdRef = useRef<number | null>(null);
 
   const [fornitoreDetailAppt, setFornitoreDetailAppt] = useState<Appointment | null>(null);
+  const [strutturaDetailAppt, setStrutturaDetailAppt] = useState<Appointment | null>(null);
+  const [strutturaEditing, setStrutturaEditing] = useState<Appointment | null>(null);
 
   useEffect(() => {
     const t = window.setTimeout(() => setDebouncedAssistito(assistitoInput), 350);
@@ -224,9 +229,63 @@ export default function AppointmentsList() {
     };
   }, [focusRaw, role, setSearchParams]);
 
+  const focusStrutturaRaw = searchParams.get('focusStrutturaAppointment');
+  useEffect(() => {
+    if (!focusStrutturaRaw || role !== 'struttura') return;
+    const n = Number(focusStrutturaRaw);
+    if (!Number.isFinite(n)) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const one = await api.get<Appointment>(`/appointments/${n}`);
+        if (cancelled) return;
+        setStrutturaDetailAppt(one);
+        const mk = String(one.data_appuntamento || '').slice(0, 7);
+        if (/^\d{4}-\d{2}$/.test(mk)) {
+          const { dataDa: d1, dataAl: d2 } = monthRangeFromKey(mk);
+          setDataDa(d1);
+          setDataAl(d2);
+        }
+        setSearchParams(
+          (prev) => {
+            const sp = new URLSearchParams(prev);
+            sp.delete('focusStrutturaAppointment');
+            if (/^\d{4}-\d{2}$/.test(mk)) {
+              const { dataDa: d1, dataAl: d2 } = monthRangeFromKey(mk);
+              sp.set('mese', mk);
+              sp.set('data_da', d1);
+              sp.set('data_a', d2);
+            }
+            sp.delete('vista');
+            return sp;
+          },
+          { replace: true },
+        );
+      } catch {
+        if (!cancelled) {
+          setSearchParams(
+            (prev) => {
+              const sp = new URLSearchParams(prev);
+              sp.delete('focusStrutturaAppointment');
+              return sp;
+            },
+            { replace: true },
+          );
+        }
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [focusStrutturaRaw, role, setSearchParams]);
+
   useEffect(() => {
     fornitoreModalIdRef.current = fornitoreDetailAppt?.id ?? null;
   }, [fornitoreDetailAppt?.id]);
+
+  useEffect(() => {
+    strutturaModalIdRef.current = strutturaDetailAppt?.id ?? null;
+  }, [strutturaDetailAppt?.id]);
 
   useEffect(() => {
     setPage(1);
@@ -322,15 +381,25 @@ export default function AppointmentsList() {
     fetchList();
   }, [fetchList]);
 
-  const refreshAppointments = useCallback(async () => {
+  const refreshOpenAppointmentModals = useCallback(async () => {
     await fetchList();
-    const id = fornitoreModalIdRef.current;
-    if (!id) return;
-    try {
-      const one = await api.get<Appointment>(`/appointments/${id}`);
-      setFornitoreDetailAppt(one);
-    } catch {
-      setFornitoreDetailAppt(null);
+    const fid = fornitoreModalIdRef.current;
+    const sid = strutturaModalIdRef.current;
+    if (fid) {
+      try {
+        const one = await api.get<Appointment>(`/appointments/${fid}`);
+        setFornitoreDetailAppt(one);
+      } catch {
+        setFornitoreDetailAppt(null);
+      }
+    }
+    if (sid) {
+      try {
+        const one = await api.get<Appointment>(`/appointments/${sid}`);
+        setStrutturaDetailAppt(one);
+      } catch {
+        setStrutturaDetailAppt(null);
+      }
     }
   }, [fetchList]);
 
@@ -338,25 +407,62 @@ export default function AppointmentsList() {
     setFornitoreDetailAppt(a);
   }, []);
 
+  const openStrutturaModal = useCallback((a: Appointment) => {
+    setStrutturaDetailAppt(a);
+  }, []);
+
   const resolveNavigateDetail = useCallback(
     async (apptId: number) => {
-      if (role !== 'fornitore') {
-        navigate(`/appuntamenti/${apptId}`);
+      if (role === 'fornitore') {
+        const fromList = result?.data.find((x) => x.id === apptId);
+        if (fromList) {
+          openFornitoreModal(fromList);
+          return;
+        }
+        try {
+          const one = await api.get<Appointment>(`/appointments/${apptId}`);
+          openFornitoreModal(one);
+        } catch (e) {
+          setActionError(e instanceof ApiError ? e.message : 'Impossibile aprire l’appuntamento.');
+        }
         return;
       }
-      const fromList = result?.data.find((x) => x.id === apptId);
-      if (fromList) {
-        openFornitoreModal(fromList);
+      if (role === 'struttura') {
+        const fromList = result?.data.find((x) => x.id === apptId);
+        if (fromList) {
+          openStrutturaModal(fromList);
+          return;
+        }
+        try {
+          const one = await api.get<Appointment>(`/appointments/${apptId}`);
+          openStrutturaModal(one);
+        } catch (e) {
+          setActionError(e instanceof ApiError ? e.message : 'Impossibile aprire l’appuntamento.');
+        }
         return;
       }
-      try {
-        const one = await api.get<Appointment>(`/appointments/${apptId}`);
-        openFornitoreModal(one);
-      } catch (e) {
-        setActionError(e instanceof ApiError ? e.message : 'Impossibile aprire l’appuntamento.');
-      }
+      navigate(`/appuntamenti/${apptId}`);
     },
-    [role, navigate, result?.data, openFornitoreModal],
+    [role, navigate, result?.data, openFornitoreModal, openStrutturaModal],
+  );
+
+  const requestStrutturaEdit = useCallback(
+    (editId: number) => {
+      const cur = strutturaDetailAppt?.id === editId ? strutturaDetailAppt : null;
+      if (cur) {
+        setStrutturaEditing(cur);
+        return;
+      }
+      void (async () => {
+        try {
+          const one = await api.get<Appointment>(`/appointments/${editId}`);
+          setStrutturaEditing(one);
+        } catch (e) {
+          setActionError(e instanceof ApiError ? e.message : 'Impossibile aprire la modifica.');
+        }
+      })();
+    },
+    [strutturaDetailAppt],
   );
 
   const totalPages = result?.totalPages ?? 1;
@@ -644,6 +750,7 @@ export default function AppointmentsList() {
           onMonthChange={handleMonthChange}
           onSelectAppointment={(a) => {
             if (role === 'fornitore') openFornitoreModal(a);
+            else if (role === 'struttura') openStrutturaModal(a);
             else navigate(`/appuntamenti/${a.id}`);
           }}
         />
@@ -686,12 +793,15 @@ export default function AppointmentsList() {
                       result.data.map((a) => (
                         <tr
                           key={a.id}
-                          className={`border-b border-slate-100/90 ${role === 'fornitore' ? 'cursor-pointer hover:bg-slate-50/90' : ''}`}
+                          className={`border-b border-slate-100/90 ${
+                            role === 'fornitore' || role === 'struttura' ? 'cursor-pointer hover:bg-slate-50/90' : ''
+                          }`}
                           onClick={(e) => {
-                            if (role !== 'fornitore') return;
+                            if (role !== 'fornitore' && role !== 'struttura') return;
                             const el = e.target as HTMLElement;
                             if (el.closest('button') || el.closest('[data-appt-actions-root]')) return;
-                            openFornitoreModal(a);
+                            if (role === 'fornitore') openFornitoreModal(a);
+                            else openStrutturaModal(a);
                           }}
                         >
                           <td className="px-4 py-3 align-middle">
@@ -723,7 +833,7 @@ export default function AppointmentsList() {
                           <td className="px-4 py-3 align-middle text-right" data-appt-actions-root>
                             <AppointmentRowActions
                               row={a}
-                              onRefresh={role === 'fornitore' ? refreshAppointments : fetchList}
+                              onRefresh={role === 'fornitore' || role === 'struttura' ? refreshOpenAppointmentModals : fetchList}
                               onError={(msg) => {
                                 setActionError(msg);
                                 setActionSuccess(null);
@@ -734,6 +844,11 @@ export default function AppointmentsList() {
                               }}
                               onNavigateDetail={(id) => void resolveNavigateDetail(id)}
                               suppliers={suppliers}
+                              {...(role === 'struttura'
+                                ? {
+                                    onStrutturaEditRequest: requestStrutturaEdit,
+                                  }
+                                : {})}
                             />
                           </td>
                         </tr>
@@ -908,7 +1023,7 @@ export default function AppointmentsList() {
         <AppointmentFornitoreOverviewModal
           appointment={fornitoreDetailAppt}
           onClose={() => setFornitoreDetailAppt(null)}
-          onRefresh={refreshAppointments}
+          onRefresh={refreshOpenAppointmentModals}
           onError={(msg) => {
             setActionError(msg);
             setActionSuccess(null);
@@ -919,6 +1034,35 @@ export default function AppointmentsList() {
           }}
           suppliers={suppliers}
         />
+      ) : null}
+
+      {role === 'struttura' ? (
+        <>
+          <AppointmentStrutturaOverviewModal
+            appointment={strutturaDetailAppt}
+            onClose={() => setStrutturaDetailAppt(null)}
+            onRefresh={refreshOpenAppointmentModals}
+            onError={(msg) => {
+              setActionError(msg);
+              setActionSuccess(null);
+            }}
+            onSuccess={(msg) => {
+              setActionSuccess(msg);
+              setActionError(null);
+            }}
+            suppliers={suppliers}
+            onStrutturaEditRequest={requestStrutturaEdit}
+          />
+          <AppointmentStrutturaEditModal
+            appointment={strutturaEditing}
+            onClose={() => setStrutturaEditing(null)}
+            onSaved={() => {
+              void refreshOpenAppointmentModals();
+              setActionSuccess('Modifiche salvate.');
+              setActionError(null);
+            }}
+          />
+        </>
       ) : null}
     </div>
   );

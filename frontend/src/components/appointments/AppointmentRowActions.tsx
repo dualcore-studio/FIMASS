@@ -32,6 +32,8 @@ type Props = {
   embeddedConfirm?: boolean;
   confirmLuogo?: string;
   confirmLink?: string;
+  /** Lato struttura: apre modifica in modale invece della pagina dedicata. */
+  onStrutturaEditRequest?: (id: number) => void;
 };
 
 const toolbarBtn =
@@ -50,6 +52,7 @@ export default function AppointmentRowActions({
   embeddedConfirm = false,
   confirmLuogo: confirmLuogoExternal,
   confirmLink: confirmLinkExternal,
+  onStrutturaEditRequest,
 }: Props) {
   const navigate = useNavigate();
   const { user } = useAuth();
@@ -307,7 +310,11 @@ export default function AppointmentRowActions({
           className="block w-full px-3 py-2 text-left hover:bg-slate-50"
           onClick={() => {
             closeMenu();
-            navigate(`/appuntamenti/${row.id}?modifica=1`);
+            if (showStrutturaActions && canStrutturaEdit && onStrutturaEditRequest) {
+              onStrutturaEditRequest(row.id);
+            } else {
+              navigate(`/appuntamenti/${row.id}?modifica=1`);
+            }
           }}
         >
           Modifica
@@ -583,6 +590,15 @@ export default function AppointmentRowActions({
     return (
       <>
         <div className="flex flex-wrap items-center gap-2" data-appt-actions-root>
+          {showStrutturaActions && canStrutturaEdit && onStrutturaEditRequest ? (
+            <button
+              type="button"
+              className={`${toolbarBtn} border border-slate-200 bg-white text-slate-800 hover:bg-slate-50`}
+              onClick={() => onStrutturaEditRequest(row.id)}
+            >
+              Modifica
+            </button>
+          ) : null}
           {showConfirmToolbarBtn ? (
             <button
               type="button"

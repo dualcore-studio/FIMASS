@@ -41,13 +41,18 @@ export default function AppointmentDetail() {
   }, [id]);
 
   useEffect(() => {
-    if (user?.role === 'fornitore') return;
+    if (user?.role === 'fornitore' || user?.role === 'struttura') return;
     fetchDetail();
   }, [fetchDetail, user?.role]);
 
   useEffect(() => {
     if (authLoading || role !== 'fornitore' || !id) return;
     navigate(`/appuntamenti?focusAppointment=${encodeURIComponent(id)}&vista=calendario`, { replace: true });
+  }, [authLoading, role, id, navigate]);
+
+  useEffect(() => {
+    if (authLoading || role !== 'struttura' || !id) return;
+    navigate(`/appuntamenti?focusStrutturaAppointment=${encodeURIComponent(id)}`, { replace: true });
   }, [authLoading, role, id, navigate]);
 
   useEffect(() => {
@@ -117,7 +122,7 @@ export default function AppointmentDetail() {
     );
   }
 
-  if (role === 'fornitore') {
+  if (role === 'fornitore' || role === 'struttura') {
     return (
       <div className="px-4 py-8 text-center text-sm text-slate-600">
         <p>Apertura in agenda…</p>
