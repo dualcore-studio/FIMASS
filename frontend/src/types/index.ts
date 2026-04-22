@@ -205,6 +205,7 @@ export interface Policy {
   preventivo_id?: number;
   ricevuta_pagamento_attachment_id?: number | null;
   polizza_emessa_attachment_id?: number | null;
+  compagnia?: string | null;
   data_emissione?: string | null;
   data_scadenza?: string | null;
   rinnovata?: number | boolean;
@@ -216,6 +217,7 @@ export type StatoScadenza = 'Da rinnovare' | 'Scaduta' | 'Rinnovata';
 
 export interface ScadenzaPolicyRow {
   id: number;
+  quote_id?: number;
   struttura_id?: number;
   incaricato_user_id?: number | null;
   contraente: string;

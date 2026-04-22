@@ -86,6 +86,8 @@ export default function PolicyRowActions({
 
   const [emessaOpen, setEmessaOpen] = useState(false);
   const [emessaFile, setEmessaFile] = useState<File | null>(null);
+  const [emessaCompagnia, setEmessaCompagnia] = useState('');
+  const [emessaDataScadenza, setEmessaDataScadenza] = useState(''); // YYYY-MM-DD
   const [emessaSubmitting, setEmessaSubmitting] = useState(false);
 
   const close = () => setOpen(false);
@@ -193,9 +195,15 @@ export default function PolicyRowActions({
       formData.append('entity_id', String(policy.id));
       formData.append('tipo', 'polizza_emessa');
       await api.upload('/attachments/upload', formData);
-      await api.put(`/policies/${policy.id}/status`, { stato: 'EMESSA' });
+      const body: { stato: string; compagnia?: string; data_scadenza?: string } = { stato: 'EMESSA' };
+      const comp = emessaCompagnia.trim();
+      if (comp) body.compagnia = comp;
+      if (emessaDataScadenza.trim()) body.data_scadenza = emessaDataScadenza.trim();
+      await api.put(`/policies/${policy.id}/status`, body);
       setEmessaOpen(false);
       setEmessaFile(null);
+      setEmessaCompagnia('');
+      setEmessaDataScadenza('');
       onRefresh?.();
     } catch (e) {
       onActionError(e instanceof ApiError ? e.message : 'Operazione non riuscita.');
@@ -287,6 +295,8 @@ export default function PolicyRowActions({
           onClick={() => {
             close();
             setEmessaFile(null);
+            setEmessaCompagnia((policy.compagnia && String(policy.compagnia).trim()) || '');
+            setEmessaDataScadenza('');
             setEmessaOpen(true);
           }}
         >
@@ -384,11 +394,12 @@ export default function PolicyRowActions({
         isOpen={emessaOpen}
         onClose={() => !emessaSubmitting && setEmessaOpen(false)}
         title="Polizza emessa"
-        size="sm"
+        size="md"
       >
         <div className="space-y-4">
           <p className="text-sm text-slate-600">
-            Carica il file definitivo della polizza (obbligatorio). Lo stato verrà impostato su <strong>EMESSA</strong>.
+            Carica il file definitivo della polizza (obbligatorio). Lo stato verrà impostato su <strong>EMESSA</strong> e
+            verrà registrata la data di emissione.
           </p>
           <div>
             <label htmlFor="policy-final-file" className="mb-1 block text-sm font-medium text-slate-700">
@@ -401,8 +412,54 @@ export default function PolicyRowActions({
               className="input-field text-sm file:mr-3 file:rounded-md file:border-0 file:bg-blue-50 file:px-3 file:py-1 file:text-xs file:font-medium file:text-blue-700"
             />
           </div>
-          <div className="flex justify-end gap-2 pt-2">
-            <button type="button" className="btn-secondary" disabled={emessaSubmitting} onClick={() => setEmessaOpen(false)}>
+          <div>
+            <label htmlFor="policy-emessa-compagnia" className="mb-1 block text-sm font-medium text-slate-700">
+              Compagnia
+            </label>
+            <input
+              id="policy-emessa-compagnia"
+              type="text"
+              autoComplete="organization"
+              value={emessaCompagnia}
+              onChange={(e) => setEmessaCompagnia(e.target.value)}
+              placeholder="Es. Generali, Allianz…"
+              className="input-field text-sm"
+            />
+          </div>
+          <div>
+            <label htmlFor="policy-emessa-scadenza" className="mb-1 block text-sm font-medium text-slate-700">
+              Data scadenza
+            </label>
+            <input
+              id="policy-emessa-scadenza"
+              type="date"
+              value={emessaDataScadenza}
+              onChange={(e) => setEmessaDataScadenza(e.target.value)}
+              className="input-field text-sm"
+            />
+            <p className="mt-1.5 text-xs text-slate-500">
+              Se lasci vuoto, verrà calcolata automaticamente a 12 mesi dalla data di emissione.
+            </p>
+          </div>
+          {policy.note_interne && String(policy.note_interne).trim() ? (
+            <div className="rounded-lg border border-slate-200 bg-slate-50/90 px-3 py-2.5">
+              <p className="text-xs font-medium text-slate-500">Note interne (solo riferimento)</p>
+              <p className="mt-1 whitespace-pre-wrap text-sm text-slate-800">{String(policy.note_interne).trim()}</p>
+            </div>
+          ) : null}
+          <div className="flex justify-end gap-2 border-t border-slate-200 pt-4">
+            <button
+              type="button"
+              className="btn-secondary"
+              disabled={emessaSubmitting}
+              onClick={() => {
+                if (emessaSubmitting) return;
+                setEmessaOpen(false);
+                setEmessaFile(null);
+                setEmessaCompagnia('');
+                setEmessaDataScadenza('');
+              }}
+            >
               Annulla
             </button>
             <button type="button" className="btn-primary" disabled={emessaSubmitting} onClick={() => void submitEmessa()}>

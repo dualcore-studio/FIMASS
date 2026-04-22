@@ -1,10 +1,30 @@
-import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ReactNode,
+} from 'react';
+import { createPortal } from 'react-dom';
 import { Link } from 'react-router-dom';
-import { CalendarRange, ChevronDown, ExternalLink, FilePlus2, Loader2, RefreshCw } from 'lucide-react';
+import {
+  CalendarRange,
+  ChevronDown,
+  ExternalLink,
+  FilePlus2,
+  Loader2,
+  RefreshCw,
+} from 'lucide-react';
 import { api, ApiError } from '../../utils/api';
 import type { ScadenzaPolicyRow, ScadenzeApiResponse, StatoScadenza, StructureOption, User } from '../../types';
 import { formatDate, getUserDisplayName } from '../../utils/helpers';
 import { useAuth } from '../../context/AuthContext';
+
+const SCADENZE_MENU_WIDTH = 220;
+const SCADENZE_VIEW_MARGIN = 8;
+const SCADENZE_MENU_GAP = 4;
 
 function currentMonthKey(): string {
   const d = new Date();
@@ -36,12 +56,14 @@ function sortScadenzeRows(rows: ScadenzaPolicyRow[]): ScadenzaPolicyRow[] {
 function StatoScadenzaBadge({ stato }: { stato: StatoScadenza }) {
   const cls =
     stato === 'Da rinnovare'
-      ? 'bg-red-100 text-red-800 ring-red-200/60'
+      ? 'bg-rose-50 text-rose-800 ring-rose-200/80'
       : stato === 'Scaduta'
-        ? 'bg-slate-200 text-slate-700 ring-slate-300/50'
-        : 'bg-emerald-100 text-emerald-800 ring-emerald-200/60';
+        ? 'bg-slate-100 text-slate-700 ring-slate-300/60'
+        : 'bg-emerald-50 text-emerald-800 ring-emerald-200/70';
   return (
-    <span className={`inline-flex rounded-full px-2.5 py-0.5 text-xs font-medium ring-1 ring-inset ${cls}`}>
+    <span
+      className={`inline-flex max-w-full items-center rounded-md px-2.5 py-1 text-xs font-semibold tracking-tight ring-1 ring-inset ${cls}`}
+    >
       {stato}
     </span>
   );
@@ -49,14 +71,16 @@ function StatoScadenzaBadge({ stato }: { stato: StatoScadenza }) {
 
 function FilterCell({ id, label, children }: { id: string; label: string; children: ReactNode }) {
   return (
-    <div className="flex min-w-[9rem] flex-1 flex-col gap-px">
-      <label htmlFor={id} className="whitespace-nowrap text-[11px] font-normal leading-tight text-gray-600">
+    <div className="flex min-w-[7.5rem] flex-1 flex-col gap-1 sm:min-w-0 sm:max-w-[12rem]">
+      <label htmlFor={id} className="whitespace-nowrap text-[11px] font-medium text-slate-500">
         {label}
       </label>
       {children}
     </div>
   );
 }
+
+type MenuPos = { top: number; left: number; maxHeightPx?: number };
 
 function ScadenzaRowMenu({
   row,
@@ -67,64 +91,144 @@ function ScadenzaRowMenu({
 }) {
   const [open, setOpen] = useState(false);
   const wrapRef = useRef<HTMLDivElement>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
+  const [menuPos, setMenuPos] = useState<MenuPos>({ top: 0, left: 0 });
+
+  const updatePosition = useCallback(() => {
+    const trigger = wrapRef.current?.querySelector<HTMLElement>('[data-scadenze-actions-trigger]');
+    if (!trigger) return;
+    const r = trigger.getBoundingClientRect();
+    const vw = window.innerWidth;
+    const vh = window.innerHeight;
+    let left = r.right - SCADENZE_MENU_WIDTH;
+    if (left < SCADENZE_VIEW_MARGIN) left = SCADENZE_VIEW_MARGIN;
+    if (left + SCADENZE_MENU_WIDTH > vw - SCADENZE_VIEW_MARGIN) {
+      left = vw - SCADENZE_MENU_WIDTH - SCADENZE_VIEW_MARGIN;
+    }
+    const menuEl = menuRef.current;
+    const cap = Math.min(360, vh * 0.7);
+    const rawContent = menuEl?.scrollHeight ?? 200;
+    const contentH = Math.min(Math.max(rawContent, 1), cap);
+    const spaceBelow = Math.max(0, vh - SCADENZE_VIEW_MARGIN - r.bottom - SCADENZE_MENU_GAP);
+    const spaceAbove = Math.max(0, r.top - SCADENZE_VIEW_MARGIN - SCADENZE_MENU_GAP);
+    let top: number;
+    let maxHeightPx: number | undefined;
+    if (contentH <= spaceBelow) {
+      top = r.bottom + SCADENZE_MENU_GAP;
+    } else if (contentH <= spaceAbove) {
+      top = r.top - contentH - SCADENZE_MENU_GAP;
+    } else if (spaceBelow >= spaceAbove) {
+      top = r.bottom + SCADENZE_MENU_GAP;
+      maxHeightPx = Math.max(1, spaceBelow);
+    } else {
+      maxHeightPx = Math.max(1, spaceAbove);
+      top = r.top - maxHeightPx - SCADENZE_MENU_GAP;
+    }
+    const boxH = maxHeightPx ?? contentH;
+    if (top + boxH > vh - SCADENZE_VIEW_MARGIN) {
+      top = Math.max(SCADENZE_VIEW_MARGIN, vh - SCADENZE_VIEW_MARGIN - boxH);
+    }
+    setMenuPos({ top, left, maxHeightPx });
+  }, []);
+
+  useLayoutEffect(() => {
+    if (!open) return;
+    updatePosition();
+    const t = window.setTimeout(updatePosition, 0);
+    return () => window.clearTimeout(t);
+  }, [open, updatePosition]);
 
   useEffect(() => {
     if (!open) return;
-    const onDoc = (e: MouseEvent) => {
-      if (wrapRef.current && !wrapRef.current.contains(e.target as Node)) setOpen(false);
+    const onScroll = () => updatePosition();
+    window.addEventListener('scroll', onScroll, true);
+    window.addEventListener('resize', onScroll);
+    return () => {
+      window.removeEventListener('scroll', onScroll, true);
+      window.removeEventListener('resize', onScroll);
     };
-    document.addEventListener('mousedown', onDoc);
-    return () => document.removeEventListener('mousedown', onDoc);
-  }, [open]);
+  }, [open, updatePosition]);
 
   const canMarkRinnovata = row.stato_scadenza !== 'Rinnovata';
+  // TODO(renewal-flow): usare from_policy in QuoteCreate per precompilare assistito / tipo da polizza origine
+  const renewalHref =
+    row.quote_id != null
+      ? `/preventivi/nuovo?from_policy=${row.id}&from_quote=${row.quote_id}`
+      : `/preventivi/nuovo?from_policy=${row.id}`;
+
+  const menu =
+    open && typeof document !== 'undefined' ? (
+      <div
+        ref={menuRef}
+        className="fixed z-[200] min-w-[200px] overflow-y-auto rounded-xl border border-slate-200/90 bg-white py-1.5 shadow-xl ring-1 ring-slate-900/5"
+        style={{
+          top: menuPos.top,
+          left: menuPos.left,
+          width: SCADENZE_MENU_WIDTH,
+          ...(menuPos.maxHeightPx != null ? { maxHeight: menuPos.maxHeightPx } : {}),
+        }}
+        role="menu"
+      >
+        <Link
+          to={`/polizze/${row.id}`}
+          className="flex items-center gap-2 px-3.5 py-2.5 text-sm text-slate-800 transition hover:bg-slate-50"
+          onClick={() => setOpen(false)}
+        >
+          <ExternalLink className="size-3.5 shrink-0 text-slate-500" />
+          Apri
+        </Link>
+        {canMarkRinnovata ? (
+          <button
+            type="button"
+            className="flex w-full items-center gap-2 px-3.5 py-2.5 text-left text-sm text-slate-800 transition hover:bg-slate-50"
+            onClick={() => {
+              setOpen(false);
+              onRinnovata(row.id);
+            }}
+          >
+            <RefreshCw className="size-3.5 shrink-0 text-slate-500" />
+            Segna come rinnovata
+          </button>
+        ) : null}
+        <Link
+          to={renewalHref}
+          className="flex items-center gap-2 px-3.5 py-2.5 text-sm text-slate-800 transition hover:bg-slate-50"
+          onClick={() => setOpen(false)}
+        >
+          <FilePlus2 className="size-3.5 shrink-0 text-slate-500" />
+          Crea preventivo rinnovo
+        </Link>
+      </div>
+    ) : null;
 
   return (
-    <div className="relative flex justify-end" ref={wrapRef}>
-      <button
-        type="button"
-        onClick={() => setOpen((v) => !v)}
-        className="inline-flex items-center gap-1 rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs font-medium text-slate-700 shadow-sm hover:bg-slate-50"
-      >
-        Azioni
-        <ChevronDown className="size-3.5 opacity-70" />
-      </button>
+    <>
+      <div className="flex justify-end" ref={wrapRef}>
+        <button
+          type="button"
+          data-scadenze-actions-trigger
+          onClick={() => setOpen((v) => !v)}
+          className="inline-flex h-9 shrink-0 items-center gap-1 rounded-lg border border-slate-200/90 bg-white px-3 text-xs font-semibold text-slate-800 shadow-sm transition hover:border-slate-300 hover:bg-slate-50"
+        >
+          Azioni
+          <ChevronDown className="size-3.5 text-slate-500" />
+        </button>
+      </div>
       {open ? (
-        <div className="absolute right-0 top-full z-20 mt-1 min-w-[200px] rounded-lg border border-slate-200 bg-white py-1 shadow-lg">
-          <Link
-            to={`/polizze/${row.id}`}
-            className="flex items-center gap-2 px-3 py-2 text-sm text-slate-700 hover:bg-slate-50"
-            onClick={() => setOpen(false)}
-          >
-            <ExternalLink className="size-3.5 shrink-0 opacity-70" />
-            Apri
-          </Link>
-          {canMarkRinnovata ? (
-            <button
-              type="button"
-              className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-slate-700 hover:bg-slate-50"
-              onClick={() => {
-                setOpen(false);
-                onRinnovata(row.id);
-              }}
-            >
-              <RefreshCw className="size-3.5 shrink-0 opacity-70" />
-              Segna come rinnovata
-            </button>
-          ) : null}
-          <Link
-            to="/preventivi/nuovo"
-            className="flex items-center gap-2 px-3 py-2 text-sm text-slate-700 hover:bg-slate-50"
-            onClick={() => setOpen(false)}
-          >
-            <FilePlus2 className="size-3.5 shrink-0 opacity-70" />
-            Crea preventivo rinnovo
-          </Link>
-        </div>
+        <div
+          className="fixed inset-0 z-[190]"
+          aria-hidden
+          onClick={() => setOpen(false)}
+        />
       ) : null}
-    </div>
+      {menu && createPortal(menu, document.body)}
+    </>
   );
 }
+
+const cellBase = 'px-4 py-3.5 align-middle text-sm text-slate-800';
+const cellEllipsis = `${cellBase} max-w-[10rem] min-w-0 truncate sm:max-w-[12rem]`;
+const cellWide = `${cellBase} min-w-0 max-w-[14rem]`;
 
 export default function ScadenzePage() {
   const { user } = useAuth();
@@ -209,13 +313,7 @@ export default function ScadenzePage() {
     soloDaRinnovare,
   ]);
 
-  const cardSummary = useMemo(() => {
-    const totale = filtered.length;
-    const daRinnovare = filtered.filter((r) => r.stato_scadenza === 'Da rinnovare').length;
-    const scadute = filtered.filter((r) => r.stato_scadenza === 'Scaduta').length;
-    const rinnovate = filtered.filter((r) => r.stato_scadenza === 'Rinnovata').length;
-    return { totale, daRinnovare, scadute, rinnovate };
-  }, [filtered]);
+  const monthSummary = raw?.summary;
 
   const onRinnovata = async (id: number) => {
     setActionError(null);
@@ -227,29 +325,29 @@ export default function ScadenzePage() {
     }
   };
 
-  const tf = 'input-field h-9 w-full min-w-0 py-1.5 text-sm';
+  const tf = 'input-field h-9 w-full min-w-0 border-slate-200 py-1.5 text-sm shadow-sm';
 
   return (
     <div className="space-y-6">
       <header className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
         <div>
-          <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight text-gray-900">
-            <CalendarRange className="size-7 text-blue-700 opacity-90" strokeWidth={1.5} />
+          <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight text-slate-900">
+            <CalendarRange className="size-7 text-blue-800 opacity-90" strokeWidth={1.5} />
             Scadenze Polizze
           </h1>
-          <p className="mt-1 max-w-2xl text-sm text-gray-600">
+          <p className="mt-1 max-w-2xl text-sm text-slate-600">
             Gestione rinnovi e scadenze del portafoglio
           </p>
         </div>
-        <div className="flex flex-col gap-1 sm:items-end">
-          <label htmlFor="scadenze-mese" className="text-[11px] font-medium text-gray-600">
+        <div className="flex flex-col gap-1.5 sm:items-end">
+          <label htmlFor="scadenze-mese" className="text-xs font-medium text-slate-500">
             Mese di riferimento
           </label>
           <select
             id="scadenze-mese"
             value={month}
             onChange={(e) => setMonth(e.target.value)}
-            className={`${tf} sm:w-56`}
+            className={`${tf} min-w-[12rem] sm:w-56`}
           >
             {monthSelectOptions().map((o) => (
               <option key={o.value} value={o.value}>
@@ -261,28 +359,41 @@ export default function ScadenzePage() {
       </header>
 
       {actionError ? (
-        <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">{actionError}</div>
+        <div className="rounded-lg border border-red-200 bg-red-50/90 px-4 py-3 text-sm text-red-800">{actionError}</div>
       ) : null}
 
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         {[
-          { label: 'Totale scadenze mese', value: cardSummary.totale, accent: 'border-slate-200 bg-white' },
-          { label: 'Da rinnovare', value: cardSummary.daRinnovare, accent: 'border-red-100 bg-red-50/50' },
-          { label: 'Scadute', value: cardSummary.scadute, accent: 'border-slate-200 bg-slate-50/80' },
-          { label: 'Rinnovate', value: cardSummary.rinnovate, accent: 'border-emerald-100 bg-emerald-50/50' },
+          {
+            label: 'Totale scadenze mese',
+            value: monthSummary?.totale ?? 0,
+            accent: 'border-slate-200/80 bg-white shadow-sm',
+          },
+          {
+            label: 'Da rinnovare',
+            value: monthSummary?.daRinnovare ?? 0,
+            accent: 'border-rose-100/80 bg-gradient-to-br from-rose-50/80 to-white shadow-sm',
+          },
+          {
+            label: 'Scadute',
+            value: monthSummary?.scadute ?? 0,
+            accent: 'border-slate-200/80 bg-slate-50/50 shadow-sm',
+          },
+          {
+            label: 'Rinnovate',
+            value: monthSummary?.rinnovate ?? 0,
+            accent: 'border-emerald-100/80 bg-gradient-to-br from-emerald-50/70 to-white shadow-sm',
+          },
         ].map((c) => (
-          <div
-            key={c.label}
-            className={`rounded-xl border px-4 py-3 shadow-sm ${c.accent}`}
-          >
-            <p className="text-xs font-medium text-gray-600">{c.label}</p>
-            <p className="mt-1 text-2xl font-semibold tabular-nums text-gray-900">{c.value}</p>
+          <div key={c.label} className={`rounded-2xl border px-4 py-3.5 ${c.accent}`}>
+            <p className="text-xs font-medium text-slate-500">{c.label}</p>
+            <p className="mt-1.5 text-2xl font-semibold tabular-nums tracking-tight text-slate-900">{c.value}</p>
           </div>
         ))}
       </div>
 
-      <div className="card px-2.5 py-2 sm:px-3 sm:py-2">
-        <div className="flex w-full flex-wrap items-end gap-2 lg:flex-nowrap">
+      <div className="rounded-2xl border border-slate-200/80 bg-white/90 px-3 py-3 shadow-sm sm:px-4">
+        <div className="flex w-full flex-col gap-2.5 min-[1000px]:flex-nowrap min-[1000px]:flex-row min-[1000px]:items-end min-[1000px]:gap-2">
           <span className="sr-only">Filtri scadenze</span>
           <FilterCell id="scad-search" label="Cerca contraente">
             <input
@@ -349,7 +460,7 @@ export default function ScadenzePage() {
               role="switch"
               aria-checked={soloScadute}
               onClick={() => setSoloScadute((v) => !v)}
-              className={`flex h-9 w-full min-w-[7rem] items-center justify-center rounded-lg border text-xs font-medium transition-colors ${
+              className={`flex h-9 w-full min-w-0 items-center justify-center rounded-lg border text-xs font-semibold transition-colors ${
                 soloScadute
                   ? 'border-slate-700 bg-slate-800 text-white'
                   : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'
@@ -365,9 +476,9 @@ export default function ScadenzePage() {
               role="switch"
               aria-checked={soloDaRinnovare}
               onClick={() => setSoloDaRinnovare((v) => !v)}
-              className={`flex h-9 w-full min-w-[7rem] items-center justify-center rounded-lg border text-xs font-medium transition-colors ${
+              className={`flex h-9 w-full min-w-0 items-center justify-center rounded-lg border text-xs font-semibold transition-colors ${
                 soloDaRinnovare
-                  ? 'border-red-600 bg-red-600 text-white'
+                  ? 'border-rose-600 bg-rose-600 text-white'
                   : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'
               }`}
             >
@@ -377,53 +488,105 @@ export default function ScadenzePage() {
         </div>
       </div>
 
-      <div className="card overflow-hidden">
+      <div className="overflow-hidden rounded-2xl border border-slate-200/80 bg-white shadow-sm">
         {loading ? (
           <div className="flex min-h-[280px] flex-col items-center justify-center gap-3 py-12">
             <Loader2 className="size-10 animate-spin text-blue-700" />
-            <p className="text-sm text-gray-500">Caricamento scadenze…</p>
+            <p className="text-sm text-slate-500">Caricamento scadenze…</p>
           </div>
         ) : error ? (
           <div className="p-8 text-center text-sm text-red-700">{error}</div>
         ) : filtered.length === 0 ? (
           <div className="flex min-h-[220px] flex-col items-center justify-center gap-2 px-6 py-12 text-center">
-            <p className="text-sm font-medium text-gray-700">
+            <p className="text-sm font-medium text-slate-800">
               {(raw?.items.length ?? 0) === 0
                 ? 'Nessuna polizza in scadenza nel mese selezionato'
                 : 'Nessun risultato con i filtri applicati'}
             </p>
-            <p className="max-w-md text-xs text-gray-500">
-              Le scadenze sono calcolate sulle polizze in stato EMESSA con data di scadenza nel mese scelto.
+            <p className="max-w-md text-xs text-slate-500">
+              Le scadenze mostrano le polizze in stato EMESSA con data di scadenza (effettiva) nel mese scelto.
             </p>
           </div>
         ) : (
           <div className="overflow-x-auto">
-            <table className="portal-table min-w-full text-left text-sm">
+            <table className="portal-table w-full min-w-[920px] text-left text-sm">
               <thead>
                 <tr>
-                  <th>Data scadenza</th>
-                  <th>Contraente</th>
-                  <th>Tipologia</th>
-                  <th>Compagnia</th>
-                  <th>Struttura</th>
-                  <th>Operatore</th>
-                  <th>Stato</th>
-                  <th className="text-right">Azioni</th>
+                  <th
+                    className="whitespace-nowrap px-4 py-3.5 text-xs font-semibold uppercase tracking-wide text-slate-500"
+                    scope="col"
+                  >
+                    Data scadenza
+                  </th>
+                  <th
+                    className="min-w-0 px-4 py-3.5 text-xs font-semibold uppercase tracking-wide text-slate-500"
+                    scope="col"
+                  >
+                    Contraente
+                  </th>
+                  <th
+                    className="min-w-0 px-4 py-3.5 text-xs font-semibold uppercase tracking-wide text-slate-500"
+                    scope="col"
+                  >
+                    Tipologia
+                  </th>
+                  <th
+                    className="min-w-0 px-4 py-3.5 text-xs font-semibold uppercase tracking-wide text-slate-500"
+                    scope="col"
+                  >
+                    Compagnia
+                  </th>
+                  <th
+                    className="min-w-0 px-4 py-3.5 text-xs font-semibold uppercase tracking-wide text-slate-500"
+                    scope="col"
+                  >
+                    Struttura
+                  </th>
+                  <th
+                    className="min-w-0 px-4 py-3.5 text-xs font-semibold uppercase tracking-wide text-slate-500"
+                    scope="col"
+                  >
+                    Operatore
+                  </th>
+                  <th
+                    className="whitespace-nowrap px-4 py-3.5 text-xs font-semibold uppercase tracking-wide text-slate-500"
+                    scope="col"
+                  >
+                    Stato
+                  </th>
+                  <th
+                    className="w-[7.5rem] min-w-[7.5rem] px-4 py-3.5 text-right text-xs font-semibold uppercase tracking-wide text-slate-500"
+                    scope="col"
+                  >
+                    Azioni
+                  </th>
                 </tr>
               </thead>
-              <tbody>
+              <tbody className="divide-y divide-slate-100/90">
                 {filtered.map((row) => (
-                  <tr key={row.id}>
-                    <td className="whitespace-nowrap font-medium text-gray-900">{formatDate(row.data_scadenza)}</td>
-                    <td>{row.contraente}</td>
-                    <td>{row.tipologia}</td>
-                    <td className="text-gray-700">{row.compagnia ?? '—'}</td>
-                    <td>{row.struttura}</td>
-                    <td>{row.operatore}</td>
-                    <td>
+                  <tr key={row.id} className="transition-colors duration-150 hover:bg-slate-50/80">
+                    <td className={`${cellBase} whitespace-nowrap font-semibold text-slate-900`}>
+                      {formatDate(row.data_scadenza)}
+                    </td>
+                    <td className={cellWide} title={row.contraente}>
+                      {row.contraente}
+                    </td>
+                    <td className={cellEllipsis} title={row.tipologia}>
+                      {row.tipologia}
+                    </td>
+                    <td className={cellEllipsis} title={row.compagnia ?? undefined}>
+                      {row.compagnia ?? '—'}
+                    </td>
+                    <td className={cellEllipsis} title={row.struttura}>
+                      {row.struttura}
+                    </td>
+                    <td className={cellEllipsis} title={row.operatore}>
+                      {row.operatore}
+                    </td>
+                    <td className={`${cellBase} whitespace-nowrap`}>
                       <StatoScadenzaBadge stato={row.stato_scadenza} />
                     </td>
-                    <td className="text-right">
+                    <td className="w-[7.5rem] min-w-[7.5rem] px-4 py-3.5 text-right align-middle">
                       <ScadenzaRowMenu row={row} onRinnovata={onRinnovata} />
                     </td>
                   </tr>

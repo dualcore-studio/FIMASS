@@ -2,7 +2,13 @@ const express = require('express');
 const { loadContext, enrichPolicy } = require('../data/views');
 const { authenticateToken, authorizeRoles } = require('../middleware/auth');
 const { normalizePolicyStato } = require('../utils/policyStato');
-const { datePartYmd, isDateBeforeTodayYmd } = require('../utils/policyDates');
+const {
+  datePartYmd,
+  isDateBeforeTodayYmd,
+  calculatePolicyExpiryDate,
+  toIsoDateTime,
+  parseDbDateTime,
+} = require('../utils/policyDates');
 const { policyAssigneeUserId } = require('../utils/practiceAssignee');
 
 const router = express.Router();
@@ -20,6 +26,21 @@ function monthRangeIso({ y, m }) {
   const lastDay = new Date(y, m, 0).getDate();
   const end = `${y}-${String(m).padStart(2, '0')}-${String(lastDay).padStart(2, '0')} 23:59:59`;
   return { start, end };
+}
+
+/** Data scadenza mostrata/filtrata: DB, altrimenti data_emissione + 12 mesi. */
+function effectiveDataScadenza(policy) {
+  if (policy.data_scadenza) return policy.data_scadenza;
+  if (policy.data_emissione) {
+    const exp = calculatePolicyExpiryDate(parseDbDateTime(policy.data_emissione));
+    return exp ? toIsoDateTime(exp) : null;
+  }
+  return null;
+}
+
+function compagniaLabel(policy, quote) {
+  const c = policy.compagnia != null && String(policy.compagnia).trim() !== '' ? String(policy.compagnia).trim() : null;
+  return c || compagniaFromQuote(quote);
 }
 
 function compagniaFromQuote(quote) {
@@ -86,26 +107,28 @@ router.get('/', authenticateToken, authorizeRoles('admin', 'supervisore', 'opera
       }
 
       policies = policies.filter((p) => {
-        if (!p.data_scadenza) return false;
-        const ds = String(p.data_scadenza);
-        return ds >= start && ds <= end;
+        const ds = effectiveDataScadenza(p);
+        if (!ds) return false;
+        return String(ds) >= start && String(ds) <= end;
       });
 
       const items = policies.map((p) => {
         const quote = ctx.quotesById.get(Number(p.quote_id)) || {};
-        const ymd = datePartYmd(p.data_scadenza);
+        const scadenzaEff = effectiveDataScadenza(p);
+        const ymd = datePartYmd(scadenzaEff);
         const stato_scadenza = buildStatoScadenza(p, ymd);
         return {
           id: p.id,
+          quote_id: p.quote_id,
           struttura_id: p.struttura_id,
           incaricato_user_id: policyAssigneeUserId(p),
           contraente: [p.assistito_cognome, p.assistito_nome].filter(Boolean).join(' ') || '—',
           tipologia: p.tipo_nome || '—',
-          compagnia: compagniaFromQuote(quote),
+          compagnia: compagniaLabel(p, quote),
           struttura: p.struttura_nome || '—',
           operatore: operatoreLabel(p),
           data_emissione: p.data_emissione || null,
-          data_scadenza: p.data_scadenza || null,
+          data_scadenza: scadenzaEff,
           rinnovata: p.rinnovata === 1 || p.rinnovata === true,
           stato_scadenza,
         };

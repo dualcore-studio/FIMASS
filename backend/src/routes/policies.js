@@ -19,6 +19,19 @@ const { writeAuditLog, AUDIT_ACTIONS } = require('../lib/auditLog');
 
 const router = express.Router();
 
+/** Data scadenza manuale da body (es. YYYY-MM-DD da input type=date). Ritorna null se vuota. */
+function parseManualDataScadenza(input) {
+  if (input == null) return { ok: true, value: null };
+  const s = String(input).trim();
+  if (!s) return { ok: true, value: null };
+  if (/^\d{4}-\d{2}-\d{2}$/.test(s)) {
+    return { ok: true, value: `${s} 00:00:00` };
+  }
+  const d = parseDbDateTime(s);
+  if (!d) return { ok: false, error: 'Data scadenza non valida' };
+  return { ok: true, value: toIsoDateTime(d) };
+}
+
 function getUserDisplayName(user) {
   return user.role === 'struttura' ? user.denominazione : `${user.nome} ${user.cognome}`;
 }
@@ -307,7 +320,7 @@ router.post('/', authenticateToken, authorizeRoles('struttura'), (req, res) => {
 
 router.put('/:id/status', authenticateToken, authorizeRoles('admin', 'supervisore', 'operatore', 'fornitore'), (req, res) => {
   (async () => {
-    const { stato, motivo } = req.body;
+    const { stato, motivo, compagnia: compagniaBody, data_scadenza: dataScadenzaBody } = req.body;
     if (!stato) return res.status(400).json({ error: 'Stato richiesto' });
     if (!isAllowedPolicyStato(stato)) return res.status(400).json({ error: 'Stato polizza non valido' });
 
@@ -335,11 +348,27 @@ router.put('/:id/status', authenticateToken, authorizeRoles('admin', 'supervisor
     }
 
     const patch = { stato };
-    if (stato === 'EMESSA' && !policy.data_emissione) {
-      const emission = nowIso();
-      patch.data_emissione = emission;
-      const exp = calculatePolicyExpiryDate(parseDbDateTime(emission));
-      if (exp) patch.data_scadenza = toIsoDateTime(exp);
+    if (stato === 'EMESSA') {
+      const scadenzaParsed = parseManualDataScadenza(dataScadenzaBody);
+      if (!scadenzaParsed.ok) {
+        return res.status(400).json({ error: scadenzaParsed.error });
+      }
+      let emissionIso = policy.data_emissione;
+      if (!emissionIso) {
+        emissionIso = nowIso();
+        patch.data_emissione = emissionIso;
+      }
+      const emissionDate = parseDbDateTime(emissionIso);
+      if (scadenzaParsed.value != null) {
+        patch.data_scadenza = scadenzaParsed.value;
+      } else {
+        const exp = calculatePolicyExpiryDate(emissionDate);
+        if (exp) patch.data_scadenza = toIsoDateTime(exp);
+      }
+      if (compagniaBody != null) {
+        const c = String(compagniaBody).trim();
+        if (c) patch.compagnia = c;
+      }
     }
 
     await upsertById('policies', req.params.id, patch);

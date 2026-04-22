@@ -127,6 +127,7 @@ function initializeDatabase() {
       dati_specifici TEXT,
       note_struttura TEXT,
       note_interne TEXT,
+      compagnia TEXT,
       data_emissione TEXT,
       data_scadenza TEXT,
       rinnovata INTEGER NOT NULL DEFAULT 0,
@@ -355,6 +356,9 @@ function migratePoliciesScadenzeSqliteIfNeeded() {
     }
     if (!names.has('rinnovata')) {
       db.exec('ALTER TABLE policies ADD COLUMN rinnovata INTEGER NOT NULL DEFAULT 0');
+    }
+    if (!names.has('compagnia')) {
+      db.exec('ALTER TABLE policies ADD COLUMN compagnia TEXT');
     }
 
     const {
