@@ -163,6 +163,11 @@ function StrutturaDetailBody({
             hideOpenInMenu
             uiVariant="toolbar"
             historyInActions={false}
+            onAfterDelete={() => {
+              onSuccess('Appuntamento eliminato.');
+              onClose();
+              void onRefresh();
+            }}
             {...(onStrutturaEditRequest ? { onStrutturaEditRequest } : {})}
           />
           <button type="button" className="btn-secondary shrink-0 self-end sm:self-auto" onClick={onClose}>

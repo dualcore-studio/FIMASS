@@ -181,6 +181,11 @@ function FornitoreDetailForm({ appointment, onClose, onRefresh, onError, onSucce
             embeddedConfirm
             confirmLuogo={draftLuogo}
             confirmLink={draftLink}
+            onAfterDelete={() => {
+              onSuccess('Appuntamento eliminato.');
+              onClose();
+              void onRefresh();
+            }}
           />
           <button type="button" className="btn-secondary shrink-0 self-end sm:self-auto" onClick={onClose}>
             Chiudi

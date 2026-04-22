@@ -650,6 +650,15 @@ export default function AppointmentRowActions({
               Completa
             </button>
           ) : null}
+          {showAdminActions ? (
+            <button
+              type="button"
+              className={`${toolbarBtn} border border-red-200 bg-white text-red-700 hover:bg-red-50`}
+              onClick={() => setDeleteOpen(true)}
+            >
+              Elimina appuntamento
+            </button>
+          ) : null}
           {historyInActions ? (
             <button type="button" className="btn-secondary !px-3 !py-1.5 text-xs font-medium" onClick={() => setHistOpen(true)}>
               Storico stati
