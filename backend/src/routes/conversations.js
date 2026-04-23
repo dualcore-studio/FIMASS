@@ -27,6 +27,35 @@ function previewText(s, max = 180) {
   return `${t.slice(0, max)}…`;
 }
 
+/** Contesto pratica per email messaggi (preventivo / polizza). */
+async function mailPracticeContextForNotification(entityType, entityId) {
+  if (entityType !== 'quote' && entityType !== 'policy') {
+    return { practiceRef: null, assistitoNomeCognome: null };
+  }
+  const ctx = await loadContext();
+  if (entityType === 'quote') {
+    const q = await getById('quotes', entityId);
+    if (!q) return { practiceRef: null, assistitoNomeCognome: null };
+    const eq = enrichQuote(q, ctx);
+    const assistitoNomeCognome = [eq.assistito_nome, eq.assistito_cognome].filter(Boolean).join(' ').trim();
+    return {
+      practiceRef: `#${eq.id} (${eq.numero})`,
+      assistitoNomeCognome: assistitoNomeCognome || null,
+    };
+  }
+  const pol = await getById('policies', entityId);
+  if (!pol) return { practiceRef: null, assistitoNomeCognome: null };
+  const ep = enrichPolicy(pol, ctx);
+  const assistitoNomeCognome = [ep.assistito_nome, ep.assistito_cognome].filter(Boolean).join(' ').trim();
+  const qid = ep.preventivo_id != null ? ep.preventivo_id : pol.quote_id;
+  const qnum =
+    ep.preventivo_numero != null && String(ep.preventivo_numero).trim() !== '' ? ep.preventivo_numero : '—';
+  return {
+    practiceRef: `Polizza ${ep.numero} (ID ${ep.id}) — preventivo #${qid} (${qnum})`,
+    assistitoNomeCognome: assistitoNomeCognome || null,
+  };
+}
+
 function normRole(r) {
   return String(r == null ? '' : r)
     .trim()
@@ -508,6 +537,8 @@ router.post('/', authenticateToken, (req, res) => {
         content: text,
       });
 
+      const mailCtx = await mailPracticeContextForNotification(entityType, entityId);
+
       if (req.user.role === 'struttura') {
         const assigneeMail = resolved.user.email && String(resolved.user.email).trim();
         if (assigneeMail) {
@@ -516,6 +547,7 @@ router.post('/', authenticateToken, (req, res) => {
             recipientName: getUserDisplayName(resolved.user),
             senderName: getUserDisplayName(req.user),
             conversationId: conv.id,
+            ...mailCtx,
           });
         }
       } else if (req.user.role === 'operatore' || req.user.role === 'fornitore') {
@@ -527,6 +559,7 @@ router.post('/', authenticateToken, (req, res) => {
             recipientName: getUserDisplayName(struttura),
             senderName: getUserDisplayName(req.user),
             conversationId: conv.id,
+            ...mailCtx,
           });
         }
       } else if (req.user.role === 'admin' || req.user.role === 'supervisore') {
@@ -537,6 +570,7 @@ router.post('/', authenticateToken, (req, res) => {
             recipientName: getUserDisplayName(resolved.user),
             senderName: getUserDisplayName(req.user),
             conversationId: conv.id,
+            ...mailCtx,
           });
         }
         const struttura = await getById('users', Number(row.struttura_id));
@@ -547,6 +581,7 @@ router.post('/', authenticateToken, (req, res) => {
             recipientName: getUserDisplayName(struttura),
             senderName: getUserDisplayName(req.user),
             conversationId: conv.id,
+            ...mailCtx,
           });
         }
       }
@@ -623,6 +658,11 @@ router.post('/:id/messages', authenticateToken, (req, res) => {
       });
       await markConversationReadForUser(conv.id, req.user.id);
 
+      let mailCtx = { practiceRef: null, assistitoNomeCognome: null };
+      if (conv.entity_type === 'quote' || conv.entity_type === 'policy') {
+        mailCtx = await mailPracticeContextForNotification(conv.entity_type, conv.entity_id);
+      }
+
       if (req.user.role === 'struttura') {
         if (conv.entity_type === 'info') {
           const assigneeUser = await getById('users', conv.assignee_id);
@@ -633,6 +673,7 @@ router.post('/:id/messages', authenticateToken, (req, res) => {
               recipientName: getUserDisplayName(assigneeUser),
               senderName: getUserDisplayName(req.user),
               conversationId: conv.id,
+              ...mailCtx,
             });
           }
         } else if (resolved) {
@@ -643,6 +684,7 @@ router.post('/:id/messages', authenticateToken, (req, res) => {
               recipientName: getUserDisplayName(resolved.user),
               senderName: getUserDisplayName(req.user),
               conversationId: conv.id,
+              ...mailCtx,
             });
           }
         }
@@ -655,6 +697,7 @@ router.post('/:id/messages', authenticateToken, (req, res) => {
             recipientName: getUserDisplayName(struttura),
             senderName: getUserDisplayName(req.user),
             conversationId: conv.id,
+            ...mailCtx,
           });
         }
       } else if (req.user.role === 'admin' || req.user.role === 'supervisore') {
@@ -667,6 +710,7 @@ router.post('/:id/messages', authenticateToken, (req, res) => {
               recipientName: getUserDisplayName(assigneeUser),
               senderName: getUserDisplayName(req.user),
               conversationId: conv.id,
+              ...mailCtx,
             });
           }
         } else if (resolved) {
@@ -677,6 +721,7 @@ router.post('/:id/messages', authenticateToken, (req, res) => {
               recipientName: getUserDisplayName(resolved.user),
               senderName: getUserDisplayName(req.user),
               conversationId: conv.id,
+              ...mailCtx,
             });
           }
           const struttura = await getById('users', conv.struttura_id);
@@ -687,6 +732,7 @@ router.post('/:id/messages', authenticateToken, (req, res) => {
               recipientName: getUserDisplayName(struttura),
               senderName: getUserDisplayName(req.user),
               conversationId: conv.id,
+              ...mailCtx,
             });
           }
         }

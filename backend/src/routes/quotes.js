@@ -14,6 +14,7 @@ const {
   sendQuoteAssignedToOperatorMail,
   sendQuoteStatusChangeToStructureMail,
   sendQuotePresentedByStructureToAdminMail,
+  formatAssistitoNomeCognome,
 } = require('../lib/resend');
 const { pipeQuoteSummaryPdf } = require('../lib/quoteSummaryPdf');
 const { sendAttachmentDownload, resolveLocalDiskPath, isHttpUrl } = require('../lib/attachmentDownload');
@@ -905,6 +906,10 @@ router.post(
             strutturaNome: enrichedAfter.struttura_nome || 'Struttura',
             quoteId: enrichedAfter.id,
             quoteNumero: enrichedAfter.numero,
+            assistitoNomeCognome: formatAssistitoNomeCognome(
+              enrichedAfter.assistito_nome,
+              enrichedAfter.assistito_cognome,
+            ),
             statoPrecedente: prevStato,
             statoNuovo: 'ELABORATA',
             dataAggiornamento,
@@ -1259,6 +1264,10 @@ router.post('/', authenticateToken, authorizeRoles('struttura'), (req, res) => {
         quoteId,
         quoteNumero: numero,
         strutturaNome: strutturaNomePresented,
+        assistitoNomeCognome: formatAssistitoNomeCognome(
+          enrichedPresented.assistito_nome,
+          enrichedPresented.assistito_cognome,
+        ),
         dataPresentazione,
       });
     }
@@ -1357,6 +1366,10 @@ router.put('/:id/assign', authenticateToken, authorizeRoles('supervisore', 'admi
         operatorName: assigneeLabel,
         quoteId: enrichedAssign.id,
         quoteNumero: enrichedAssign.numero,
+        assistitoNomeCognome: formatAssistitoNomeCognome(
+          enrichedAssign.assistito_nome,
+          enrichedAssign.assistito_cognome,
+        ),
         statoCorrente: enrichedAssign.stato,
         dataAssegnazione,
       });
@@ -1371,6 +1384,10 @@ router.put('/:id/assign', authenticateToken, authorizeRoles('supervisore', 'admi
           strutturaNome: enrichedAssign.struttura_nome || 'Struttura',
           quoteId: enrichedAssign.id,
           quoteNumero: enrichedAssign.numero,
+          assistitoNomeCognome: formatAssistitoNomeCognome(
+            enrichedAssign.assistito_nome,
+            enrichedAssign.assistito_cognome,
+          ),
           statoPrecedente: prevStato,
           statoNuovo: newStato,
           dataAggiornamento: dataAssegnazione,
@@ -1493,6 +1510,10 @@ router.put('/:id/status', authenticateToken, (req, res) => {
         strutturaNome: enrichedStatus.struttura_nome || 'Struttura',
         quoteId: enrichedStatus.id,
         quoteNumero: enrichedStatus.numero,
+        assistitoNomeCognome: formatAssistitoNomeCognome(
+          enrichedStatus.assistito_nome,
+          enrichedStatus.assistito_cognome,
+        ),
         statoPrecedente: prevStato,
         statoNuovo: statoNormalized,
         dataAggiornamento,

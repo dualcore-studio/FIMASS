@@ -339,6 +339,10 @@ async function createRenewalQuoteFromScadenza({
       quoteId,
       quoteNumero: numero,
       strutturaNome: strutturaNomePresented,
+      assistitoNomeCognome: [enrichedPresented.assistito_nome, enrichedPresented.assistito_cognome]
+        .filter(Boolean)
+        .join(' ')
+        .trim() || '—',
       dataPresentazione,
     });
   }

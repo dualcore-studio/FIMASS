@@ -1,10 +1,31 @@
 const { Resend } = require('resend');
 
+/** Nome visualizzato mittente per tutte le email automatiche (l'indirizzo resta RESEND_FROM_EMAIL). */
+const AUTOMATIC_MAIL_FROM_DISPLAY_NAME = 'FIMASS GESTIONALE ASSICURATIVO';
+
 function getMailEnv() {
   const apiKey = process.env.RESEND_API_KEY;
   const from = process.env.RESEND_FROM_EMAIL;
   const appUrl = String(process.env.APP_URL || '').replace(/\/$/, '');
   return { apiKey, from, appUrl };
+}
+
+/** Costruisce `Nome <email>` per Resend usando solo l'indirizzo da env (nome sempre quello assicurativo). */
+function buildResendFromHeader(rawFromEnv) {
+  const s = String(rawFromEnv || '').trim();
+  if (!s) return '';
+  const m = s.match(/^(.+?)\s*<([^>]+)>\s*$/);
+  const addr = m ? String(m[2]).trim() : s;
+  return `${AUTOMATIC_MAIL_FROM_DISPLAY_NAME} <${addr}>`;
+}
+
+/** Nome e cognome assistito in ordine lettura (nome prima, poi cognome). */
+function formatAssistitoNomeCognome(nome, cognome) {
+  const s = [nome, cognome]
+    .filter((x) => x != null && String(x).trim() !== '')
+    .map((x) => String(x).trim())
+    .join(' ');
+  return s || '—';
 }
 
 function escapeHtml(value) {
@@ -61,7 +82,7 @@ function emailShell(title, innerHtml) {
         <table role="presentation" width="560" cellspacing="0" cellpadding="0" style="max-width:560px;background:#ffffff;border-radius:8px;overflow:hidden;box-shadow:0 1px 3px rgba(0,0,0,.08);">
           <tr>
             <td style="padding:20px 24px;background:#0f172a;color:#f8fafc;">
-              <div style="font-size:11px;letter-spacing:.12em;text-transform:uppercase;opacity:.85;">Portale FIMASS</div>
+              <div style="font-size:11px;letter-spacing:.12em;text-transform:uppercase;opacity:.85;">PORTALE FIMASS ASSICURATIVO</div>
               <div style="font-size:18px;font-weight:600;margin-top:6px;">${escapeHtml(title)}</div>
             </td>
           </tr>
@@ -118,12 +139,13 @@ function logResendError(error) {
  * @returns {Promise<{ ok: true, data: object } | { ok: false, error: string }>}
  */
 async function sendHtmlEmailResult({ to, subject, html, text }) {
-  const { apiKey, from } = getMailEnv();
-  if (!apiKey || !from) {
+  const { apiKey, from: fromRaw } = getMailEnv();
+  if (!apiKey || !String(fromRaw || '').trim()) {
     const msg = 'RESEND_API_KEY o RESEND_FROM_EMAIL mancanti';
     console.warn(`[FIMASS email] ${msg}: invio saltato.`);
     return { ok: false, error: msg };
   }
+  const from = buildResendFromHeader(fromRaw);
   const addr = to && String(to).trim();
   if (!addr) {
     const msg = 'Destinatario mancante';
@@ -176,7 +198,7 @@ async function sendScadenzeReminderMail({ to, strutturaNome, reminderType, month
     const shellTitle = isFirst ? 'Avviso scadenze polizze' : 'Promemoria scadenze polizze';
     const subject = `${isFirst ? 'Avviso' : 'Promemoria'} scadenze polizze – ${monthLabel}`;
 
-    const headerCells = ['Contraente', 'Tipologia', 'Scadenza', 'Compagnia']
+    const headerCells = ['Assistito', 'N. preventivo', 'Tipologia', 'Scadenza', 'Compagnia']
       .map(
         (h) =>
           `<th align="left" style="padding:10px 8px;border-bottom:2px solid #e2e8f0;font-size:12px;color:#64748b;text-transform:uppercase;letter-spacing:.04em;">${escapeHtml(h)}</th>`,
@@ -185,8 +207,13 @@ async function sendScadenzeReminderMail({ to, strutturaNome, reminderType, month
     const bodyRows = (rows || [])
       .map((r) => {
         const comp = r.compagnia != null && String(r.compagnia).trim() !== '' ? String(r.compagnia).trim() : '—';
+        const prevLabel =
+          r.preventivo_label != null && String(r.preventivo_label).trim() !== ''
+            ? String(r.preventivo_label).trim()
+            : '—';
         return `<tr>
   <td style="padding:10px 8px;border-bottom:1px solid #f1f5f9;vertical-align:top;">${escapeHtml(r.contraente)}</td>
+  <td style="padding:10px 8px;border-bottom:1px solid #f1f5f9;vertical-align:top;white-space:nowrap;">${escapeHtml(prevLabel)}</td>
   <td style="padding:10px 8px;border-bottom:1px solid #f1f5f9;vertical-align:top;">${escapeHtml(r.tipologia)}</td>
   <td style="padding:10px 8px;border-bottom:1px solid #f1f5f9;vertical-align:top;white-space:nowrap;">${formatScadenzaItDate(r.data_scadenza)}</td>
   <td style="padding:10px 8px;border-bottom:1px solid #f1f5f9;vertical-align:top;">${escapeHtml(comp)}</td>
@@ -196,7 +223,7 @@ async function sendScadenzeReminderMail({ to, strutturaNome, reminderType, month
 
     const tableBlock = `
       <div style="overflow-x:auto;-webkit-overflow-scrolling:touch;margin:16px 0 0;">
-        <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="border-collapse:collapse;min-width:480px;">
+        <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="border-collapse:collapse;min-width:520px;">
           <thead><tr>${headerCells}</tr></thead>
           <tbody>${bodyRows}</tbody>
         </table>
@@ -229,7 +256,11 @@ async function sendScadenzeReminderMail({ to, strutturaNome, reminderType, month
     };
     const textLines = (rows || []).map((r) => {
       const comp = r.compagnia != null && String(r.compagnia).trim() !== '' ? String(r.compagnia).trim() : '—';
-      return `- ${r.contraente} | ${r.tipologia} | ${plainItDate(r.data_scadenza)} | ${comp}`;
+      const prevLabel =
+        r.preventivo_label != null && String(r.preventivo_label).trim() !== ''
+          ? String(r.preventivo_label).trim()
+          : '—';
+      return `- ${r.contraente} | ${prevLabel} | ${r.tipologia} | ${plainItDate(r.data_scadenza)} | ${comp}`;
     });
     const text = [
       `Spett.le ${strutturaNome},`,
@@ -263,6 +294,7 @@ async function sendQuoteAssignedToOperatorMail({
   operatorName,
   quoteId,
   quoteNumero,
+  assistitoNomeCognome,
   statoCorrente,
   dataAssegnazione,
 }) {
@@ -276,6 +308,7 @@ async function sendQuoteAssignedToOperatorMail({
       <p style="margin:0 0 16px;">ti è stata assegnata una <strong>nuova richiesta di preventivo</strong> su FIMASS. Accedi al portale per consultare i dettagli della pratica.</p>
       <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="border-collapse:collapse;">
         ${row('Riferimento pratica', `#${quoteId} (${quoteNumero})`)}
+        ${row('Assistito', assistitoNomeCognome || '—')}
         ${statoCorrente ? row('Stato', statoCorrente) : ''}
         ${dataAssegnazione ? row('Data aggiornamento', dataAssegnazione) : ''}
       </table>
@@ -305,6 +338,7 @@ async function sendPolicyEmissionRequestedToOperatorMail({
   policyNumero,
   quoteId,
   quoteNumero,
+  assistitoNomeCognome,
   dataRichiesta,
 }) {
   try {
@@ -322,6 +356,7 @@ async function sendPolicyEmissionRequestedToOperatorMail({
       <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="border-collapse:collapse;">
         ${row('Richiesta polizza', `${policyNumero} (ID ${policyId})`)}
         ${row('Preventivo di origine', `${quoteNumero} (ID ${quoteId})`)}
+        ${row('Assistito', assistitoNomeCognome || '—')}
         ${row('Data richiesta', dataRichiesta)}
       </table>
       ${linkPolicy}
@@ -343,6 +378,7 @@ async function sendQuoteStatusChangeToStructureMail({
   strutturaNome,
   quoteId,
   quoteNumero,
+  assistitoNomeCognome,
   statoPrecedente,
   statoNuovo,
   dataAggiornamento,
@@ -362,6 +398,7 @@ async function sendQuoteStatusChangeToStructureMail({
       <p style="margin:0 0 16px;">lo <strong>stato di una pratica preventivo</strong> è stato aggiornato su FIMASS. Accedi al portale per i dettagli.</p>
       <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="border-collapse:collapse;">
         ${row('Riferimento pratica', `#${quoteId} (${quoteNumero})`)}
+        ${row('Assistito', assistitoNomeCognome || '—')}
         ${row('Stato precedente', statoPrecedente)}
         ${row('Nuovo stato', statoNuovo)}
         ${row('Data aggiornamento', dataAggiornamento)}
@@ -391,16 +428,26 @@ async function sendPortalMessageNotificationMail({
   recipientName,
   senderName,
   conversationId,
+  practiceRef = null,
+  assistitoNomeCognome = null,
 }) {
   try {
     const convUrl = buildMessagesConversationUrl(conversationId);
     const linkBlock = convUrl
       ? `<p style="margin:20px 0 0;"><a href="${escapeHtml(convUrl)}" style="display:inline-block;background:#0f172a;color:#f8fafc;text-decoration:none;padding:10px 18px;border-radius:6px;font-weight:600;">Apri la conversazione nel portale</a></p>`
       : '';
+    const practiceTable =
+      practiceRef != null && String(practiceRef).trim() !== ''
+        ? `<table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="border-collapse:collapse;margin:16px 0 0;">
+        ${row('Riferimento pratica', String(practiceRef).trim())}
+        ${row('Assistito', assistitoNomeCognome && String(assistitoNomeCognome).trim() ? String(assistitoNomeCognome).trim() : '—')}
+      </table>`
+        : '';
     const inner = `
       <p style="margin:0 0 16px;">Gentile <strong>${escapeHtml(recipientName)}</strong>,</p>
       <p style="margin:0 0 16px;">hai ricevuto un <strong>nuovo messaggio</strong> collegato a una pratica su FIMASS. Il contenuto è disponibile solo nell’area riservata del portale.</p>
       <p style="margin:0 0 8px;font-size:14px;color:#64748b;">Mittente: ${escapeHtml(senderName)}</p>
+      ${practiceTable}
       ${linkBlock}
     `;
     const html = emailShell('Nuovo messaggio nel portale', inner);
@@ -629,6 +676,7 @@ async function sendQuotePresentedByStructureToAdminMail({
   quoteId,
   quoteNumero,
   strutturaNome,
+  assistitoNomeCognome,
   dataPresentazione,
 }) {
   try {
@@ -641,6 +689,7 @@ async function sendQuotePresentedByStructureToAdminMail({
       <p style="margin:0 0 16px;">è stata presentata una <strong>nuova richiesta di preventivo</strong> su FIMASS. Accedi al portale per consultare dati e allegati.</p>
       <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="border-collapse:collapse;">
         ${row('Riferimento pratica', `#${quoteId} (${quoteNumero})`)}
+        ${row('Assistito', assistitoNomeCognome || '—')}
         ${row('Struttura', strutturaNome)}
         ${row('Stato', 'PRESENTATA')}
         ${row('Data presentazione', dataPresentazione)}
@@ -660,6 +709,7 @@ async function sendQuotePresentedByStructureToAdminMail({
 
 module.exports = {
   getMailEnv,
+  formatAssistitoNomeCognome,
   buildPracticeUrl,
   buildPolicyUrl,
   buildScadenzeUrl,

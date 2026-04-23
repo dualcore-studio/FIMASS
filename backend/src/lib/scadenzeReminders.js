@@ -82,20 +82,23 @@ function compagniaLabel(policy, quote) {
   return c || compagniaFromQuote(quote);
 }
 
-function policyContraenteSearchText(p) {
-  return [p.assistito_cognome, p.assistito_nome].filter(Boolean).join(' ') || '—';
-}
-
 function buildRow(p, ctx) {
   const pe = ctx.policyExpirationsByPolicyId.get(Number(p.id)) || null;
   const quote = ctx.quotesById.get(Number(p.quote_id)) || {};
   const scadenzaEff = effectiveDataScadenza(p);
   const ymd = datePartYmd(scadenzaEff);
   const stato_scadenza = computeScadenzaDisplayStato({ pe, policy: p, ymdScadenza: ymd });
+  const preventivo_label =
+    quote.id != null && quote.numero
+      ? `#${quote.id} (${quote.numero})`
+      : quote.id != null
+        ? `#${quote.id}`
+        : '—';
   return {
     policyId: p.id,
     struttura_id: p.struttura_id,
-    contraente: policyContraenteSearchText(p),
+    contraente: [p.assistito_nome, p.assistito_cognome].filter(Boolean).join(' ') || '—',
+    preventivo_label,
     tipologia: p.tipo_nome || '—',
     compagnia: compagniaLabel(p, quote) || null,
     data_scadenza: scadenzaEff,

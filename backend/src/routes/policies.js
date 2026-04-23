@@ -1,7 +1,7 @@
 const express = require('express');
 const { list, getById, findOne, insert, upsertById, like, paginate, nowIso } = require('../data/store');
 const { calculatePolicyExpiryDate, toIsoDateTime, parseDbDateTime } = require('../utils/policyDates');
-const { loadContext, enrichPolicy } = require('../data/views');
+const { loadContext, enrichPolicy, enrichQuote } = require('../data/views');
 const { sortPoliciesForList } = require('../utils/practiceListSort');
 const { normalizeQuoteStato } = require('../utils/quoteStato');
 const {
@@ -12,7 +12,7 @@ const {
 const { authenticateToken, authorizeRoles } = require('../middleware/auth');
 const { quoteAssigneeUserId, userIsAssignedToPolicy } = require('../utils/practiceAssignee');
 const { logActivity } = require('./logs');
-const { sendPolicyEmissionRequestedToOperatorMail } = require('../lib/resend');
+const { sendPolicyEmissionRequestedToOperatorMail, formatAssistitoNomeCognome } = require('../lib/resend');
 const { sanitizeAttachmentsList } = require('../lib/attachmentPublicJson');
 const { getClientIp } = require('../lib/requestMeta');
 const { writeAuditLog, AUDIT_ACTIONS } = require('../lib/auditLog');
@@ -322,6 +322,8 @@ router.post('/', authenticateToken, authorizeRoles('struttura'), (req, res) => {
       const assigneeUser = await getById('users', assigneeUid);
       if (assigneeUser && assigneeUser.email) {
         const assigneeName = [assigneeUser.nome, assigneeUser.cognome].filter(Boolean).join(' ') || 'Incaricato';
+        const ctxMail = await loadContext();
+        const eqMail = enrichQuote(quote, ctxMail);
         await sendPolicyEmissionRequestedToOperatorMail({
           to: assigneeUser.email,
           operatorName: assigneeName,
@@ -329,6 +331,7 @@ router.post('/', authenticateToken, authorizeRoles('struttura'), (req, res) => {
           policyNumero: numero,
           quoteId: Number(quote_id),
           quoteNumero: quote.numero,
+          assistitoNomeCognome: formatAssistitoNomeCognome(eqMail.assistito_nome, eqMail.assistito_cognome),
           dataRichiesta,
         });
       }
