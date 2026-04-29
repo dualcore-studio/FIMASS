@@ -206,8 +206,8 @@ export default function UserCreate() {
     setSubmitting(true);
     setError(null);
     try {
-      await api.post('/users', body);
-      navigate('/utenti');
+      const res = await api.post<{ id: number; message: string }>('/users', body);
+      navigate('/utenti', { state: { userUpdated: res.message } });
     } catch (err) {
       setError(err instanceof ApiError ? err.message : 'Creazione utente non riuscita.');
     } finally {

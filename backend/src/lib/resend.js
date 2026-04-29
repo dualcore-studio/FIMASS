@@ -1,7 +1,7 @@
 const { Resend } = require('resend');
 
 /** Nome visualizzato mittente per tutte le email automatiche (l'indirizzo resta RESEND_FROM_EMAIL). */
-const AUTOMATIC_MAIL_FROM_DISPLAY_NAME = 'FIMASS GESTIONALE ASSICURATIVO';
+const AUTOMATIC_MAIL_FROM_DISPLAY_NAME = 'FIMASS Gestionale Assicurativo';
 
 function getMailEnv() {
   const apiKey = process.env.RESEND_API_KEY;
@@ -66,6 +66,9 @@ function buildAppointmentUrl(appointmentId) {
   if (!appUrl || appointmentId == null) return null;
   return `${appUrl}/appuntamenti/${appointmentId}`;
 }
+
+/** Login portale strutture (fisso, non da variabili d’ambiente). */
+const STRUTTURA_PORTALE_LOGIN_URL = 'https://sportelloamicofimass.info/login';
 
 function emailShell(title, innerHtml) {
   return `<!DOCTYPE html>
@@ -670,6 +673,59 @@ async function sendAppointmentAnnullatoToFornitoreMail(p) {
   }
 }
 
+/**
+ * Credenziali accesso portale per nuova utenza “struttura” (solo invio SMTP; password solo in chiaro in memoria per il corpo email).
+ * @returns {Promise<{ ok: boolean, error?: string, data?: object }>}
+ */
+async function sendStrutturaPortalCredentialsMail({ to, username, plaintextPassword }) {
+  try {
+    const safeUser = String(username ?? '').trim();
+    const safePass =
+      plaintextPassword === undefined || plaintextPassword === null
+        ? ''
+        : String(plaintextPassword);
+    const portalUrl = STRUTTURA_PORTALE_LOGIN_URL;
+    const subject = 'Accesso al Portale FIMASS Assicurativo';
+    const inner = `
+      <p style="margin:0 0 16px;">Gentile Struttura,</p>
+      <p style="margin:0 0 16px;">ti informiamo che è stato creato il tuo account per l&apos;accesso al Portale FIMASS Assicurativo.</p>
+      <p style="margin:0 0 8px;">Di seguito le credenziali di accesso:</p>
+      <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="border-collapse:collapse;">
+        ${row('Username', safeUser)}
+        ${row('Password', safePass)}
+      </table>
+      <p style="margin:20px 0 8px;">Puoi accedere al portale dal seguente link:</p>
+      <p style="margin:0 0 16px;"><a href="${escapeHtml(portalUrl)}" style="color:#1d4ed8;font-weight:600;">${escapeHtml(portalUrl)}</a></p>
+      <p style="margin:0 0 16px;">Il portale ti permetterà di inserire e monitorare le richieste di preventivo, gestire le polizze e comunicare con gli operatori incaricati.</p>
+      <p style="margin:24px 0 0;font-size:14px;color:#334155;">Cordiali saluti<br><strong>${escapeHtml('FIMASS Gestionale Assicurativo')}</strong></p>
+    `;
+    const html = emailShell('Accesso al Portale FIMASS Assicurativo', inner);
+    const text = [
+      'Gentile Struttura,',
+      '',
+      'ti informiamo che è stato creato il tuo account per l\'accesso al Portale FIMASS Assicurativo.',
+      '',
+      'Di seguito le credenziali di accesso:',
+      '',
+      `Username: ${safeUser}`,
+      `Password: ${safePass}`,
+      '',
+      'Puoi accedere al portale dal seguente link:',
+      portalUrl,
+      '',
+      'Il portale ti permetterà di inserire e monitorare le richieste di preventivo, gestire le polizze e comunicare con gli operatori incaricati.',
+      '',
+      'Cordiali saluti',
+      'FIMASS Gestionale Assicurativo',
+    ].join('\n');
+
+    return await sendHtmlEmailResult({ to, subject, html, text });
+  } catch (err) {
+    console.error('[FIMASS email] sendStrutturaPortalCredentialsMail:', err?.message || err);
+    return { ok: false, error: String(err?.message || err) };
+  }
+}
+
 async function sendQuotePresentedByStructureToAdminMail({
   to,
   adminName,
@@ -726,4 +782,5 @@ module.exports = {
   sendAppointmentUpdateToStrutturaMail,
   sendAppointmentVideocallConfirmedToAssistitoMail,
   sendAppointmentAnnullatoToFornitoreMail,
+  sendStrutturaPortalCredentialsMail,
 };

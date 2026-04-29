@@ -4,6 +4,7 @@ const { list, getById, findOne, insert, upsertById, removeById, like, paginate }
 const { sortUsersForList } = require('../utils/userListSort');
 const { authenticateToken, authorizeRoles } = require('../middleware/auth');
 const { logActivity } = require('./logs');
+const { sendStrutturaPortalCredentialsMail } = require('../lib/resend');
 
 const router = express.Router();
 
@@ -193,10 +194,22 @@ router.post('/', authenticateToken, authorizeRoles('admin'), (req, res) => {
       modulo: 'utenti',
       riferimento_id: result.id,
       riferimento_tipo: 'user',
-      dettaglio: `Creato utente ${username} con ruolo ${role}`
+      dettaglio: `Creato utente ${username} con ruolo ${role}`,
     });
 
-    res.status(201).json({ id: result.id, message: 'Utente creato con successo' });
+    let message = 'Utente creato con successo';
+    if (role === 'struttura') {
+      const mailRes = await sendStrutturaPortalCredentialsMail({
+        to: String(email).trim(),
+        username: String(username).trim(),
+        plaintextPassword: password,
+      });
+      message = mailRes.ok
+        ? 'Struttura creata correttamente e credenziali inviate via email.'
+        : 'Struttura creata correttamente, ma non è stato possibile inviare la mail con le credenziali.';
+    }
+
+    res.status(201).json({ id: result.id, message });
   })().catch((err) => {
     console.error('Error creating user:', err);
     res.status(500).json({ error: 'Errore nella creazione utente' });
