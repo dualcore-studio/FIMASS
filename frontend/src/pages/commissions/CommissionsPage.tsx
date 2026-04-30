@@ -520,92 +520,176 @@ export default function CommissionsPage() {
 
             <div className="hidden w-full min-w-0 overflow-x-auto md:block">
               <table
-                className={`portal-table w-full table-fixed border-collapse text-left text-sm ${isFullAccess ? 'min-w-[1320px]' : 'min-w-[980px]'}`}
+                className={`portal-table w-full table-fixed border-collapse text-left text-sm ${isFullAccess ? 'min-w-[1320px]' : 'min-w-[1230px]'}`}
               >
                 <thead>
                   <tr>
-                    <SortableTh
-                      sortKey="date"
-                      activeKey={tableSort.sortBy}
-                      direction={tableSort.sortDir}
-                      onRequestSort={tableSort.requestSort}
-                      className="!px-3 !py-3 w-[110px] min-w-[110px] max-w-[110px] align-top"
-                    >
-                      Data
-                    </SortableTh>
-                    <SortableTh
-                      sortKey="customer_name"
-                      activeKey={tableSort.sortBy}
-                      direction={tableSort.sortDir}
-                      onRequestSort={tableSort.requestSort}
-                      className="!px-3 !py-3 min-w-[170px] align-top"
-                    >
-                      Cliente / Polizza
-                    </SortableTh>
                     {isFullAccess ? (
-                      <SortableTh
-                        sortKey="structure_name"
-                        activeKey={tableSort.sortBy}
-                        direction={tableSort.sortDir}
-                        onRequestSort={tableSort.requestSort}
-                        className="!px-3 !py-3 min-w-[140px] align-top"
-                      >
-                        Struttura
-                      </SortableTh>
-                    ) : null}
-                    <SortableTh
-                      sortKey="portal"
-                      activeKey={tableSort.sortBy}
-                      direction={tableSort.sortDir}
-                      onRequestSort={tableSort.requestSort}
-                      className="!px-3 !py-3 min-w-[160px] align-top"
-                    >
-                      Portale / Compagnia
-                    </SortableTh>
-                    <SortableTh
-                      sortKey="policy_premium"
-                      activeKey={tableSort.sortBy}
-                      direction={tableSort.sortDir}
-                      onRequestSort={tableSort.requestSort}
-                      className="!px-3 !py-3 w-[100px] min-w-[100px] max-w-[100px] align-top"
-                    >
-                      Premio
-                    </SortableTh>
-                    <SortableTh
-                      sortKey="structure_commission_amount"
-                      activeKey={tableSort.sortBy}
-                      direction={tableSort.sortDir}
-                      onRequestSort={tableSort.requestSort}
-                      className="!px-3 !py-3 min-w-[190px] align-top"
-                    >
-                      Provvigioni
-                    </SortableTh>
-                    <th scope="col" className="w-[120px] min-w-[120px] max-w-[120px] px-3 py-3 align-top font-semibold text-gray-700">
-                      {isFullAccess ? 'Tipo / %' : 'Tipo'}
-                    </th>
-                    <SortableTh
-                      sortKey="commission_status"
-                      activeKey={tableSort.sortBy}
-                      direction={tableSort.sortDir}
-                      onRequestSort={tableSort.requestSort}
-                      className="!px-3 !py-3 w-[130px] min-w-[130px] max-w-[130px] align-top"
-                    >
-                      Stato
-                    </SortableTh>
-                    {isFullAccess ? (
-                      <th
-                        scope="col"
-                        className="sticky right-0 z-30 w-[128px] min-w-[128px] max-w-[128px] bg-[var(--portal-table-header-bg)] px-2 py-3 text-center align-top font-semibold text-gray-700"
-                      >
-                        Azioni
-                      </th>
-                    ) : null}
+                      <>
+                        <SortableTh
+                          sortKey="date"
+                          activeKey={tableSort.sortBy}
+                          direction={tableSort.sortDir}
+                          onRequestSort={tableSort.requestSort}
+                          className="!px-3 !py-3 w-[110px] min-w-[110px] max-w-[110px] align-top"
+                        >
+                          Data
+                        </SortableTh>
+                        <SortableTh
+                          sortKey="customer_name"
+                          activeKey={tableSort.sortBy}
+                          direction={tableSort.sortDir}
+                          onRequestSort={tableSort.requestSort}
+                          className="!px-3 !py-3 min-w-[170px] align-top"
+                        >
+                          Cliente / Polizza
+                        </SortableTh>
+                        <SortableTh
+                          sortKey="structure_name"
+                          activeKey={tableSort.sortBy}
+                          direction={tableSort.sortDir}
+                          onRequestSort={tableSort.requestSort}
+                          className="!px-3 !py-3 min-w-[140px] align-top"
+                        >
+                          Struttura
+                        </SortableTh>
+                        <SortableTh
+                          sortKey="portal"
+                          activeKey={tableSort.sortBy}
+                          direction={tableSort.sortDir}
+                          onRequestSort={tableSort.requestSort}
+                          className="!px-3 !py-3 min-w-[160px] align-top"
+                        >
+                          Portale / Compagnia
+                        </SortableTh>
+                        <SortableTh
+                          sortKey="policy_premium"
+                          activeKey={tableSort.sortBy}
+                          direction={tableSort.sortDir}
+                          onRequestSort={tableSort.requestSort}
+                          className="!px-3 !py-3 w-[100px] min-w-[100px] max-w-[100px] align-top"
+                        >
+                          Premio
+                        </SortableTh>
+                        <SortableTh
+                          sortKey="structure_commission_amount"
+                          activeKey={tableSort.sortBy}
+                          direction={tableSort.sortDir}
+                          onRequestSort={tableSort.requestSort}
+                          className="!px-3 !py-3 min-w-[190px] align-top"
+                        >
+                          Provvigioni
+                        </SortableTh>
+                        <th scope="col" className="w-[120px] min-w-[120px] max-w-[120px] px-3 py-3 align-top font-semibold text-gray-700">
+                          Tipo / %
+                        </th>
+                        <SortableTh
+                          sortKey="commission_status"
+                          activeKey={tableSort.sortBy}
+                          direction={tableSort.sortDir}
+                          onRequestSort={tableSort.requestSort}
+                          className="!px-3 !py-3 w-[130px] min-w-[130px] max-w-[130px] align-top"
+                        >
+                          Stato
+                        </SortableTh>
+                        <th
+                          scope="col"
+                          className="sticky right-0 z-30 w-[128px] min-w-[128px] max-w-[128px] bg-[var(--portal-table-header-bg)] px-2 py-3 text-center align-top font-semibold text-gray-700"
+                        >
+                          Azioni
+                        </th>
+                      </>
+                    ) : (
+                      <>
+                        <SortableTh
+                          sortKey="date"
+                          activeKey={tableSort.sortBy}
+                          direction={tableSort.sortDir}
+                          onRequestSort={tableSort.requestSort}
+                          className="!px-3 !py-3 w-[110px] min-w-[110px] max-w-[110px] align-top"
+                        >
+                          Data
+                        </SortableTh>
+                        <SortableTh
+                          sortKey="customer_name"
+                          activeKey={tableSort.sortBy}
+                          direction={tableSort.sortDir}
+                          onRequestSort={tableSort.requestSort}
+                          className="!px-3 !py-3 min-w-[180px] align-top"
+                        >
+                          Cliente
+                        </SortableTh>
+                        <SortableTh
+                          sortKey="policy_number"
+                          activeKey={tableSort.sortBy}
+                          direction={tableSort.sortDir}
+                          onRequestSort={tableSort.requestSort}
+                          className="!px-3 !py-3 w-[130px] min-w-[130px] max-w-[130px] align-top"
+                        >
+                          N. Polizza
+                        </SortableTh>
+                        <SortableTh
+                          sortKey="portal"
+                          activeKey={tableSort.sortBy}
+                          direction={tableSort.sortDir}
+                          onRequestSort={tableSort.requestSort}
+                          className="!px-3 !py-3 w-[160px] min-w-[160px] max-w-[160px] align-top"
+                        >
+                          Portale
+                        </SortableTh>
+                        <SortableTh
+                          sortKey="company"
+                          activeKey={tableSort.sortBy}
+                          direction={tableSort.sortDir}
+                          onRequestSort={tableSort.requestSort}
+                          className="!px-3 !py-3 w-[150px] min-w-[150px] max-w-[150px] align-top"
+                        >
+                          Compagnia
+                        </SortableTh>
+                        <SortableTh
+                          sortKey="policy_premium"
+                          activeKey={tableSort.sortBy}
+                          direction={tableSort.sortDir}
+                          onRequestSort={tableSort.requestSort}
+                          className="!px-3 !py-3 w-[100px] min-w-[100px] max-w-[100px] align-top"
+                        >
+                          Premio
+                        </SortableTh>
+                        <SortableTh
+                          sortKey="structure_commission_amount"
+                          activeKey={tableSort.sortBy}
+                          direction={tableSort.sortDir}
+                          onRequestSort={tableSort.requestSort}
+                          className="!px-3 !py-3 w-[130px] min-w-[130px] max-w-[130px] align-top"
+                        >
+                          Provvigione
+                        </SortableTh>
+                        <SortableTh
+                          sortKey="structure_commission_type"
+                          activeKey={tableSort.sortBy}
+                          direction={tableSort.sortDir}
+                          onRequestSort={tableSort.requestSort}
+                          className="!px-3 !py-3 w-[140px] min-w-[140px] max-w-[140px] align-top"
+                        >
+                          Tipo
+                        </SortableTh>
+                        <SortableTh
+                          sortKey="commission_status"
+                          activeKey={tableSort.sortBy}
+                          direction={tableSort.sortDir}
+                          onRequestSort={tableSort.requestSort}
+                          className="!px-3 !py-3 w-[130px] min-w-[130px] max-w-[130px] align-top"
+                        >
+                          Stato
+                        </SortableTh>
+                      </>
+                    )}
                   </tr>
                 </thead>
                 <tbody>
                   {rows.length === 0 ? (
                     <tr>
-                      <td colSpan={isFullAccess ? 9 : 7} className="px-3 py-12 text-center text-gray-500">
+                      <td colSpan={9} className="px-3 py-12 text-center text-gray-500">
                         Nessuna provvigione con i filtri selezionati.
                       </td>
                     </tr>
@@ -613,28 +697,26 @@ export default function CommissionsPage() {
                     rows.map((r: Commission) => {
                       const highlight = r.commission_status === 'DA_VALORIZZARE';
                       const rowBg = highlight ? 'group/commrow bg-amber-50/40' : 'group/commrow bg-white';
-                      return (
-                        <tr key={r.id} className={rowBg}>
-                          <td className="w-[110px] min-w-[110px] max-w-[110px] whitespace-nowrap px-3 py-3 text-gray-700">
-                            {formatDate(r.date)}
-                          </td>
-                          <td className="min-w-[170px] px-3 py-3 align-top">
-                            <p className="line-clamp-2 font-semibold leading-snug text-gray-900">{r.customer_name}</p>
-                            <p className="mt-0.5 truncate font-mono text-sm text-gray-500">{r.policy_number}</p>
-                          </td>
-                          {isFullAccess ? (
+                      if (isFullAccess) {
+                        return (
+                          <tr key={r.id} className={rowBg}>
+                            <td className="w-[110px] min-w-[110px] max-w-[110px] whitespace-nowrap px-3 py-3 text-gray-700">
+                              {formatDate(r.date)}
+                            </td>
+                            <td className="min-w-[170px] px-3 py-3 align-top">
+                              <p className="line-clamp-2 font-semibold leading-snug text-gray-900">{r.customer_name}</p>
+                              <p className="mt-0.5 truncate font-mono text-sm text-gray-500">{r.policy_number}</p>
+                            </td>
                             <td className="min-w-[140px] px-3 py-3 align-top">
                               <p className="line-clamp-2 text-gray-800">{r.structure_name ?? '—'}</p>
                             </td>
-                          ) : null}
-                          <td className="min-w-[160px] px-3 py-3 align-top">
-                            <p className="line-clamp-2 text-gray-900">{r.portal ?? '—'}</p>
-                            <p className="mt-0.5 line-clamp-2 text-sm text-gray-500">{r.company ?? '—'}</p>
-                          </td>
-                          <td className="w-[100px] min-w-[100px] max-w-[100px] whitespace-nowrap px-3 py-3 tabular-nums text-gray-800">
-                            {formatEuro(r.policy_premium)}
-                          </td>
-                          {isFullAccess ? (
+                            <td className="min-w-[160px] px-3 py-3 align-top">
+                              <p className="line-clamp-2 text-gray-900">{r.portal ?? '—'}</p>
+                              <p className="mt-0.5 line-clamp-2 text-sm text-gray-500">{r.company ?? '—'}</p>
+                            </td>
+                            <td className="w-[100px] min-w-[100px] max-w-[100px] whitespace-nowrap px-3 py-3 tabular-nums text-gray-800">
+                              {formatEuro(r.policy_premium)}
+                            </td>
                             <td className="min-w-[190px] px-3 py-3 align-top text-xs leading-snug text-gray-800">
                               <div className="space-y-1">
                                 <div className="flex flex-wrap gap-x-1 gap-y-0">
@@ -657,27 +739,21 @@ export default function CommissionsPage() {
                                 </div>
                               </div>
                             </td>
-                          ) : (
-                            <td className="min-w-[190px] whitespace-nowrap px-3 py-3 font-semibold tabular-nums text-gray-900">
-                              {formatCommissionEuro(r.structure_commission_amount)}
-                            </td>
-                          )}
-                          <td className="w-[120px] min-w-[120px] max-w-[120px] px-3 py-3 align-top">
-                            <span
-                              className={`badge inline-flex max-w-full whitespace-normal break-words text-left leading-tight ${getCommissionTypeBadgeClass(r.structure_commission_type)}`}
-                            >
-                              {getCommissionTypeLabel(r.structure_commission_type)}
-                            </span>
-                            {isFullAccess ? (
+                            <td className="w-[120px] min-w-[120px] max-w-[120px] px-3 py-3 align-top">
+                              <span
+                                className={`badge inline-flex max-w-full whitespace-normal break-words text-left leading-tight ${getCommissionTypeBadgeClass(r.structure_commission_type)}`}
+                              >
+                                {getCommissionTypeLabel(r.structure_commission_type)}
+                              </span>
                               <p className="mt-1 text-xs tabular-nums text-gray-600">{r.structure_commission_percentage}%</p>
-                            ) : null}
-                          </td>
-                          <td className="w-[130px] min-w-[130px] max-w-[130px] px-3 py-3 align-top">
-                            <span className={`badge inline-flex max-w-full whitespace-normal break-words leading-tight ${getCommissionValorizationBadgeClass(r.commission_status)}`}>
-                              {getCommissionValorizationLabel(r.commission_status)}
-                            </span>
-                          </td>
-                          {isFullAccess ? (
+                            </td>
+                            <td className="w-[130px] min-w-[130px] max-w-[130px] px-3 py-3 align-top">
+                              <span
+                                className={`badge inline-flex max-w-full whitespace-normal break-words leading-tight ${getCommissionValorizationBadgeClass(r.commission_status)}`}
+                              >
+                                {getCommissionValorizationLabel(r.commission_status)}
+                              </span>
+                            </td>
                             <td className="sticky right-0 z-10 w-[128px] min-w-[128px] max-w-[128px] bg-inherit px-2 py-3 align-middle">
                               <CommissionRowActions
                                 row={r}
@@ -685,7 +761,56 @@ export default function CommissionsPage() {
                                 onDelete={() => setDeleteId(r.id)}
                               />
                             </td>
-                          ) : null}
+                          </tr>
+                        );
+                      }
+                      return (
+                        <tr key={r.id} className={rowBg}>
+                          <td className="w-[110px] min-w-[110px] max-w-[110px] whitespace-nowrap px-3 py-3 text-gray-700">
+                            {formatDate(r.date)}
+                          </td>
+                          <td className="min-w-[180px] overflow-hidden px-3 py-3 align-top">
+                            <p className="truncate font-semibold text-gray-900" title={r.customer_name}>
+                              {r.customer_name}
+                            </p>
+                          </td>
+                          <td className="w-[130px] min-w-[130px] max-w-[130px] overflow-hidden px-3 py-3 align-top">
+                            <p className="truncate font-mono text-gray-800" title={r.policy_number}>
+                              {r.policy_number}
+                            </p>
+                          </td>
+                          <td className="w-[160px] min-w-[160px] max-w-[160px] overflow-hidden px-3 py-3 align-top">
+                            <p className="truncate text-gray-900" title={r.portal ?? undefined}>
+                              {r.portal ?? '—'}
+                            </p>
+                          </td>
+                          <td className="w-[150px] min-w-[150px] max-w-[150px] overflow-hidden px-3 py-3 align-top">
+                            <p className="truncate text-gray-800" title={r.company ?? undefined}>
+                              {r.company ?? '—'}
+                            </p>
+                          </td>
+                          <td className="w-[100px] min-w-[100px] max-w-[100px] whitespace-nowrap px-3 py-3 tabular-nums text-gray-800">
+                            {formatEuro(r.policy_premium)}
+                          </td>
+                          <td className="w-[130px] min-w-[130px] max-w-[130px] whitespace-nowrap px-3 py-3 font-semibold tabular-nums text-gray-900">
+                            {formatCommissionEuro(r.structure_commission_amount)}
+                          </td>
+                          <td className="w-[140px] min-w-[140px] max-w-[140px] overflow-hidden px-3 py-3 align-top">
+                            <span
+                              className={`badge inline-flex max-w-full min-w-0 items-center px-2 py-0.5 text-left leading-tight ${getCommissionTypeBadgeClass(r.structure_commission_type)}`}
+                              title={getCommissionTypeLabel(r.structure_commission_type)}
+                            >
+                              <span className="min-w-0 truncate">{getCommissionTypeLabel(r.structure_commission_type)}</span>
+                            </span>
+                          </td>
+                          <td className="w-[130px] min-w-[130px] max-w-[130px] overflow-hidden px-3 py-3 align-top">
+                            <span
+                              className={`badge inline-flex max-w-full min-w-0 items-center leading-tight ${getCommissionValorizationBadgeClass(r.commission_status)}`}
+                              title={getCommissionValorizationLabel(r.commission_status)}
+                            >
+                              <span className="min-w-0 truncate">{getCommissionValorizationLabel(r.commission_status)}</span>
+                            </span>
+                          </td>
                         </tr>
                       );
                     })
