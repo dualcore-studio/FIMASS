@@ -385,7 +385,7 @@ router.get('/export-pdf', authenticateToken, assertCommissionReader, (req, res) 
   });
 });
 
-router.patch('/:id/liquidate', authenticateToken, authorizeRoles('admin'), (req, res) => {
+router.patch('/:id/liquidate', authenticateToken, authorizeRoles('admin', 'fornitore'), (req, res) => {
   (async () => {
     const id = Number(req.params.id);
     if (!Number.isFinite(id)) return res.status(400).json({ error: 'ID non valido' });
