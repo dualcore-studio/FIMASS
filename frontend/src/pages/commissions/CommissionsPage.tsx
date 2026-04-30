@@ -520,7 +520,7 @@ export default function CommissionsPage() {
 
             <div className="hidden w-full min-w-0 overflow-x-auto md:block">
               <table
-                className={`portal-table w-full table-fixed border-collapse text-left text-sm ${isFullAccess ? 'min-w-[1320px]' : 'min-w-[1230px]'}`}
+                className="portal-table w-full min-w-[1320px] table-fixed border-collapse text-left text-sm"
               >
                 <thead>
                   <tr>
@@ -615,7 +615,7 @@ export default function CommissionsPage() {
                           activeKey={tableSort.sortBy}
                           direction={tableSort.sortDir}
                           onRequestSort={tableSort.requestSort}
-                          className="!px-3 !py-3 min-w-[180px] align-top"
+                          className="!px-3 !py-3 w-[220px] min-w-[220px] max-w-[240px] align-top"
                         >
                           Cliente
                         </SortableTh>
@@ -624,7 +624,7 @@ export default function CommissionsPage() {
                           activeKey={tableSort.sortBy}
                           direction={tableSort.sortDir}
                           onRequestSort={tableSort.requestSort}
-                          className="!px-3 !py-3 w-[130px] min-w-[130px] max-w-[130px] align-top"
+                          className="!px-3 !py-3 w-[150px] min-w-[150px] max-w-[150px] align-top"
                         >
                           N. Polizza
                         </SortableTh>
@@ -651,7 +651,7 @@ export default function CommissionsPage() {
                           activeKey={tableSort.sortBy}
                           direction={tableSort.sortDir}
                           onRequestSort={tableSort.requestSort}
-                          className="!px-3 !py-3 w-[100px] min-w-[100px] max-w-[100px] align-top"
+                          className="!px-3 !py-3 w-[110px] min-w-[110px] max-w-[110px] align-top"
                         >
                           Premio
                         </SortableTh>
@@ -769,12 +769,12 @@ export default function CommissionsPage() {
                           <td className="w-[110px] min-w-[110px] max-w-[110px] whitespace-nowrap px-3 py-3 text-gray-700">
                             {formatDate(r.date)}
                           </td>
-                          <td className="min-w-[180px] overflow-hidden px-3 py-3 align-top">
+                          <td className="w-[220px] min-w-[220px] max-w-[240px] overflow-hidden px-3 py-3 align-top">
                             <p className="truncate font-semibold text-gray-900" title={r.customer_name}>
                               {r.customer_name}
                             </p>
                           </td>
-                          <td className="w-[130px] min-w-[130px] max-w-[130px] overflow-hidden px-3 py-3 align-top">
+                          <td className="w-[150px] min-w-[150px] max-w-[150px] overflow-hidden px-3 py-3 align-top">
                             <p className="truncate font-mono text-gray-800" title={r.policy_number}>
                               {r.policy_number}
                             </p>
@@ -789,7 +789,7 @@ export default function CommissionsPage() {
                               {r.company ?? '—'}
                             </p>
                           </td>
-                          <td className="w-[100px] min-w-[100px] max-w-[100px] whitespace-nowrap px-3 py-3 tabular-nums text-gray-800">
+                          <td className="w-[110px] min-w-[110px] max-w-[110px] whitespace-nowrap px-3 py-3 tabular-nums text-gray-800">
                             {formatEuro(r.policy_premium)}
                           </td>
                           <td className="w-[130px] min-w-[130px] max-w-[130px] whitespace-nowrap px-3 py-3 font-semibold tabular-nums text-gray-900">
