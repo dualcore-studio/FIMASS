@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Euro, FileDown, Pencil, Plus, Trash2 } from 'lucide-react';
+import { Euro, FileDown, Pencil, Plus, Trash2, CheckCircle } from 'lucide-react';
 import { api, ApiError } from '../../utils/api';
 import type { Commission, CommissionsListResponse, StructureOption } from '../../types';
 import {
@@ -76,10 +76,14 @@ function CommissionRowActions({
   row,
   onAmounts,
   onDelete,
+  onMarkLiquidata,
+  showMarkLiquidata,
 }: {
   row: Commission;
   onAmounts: () => void;
   onDelete: () => void;
+  onMarkLiquidata: () => void;
+  showMarkLiquidata: boolean;
 }) {
   const isDaValorizzare = row.commission_status === 'DA_VALORIZZARE';
   const amountsTitle = isDaValorizzare ? 'Inserisci importi' : 'Modifica importi';
@@ -87,8 +91,10 @@ function CommissionRowActions({
     'inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-md border border-slate-200/90 text-gray-700 transition hover:border-blue-300 hover:bg-blue-50/70 hover:text-gray-900 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/40';
   const btnDanger =
     'inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-md border border-red-200/75 text-red-600 transition hover:border-red-300 hover:bg-red-50 hover:text-red-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-red-500/35';
+  const btnLiquid =
+    'inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-md border border-emerald-200/90 text-emerald-700 transition hover:border-emerald-400 hover:bg-emerald-50 hover:text-emerald-900 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/35';
   return (
-    <div className="flex items-center justify-center gap-2">
+    <div className="flex items-center justify-center gap-1.5">
       <button type="button" onClick={onAmounts} title={amountsTitle} aria-label={amountsTitle} className={btnIcon}>
         <Euro className="h-4 w-4 shrink-0" strokeWidth={2} />
       </button>
@@ -100,6 +106,17 @@ function CommissionRowActions({
       >
         <Pencil className="h-4 w-4 shrink-0" strokeWidth={2} />
       </Link>
+      {showMarkLiquidata ? (
+        <button
+          type="button"
+          onClick={onMarkLiquidata}
+          title="Segna come liquidata"
+          aria-label="Segna come liquidata"
+          className={btnLiquid}
+        >
+          <CheckCircle className="h-4 w-4 shrink-0" strokeWidth={2} />
+        </button>
+      ) : null}
       <button type="button" onClick={onDelete} title="Elimina" aria-label="Elimina" className={btnDanger}>
         <Trash2 className="h-4 w-4 shrink-0" strokeWidth={2} />
       </button>
@@ -154,6 +171,8 @@ export default function CommissionsPage() {
   const [structures, setStructures] = useState<StructureOption[]>([]);
   const [deleteId, setDeleteId] = useState<number | null>(null);
   const [deleteSubmitting, setDeleteSubmitting] = useState(false);
+  const [liquidateId, setLiquidateId] = useState<number | null>(null);
+  const [liquidateSubmitting, setLiquidateSubmitting] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
   const [exportingPdf, setExportingPdf] = useState(false);
   const [exportPdfError, setExportPdfError] = useState<string | null>(null);
@@ -262,6 +281,21 @@ export default function CommissionsPage() {
     }
   };
 
+  const handleMarkLiquidata = async () => {
+    if (liquidateId == null) return;
+    setLiquidateSubmitting(true);
+    setActionError(null);
+    try {
+      await api.patch<Commission>(`/commissions/${liquidateId}/liquidate`, {});
+      setLiquidateId(null);
+      await fetchList();
+    } catch (e) {
+      setActionError(e instanceof ApiError ? e.message : 'Aggiornamento liquidazione non riuscito.');
+    } finally {
+      setLiquidateSubmitting(false);
+    }
+  };
+
   const tf = 'input-field h-9 w-full min-w-0 py-1.5 text-sm';
 
   if (!isFullAccess && !isStruttura) return null;
@@ -292,7 +326,31 @@ export default function CommissionsPage() {
       ) : null}
 
       {summary ? (
-        isFullAccess ? (
+        isAdmin ? (
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
+            <SummaryCard title="Totale premi" value={formatEuro(summary.totale_premi)} accent="blue" />
+            <SummaryCard
+              title="Totale provvigioni broker"
+              value={formatEuro(summary.totale_provigioni_broker)}
+              accent="slate"
+            />
+            <SummaryCard
+              title="Quota Sportello Amico (65%)"
+              value={formatEuro(summary.totale_sportello_amico)}
+              accent="amber"
+            />
+            <SummaryCard
+              title="Totale provvigioni strutture liquidate"
+              value={formatEuro(summary.totale_provigioni_strutture_liquidate ?? 0)}
+              accent="emerald"
+            />
+            <SummaryCard
+              title="Totale provvigioni strutture da liquidare"
+              value={formatEuro(summary.totale_provigioni_strutture_da_liquidare ?? 0)}
+              accent="emerald"
+            />
+          </div>
+        ) : isFullAccess ? (
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
             <SummaryCard title="Totale polizze" value={String(summary.totale_polizze)} accent="slate" />
             <SummaryCard title="Totale premi" value={formatEuro(summary.totale_premi)} accent="blue" />
@@ -506,6 +564,8 @@ export default function CommissionsPage() {
                               row={r}
                               onAmounts={() => setAmountsModalRow(r)}
                               onDelete={() => setDeleteId(r.id)}
+                              onMarkLiquidata={() => setLiquidateId(r.id)}
+                              showMarkLiquidata={isAdmin && r.commission_status === 'VALORIZZATA'}
                             />
                           </div>
                         ) : null}
@@ -518,7 +578,7 @@ export default function CommissionsPage() {
 
             <div className="hidden w-full min-w-0 overflow-x-auto md:block">
               <table
-                className={`portal-table w-full ${isFullAccess ? 'min-w-[1300px] text-center' : 'min-w-[1370px] text-left'} table-fixed border-collapse text-sm`}
+                className={`portal-table w-full ${isFullAccess ? 'min-w-[1380px] text-center' : 'min-w-[1370px] text-left'} table-fixed border-collapse text-sm`}
               >
                 <thead>
                   <tr>
@@ -631,7 +691,7 @@ export default function CommissionsPage() {
                         </SortableTh>
                         <th
                           scope="col"
-                          className="sticky right-0 z-30 w-[120px] min-w-[120px] max-w-[120px] bg-[var(--portal-table-header-bg)] px-2 py-3 text-center align-middle text-sm font-semibold text-gray-700"
+                          className="sticky right-0 z-30 w-[148px] min-w-[148px] max-w-[148px] bg-[var(--portal-table-header-bg)] px-2 py-3 text-center align-middle text-sm font-semibold text-gray-700"
                         >
                           Azioni
                         </th>
@@ -795,12 +855,14 @@ export default function CommissionsPage() {
                                 </span>
                               </div>
                             </td>
-                            <td className="sticky right-0 z-10 w-[120px] min-w-[120px] max-w-[120px] bg-inherit px-2 py-3 align-middle">
+                            <td className="sticky right-0 z-10 w-[148px] min-w-[148px] max-w-[148px] bg-inherit px-2 py-3 align-middle">
                               <div className="flex justify-center items-center gap-2">
                                 <CommissionRowActions
                                   row={r}
                                   onAmounts={() => setAmountsModalRow(r)}
                                   onDelete={() => setDeleteId(r.id)}
+                                  onMarkLiquidata={() => setLiquidateId(r.id)}
+                                  showMarkLiquidata={isAdmin && r.commission_status === 'VALORIZZATA'}
                                 />
                               </div>
                             </td>
@@ -899,6 +961,40 @@ export default function CommissionsPage() {
             >
               <Trash2 className="h-4 w-4" />
               {deleteSubmitting ? 'Eliminazione…' : 'Elimina'}
+            </button>
+          </div>
+        </div>
+      </Modal>
+
+      <Modal
+        isOpen={liquidateId != null}
+        onClose={() => {
+          if (!liquidateSubmitting) setLiquidateId(null);
+        }}
+        title="Segna come liquidata"
+        size="sm"
+      >
+        <div className="space-y-4">
+          <p className="text-sm text-gray-600">
+            Confermi di segnare questa provvigione come liquidata? Lo stato verrà impostato su Liquidata.
+          </p>
+          <div className="flex justify-end gap-2 pt-2">
+            <button
+              type="button"
+              disabled={liquidateSubmitting}
+              onClick={() => setLiquidateId(null)}
+              className="btn-secondary"
+            >
+              Annulla
+            </button>
+            <button
+              type="button"
+              disabled={liquidateSubmitting}
+              onClick={() => void handleMarkLiquidata()}
+              className="inline-flex items-center gap-2 rounded-lg bg-emerald-600 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-700 disabled:opacity-60"
+            >
+              <CheckCircle className="h-4 w-4" />
+              {liquidateSubmitting ? 'Salvataggio…' : 'Conferma'}
             </button>
           </div>
         </div>

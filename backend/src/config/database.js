@@ -339,6 +339,7 @@ function initializeDatabase() {
 
   migrateCommissionTypeEnumsIfNeeded();
   migrateCommissionsNullableEconomicsSqliteIfNeeded();
+  migrateCommissionsLiquidatedSqliteIfNeeded();
   migrateFornitoreAndMessagingSqliteIfNeeded();
   migratePrivacyGdprSqliteIfNeeded();
   migratePoliciesScadenzeSqliteIfNeeded();
@@ -663,6 +664,19 @@ function migrateCommissionsNullableEconomicsSqliteIfNeeded() {
       /* ignore */
     }
     console.error('migrate commissions nullable economic columns:', e);
+  }
+}
+
+/** SQLite: flag liquidazione provvigione struttura (solo admin). */
+function migrateCommissionsLiquidatedSqliteIfNeeded() {
+  try {
+    const cols = db.prepare('PRAGMA table_info(commissions)').all();
+    const has = Array.isArray(cols) && cols.some((c) => c.name === 'liquidated');
+    if (!has) {
+      db.exec('ALTER TABLE commissions ADD COLUMN liquidated INTEGER NOT NULL DEFAULT 0');
+    }
+  } catch (e) {
+    console.error('ensure commissions.liquidated migration:', e);
   }
 }
 

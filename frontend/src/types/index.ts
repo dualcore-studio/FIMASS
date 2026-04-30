@@ -27,8 +27,8 @@ export interface StructureOption {
   commission_type: CommissionStructureType;
 }
 
-/** Stato valorizzazione economica (derivato lato API da presenza provv. broker). */
-export type CommissionValorizationStatus = 'DA_VALORIZZARE' | 'VALORIZZATA';
+/** Stato valorizzazione / liquidazione (derivato lato API; liquidazione solo admin). */
+export type CommissionValorizationStatus = 'DA_VALORIZZARE' | 'VALORIZZATA' | 'LIQUIDATA';
 
 export interface Commission {
   id: number;
@@ -51,6 +51,7 @@ export interface Commission {
   structure_commission_amount: number | null;
   /** Presente sulle risposte API arricchite. */
   commission_status?: CommissionValorizationStatus;
+  liquidated?: boolean;
   notes: string | null;
   created_at?: string;
   updated_at?: string;
@@ -65,6 +66,10 @@ export interface CommissionsListResponse extends PaginatedResponse<Commission> {
     /** Solo admin/fornitore: somma quota Sportello Amico (65% su ogni provv. broker). */
     totale_sportello_amico?: number;
     totale_provigioni_strutture: number;
+    /** Somma provv. struttura con stato liquidato (solo riepiloghi admin/fornitore). */
+    totale_provigioni_strutture_liquidate?: number;
+    /** Somma provv. struttura valorizzate non ancora liquidate. */
+    totale_provigioni_strutture_da_liquidare?: number;
   };
 }
 

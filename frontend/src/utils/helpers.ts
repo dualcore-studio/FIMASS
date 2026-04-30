@@ -141,11 +141,13 @@ export function getCommissionTypeLabel(type: string): string {
 }
 
 export function getCommissionValorizationBadgeClass(status: string | null | undefined): string {
+  if (status === 'LIQUIDATA') return 'bg-emerald-100 text-emerald-900 ring-1 ring-emerald-200/80';
   if (status === 'VALORIZZATA') return 'bg-slate-100 text-slate-800 ring-1 ring-slate-200/80';
   return 'bg-amber-50 text-amber-900 ring-1 ring-amber-200/70';
 }
 
 export function getCommissionValorizationLabel(status: string | null | undefined): string {
+  if (status === 'LIQUIDATA') return 'Liquidata';
   if (status === 'VALORIZZATA') return 'Valorizzata';
   return 'Da valorizzare';
 }

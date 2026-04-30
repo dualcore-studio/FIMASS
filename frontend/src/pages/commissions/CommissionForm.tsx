@@ -254,6 +254,15 @@ export default function CommissionForm() {
         </div>
       ) : null}
 
+      {valorizationBanner === 'LIQUIDATA' ? (
+        <div className="rounded-lg border border-emerald-100 bg-emerald-50/70 px-4 py-3 text-sm text-emerald-950 ring-1 ring-emerald-200/60">
+          <p className="font-medium">Liquidata</p>
+          <p className="mt-1 text-xs text-emerald-900">
+            Questa provvigione è stata segnata come liquidata in elenco dall&apos;amministratore.
+          </p>
+        </div>
+      ) : null}
+
       <form onSubmit={handleSubmit} className="card space-y-6 p-6">
         <div className="grid gap-4 sm:grid-cols-2">
           <div>

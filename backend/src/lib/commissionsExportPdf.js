@@ -36,6 +36,12 @@ function commissionTypeLabel(t) {
   return 'Segnalatore';
 }
 
+function commissionListStatusLabel(status) {
+  if (status === 'LIQUIDATA') return 'Liquidata';
+  if (status === 'VALORIZZATA') return 'Valorizzata';
+  return 'Da valorizzare';
+}
+
 /**
  * @param {object} opts
  * @param {object[]} opts.rows
@@ -106,7 +112,7 @@ function pipeCommissionsListPdf(opts, res) {
         { header: 'Tipo', w: 0.055, cell: (r) => commissionTypeLabel(r.structure_commission_type) },
         { header: '%', w: 0.035, cell: (r) => `${r.structure_commission_percentage ?? '—'}%` },
         { header: 'Prov. struttura', w: 0.075, cell: (r) => fmtCommissionAmountEuro(r.structure_commission_amount) },
-        { header: 'Stato', w: 0.065, cell: (r) => (r.commission_status === 'VALORIZZATA' ? 'Valorizzata' : 'Da valorizzare') },
+        { header: 'Stato', w: 0.065, cell: (r) => commissionListStatusLabel(r.commission_status) },
       ]
     : [
         { header: 'Data', w: 0.1, cell: (r) => fmtDate(r.date) },
@@ -117,7 +123,7 @@ function pipeCommissionsListPdf(opts, res) {
         { header: 'Premio', w: 0.12, cell: (r) => fmtEuro(r.policy_premium) },
         { header: 'Tipo', w: 0.08, cell: (r) => commissionTypeLabel(r.structure_commission_type) },
         { header: 'La tua provvigione', w: 0.14, cell: (r) => fmtCommissionAmountEuro(r.structure_commission_amount) },
-        { header: 'Stato', w: 0.07, cell: (r) => (r.commission_status === 'VALORIZZATA' ? 'Valorizzata' : 'Da valorizzare') },
+        { header: 'Stato', w: 0.07, cell: (r) => commissionListStatusLabel(r.commission_status) },
       ];
 
   const rawWs = cols.map((c) => c.w);

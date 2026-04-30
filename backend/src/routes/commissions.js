@@ -31,6 +31,13 @@ function roundMoney(n) {
   return Math.round(x * 100) / 100;
 }
 
+function isRowLiquidated(r) {
+  if (!r || typeof r !== 'object') return false;
+  const v = r.liquidated;
+  if (v === true || v === 1 || v === '1') return true;
+  return false;
+}
+
 /**
  * @param {number} provvigioniBroker
  * @param {string} structureCommissionType
@@ -109,6 +116,7 @@ function enrichCommissionRow(r) {
 
   if (hasDirectBroker) {
     const computed = computeFromProvvigioniBroker(brokerDirect, t);
+    const commission_status = isRowLiquidated(r) ? 'LIQUIDATA' : 'VALORIZZATA';
     return {
       ...r,
       provvigioni_broker: brokerDirect,
@@ -116,7 +124,8 @@ function enrichCommissionRow(r) {
       sportello_amico_commission: computed.sportello_amico_commission,
       structure_commission_percentage: computed.structure_commission_percentage,
       structure_commission_amount: computed.structure_commission_amount,
-      commission_status: 'VALORIZZATA',
+      commission_status,
+      liquidated: commission_status === 'LIQUIDATA',
     };
   }
 
@@ -124,6 +133,7 @@ function enrichCommissionRow(r) {
   if (Number.isFinite(sa) && sa > 0) {
     const broker = roundMoney(sa / SPORTELLO_AMICO_ORG_PCT);
     const computed = computeFromProvvigioniBroker(broker, t);
+    const commission_status = isRowLiquidated(r) ? 'LIQUIDATA' : 'VALORIZZATA';
     return {
       ...r,
       provvigioni_broker: broker,
@@ -131,7 +141,8 @@ function enrichCommissionRow(r) {
       sportello_amico_commission: computed.sportello_amico_commission,
       structure_commission_percentage: computed.structure_commission_percentage,
       structure_commission_amount: computed.structure_commission_amount,
-      commission_status: 'VALORIZZATA',
+      commission_status,
+      liquidated: commission_status === 'LIQUIDATA',
     };
   }
 
@@ -143,6 +154,7 @@ function enrichCommissionRow(r) {
     structure_commission_amount: null,
     structure_commission_percentage: pct,
     commission_status: 'DA_VALORIZZARE',
+    liquidated: false,
   };
 }
 
@@ -221,12 +233,20 @@ function summarize(rows) {
   let totaleBroker = 0;
   let totaleSa = 0;
   let totaleStrutture = 0;
+  let totaleStruttureLiquidate = 0;
+  let totaleStruttureDaLiquidare = 0;
   for (const r of rows) {
     const e = enrichCommissionRow(r);
     totalePremi += Number(e.policy_premium) || 0;
     totaleBroker += Number(e.provvigioni_broker) || 0;
     totaleSa += Number(e.sportello_amico_commission) || 0;
-    totaleStrutture += Number(e.structure_commission_amount) || 0;
+    const strAmt = Number(e.structure_commission_amount) || 0;
+    totaleStrutture += strAmt;
+    if (e.commission_status === 'LIQUIDATA') {
+      totaleStruttureLiquidate += strAmt;
+    } else if (e.commission_status === 'VALORIZZATA') {
+      totaleStruttureDaLiquidare += strAmt;
+    }
   }
   return {
     totale_polizze: rows.length,
@@ -234,6 +254,8 @@ function summarize(rows) {
     totale_provigioni_broker: roundMoney(totaleBroker),
     totale_sportello_amico: roundMoney(totaleSa),
     totale_provigioni_strutture: roundMoney(totaleStrutture),
+    totale_provigioni_strutture_liquidate: roundMoney(totaleStruttureLiquidate),
+    totale_provigioni_strutture_da_liquidare: roundMoney(totaleStruttureDaLiquidare),
   };
 }
 
@@ -363,6 +385,44 @@ router.get('/export-pdf', authenticateToken, assertCommissionReader, (req, res) 
   });
 });
 
+router.patch('/:id/liquidate', authenticateToken, authorizeRoles('admin'), (req, res) => {
+  (async () => {
+    const id = Number(req.params.id);
+    if (!Number.isFinite(id)) return res.status(400).json({ error: 'ID non valido' });
+
+    const current = await getById('commissions', id);
+    if (!current) return res.status(404).json({ error: 'Provvigione non trovata' });
+
+    const preview = enrichCommissionRow({ ...current, liquidated: false });
+    if (preview.commission_status !== 'VALORIZZATA') {
+      return res.status(400).json({
+        error: 'Si possono liquidare solo provvigioni già valorizzate con importo struttura',
+      });
+    }
+    if (isRowLiquidated(current)) {
+      return res.json(enrichCommissionRow(current));
+    }
+
+    const updatedRow = await upsertById('commissions', id, { liquidated: true });
+
+    await logActivity({
+      utente_id: req.user.id,
+      utente_nome: getUserDisplayName(req.user),
+      ruolo: req.user.role,
+      azione: 'LIQUIDAZIONE_PROVVIGIONE',
+      modulo: 'provvigioni',
+      riferimento_id: id,
+      riferimento_tipo: 'commission',
+      dettaglio: `Provvigione #${id} segnata come liquidata`,
+    });
+
+    res.json(enrichCommissionRow(updatedRow));
+  })().catch((err) => {
+    console.error('commissions liquidate:', err);
+    res.status(500).json({ error: 'Errore nell\'aggiornamento stato liquidazione' });
+  });
+});
+
 router.get('/:id', authenticateToken, assertCommissionReader, (req, res) => {
   (async () => {
     const row = await getById('commissions', req.params.id);
@@ -436,6 +496,7 @@ router.post('/', authenticateToken, authorizeRoles('admin', 'fornitore'), (req, 
       policy_premium: policy_premium ?? null,
       broker_commission: econ.broker_commission,
       client_invoice: client_invoice ?? null,
+      liquidated: false,
       sportello_amico_commission: econ.sportello_amico_commission,
       structure_commission_type: econ.structure_commission_type,
       structure_commission_percentage: econ.structure_commission_percentage,
@@ -507,6 +568,7 @@ router.put('/:id', authenticateToken, authorizeRoles('admin', 'fornitore'), (req
       ? structure.commission_type
       : 'SEGNALATORE';
     const econ = buildEconomicsPersist(provvigioni_broker, ct);
+    const shouldClearLiquidated = econ.broker_commission === null;
 
     const d =
       date !== undefined ? normalizeDateInput(date) : normalizeDateInput(current.date);
@@ -541,6 +603,7 @@ router.put('/:id', authenticateToken, authorizeRoles('admin', 'fornitore'), (req
       structure_commission_percentage: econ.structure_commission_percentage,
       structure_commission_amount: econ.structure_commission_amount,
       notes: notes !== undefined ? String(notes).trim() || null : current.notes,
+      ...(shouldClearLiquidated ? { liquidated: false } : {}),
     });
 
     await logActivity({
