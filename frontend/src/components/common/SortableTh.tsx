@@ -8,6 +8,8 @@ export interface SortableThProps {
   direction: SortDirection;
   onRequestSort: (key: string) => void;
   align?: 'left' | 'right' | 'center';
+  /** Evita ellipsis sul titolo (es. celle strette con label più lunga dell’icona di sort). */
+  noTruncate?: boolean;
   className?: string;
 }
 
@@ -18,6 +20,7 @@ export default function SortableTh({
   direction,
   onRequestSort,
   align = 'left',
+  noTruncate = false,
   className = '',
 }: SortableThProps) {
   const active = activeKey === sortKey;
@@ -37,13 +40,21 @@ export default function SortableTh({
       <button
         type="button"
         onClick={() => onRequestSort(sortKey)}
-        className={`group cursor-pointer inline-flex max-w-full items-center gap-1.5 rounded-md px-1.5 py-1 -mx-1.5 -my-1 font-semibold text-gray-700 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/40 focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--portal-table-header-bg)] ${alignBtn} ${
+        className={`group cursor-pointer inline-flex max-w-full items-center gap-1.5 rounded-md px-1.5 py-1 -mx-1.5 -my-1 font-semibold text-gray-700 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/40 focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--portal-table-header-bg)] ${noTruncate ? 'flex-wrap justify-center' : ''} ${alignBtn} ${
           active
             ? 'bg-blue-50/90 text-blue-900 ring-1 ring-blue-200/70'
             : 'hover:bg-slate-100/90 hover:text-slate-900'
         }`}
       >
-        <span className="min-w-0 truncate">{children}</span>
+        <span
+          className={
+            noTruncate
+              ? 'max-w-full whitespace-normal text-center leading-tight'
+              : 'min-w-0 truncate'
+          }
+        >
+          {children}
+        </span>
         <span className="inline-flex h-4 w-4 shrink-0 text-slate-400" aria-hidden>
           {active ? (
             direction === 'asc' ? (

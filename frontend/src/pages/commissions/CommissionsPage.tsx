@@ -590,6 +590,7 @@ export default function CommissionsPage() {
                           direction={tableSort.sortDir}
                           onRequestSort={tableSort.requestSort}
                           align="center"
+                          noTruncate
                           className="!px-2 !py-3 w-[85px] min-w-[85px] max-w-[85px] align-middle"
                         >
                           Quota S.A.
