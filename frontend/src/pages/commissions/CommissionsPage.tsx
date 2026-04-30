@@ -451,35 +451,33 @@ export default function CommissionsPage() {
                             <dt className="w-28 shrink-0 text-xs font-medium text-gray-500">Premio</dt>
                             <dd className="tabular-nums text-gray-900">{formatEuro(r.policy_premium)}</dd>
                           </div>
-                          <div className="flex gap-2">
-                            <dt className="w-28 shrink-0 text-xs font-medium text-gray-500">Provvigioni</dt>
-                            <dd className="min-w-0 flex-1 space-y-1 text-xs text-gray-800">
-                              {isFullAccess ? (
-                                <>
-                                  <div>
-                                    <span className="text-gray-500">Provv. broker: </span>
-                                    <span className="tabular-nums">
-                                      {formatCommissionEuro(r.provvigioni_broker ?? r.broker_commission ?? null)}
-                                    </span>
-                                  </div>
-                                  <div>
-                                    <span className="text-gray-500">Quota S.A.: </span>
-                                    <span className="tabular-nums">{formatCommissionEuro(r.sportello_amico_commission)}</span>
-                                  </div>
-                                  <div>
-                                    <span className="text-gray-500">Provv. struttura: </span>
-                                    <span className="tabular-nums font-semibold">
-                                      {formatCommissionEuro(r.structure_commission_amount)}
-                                    </span>
-                                  </div>
-                                </>
-                              ) : (
-                                <span className="tabular-nums font-semibold">
-                                  {formatCommissionEuro(r.structure_commission_amount)}
-                                </span>
-                              )}
-                            </dd>
-                          </div>
+                          {isFullAccess ? (
+                            <>
+                              <div className="flex gap-2">
+                                <dt className="w-28 shrink-0 text-xs font-medium text-gray-500">Provv. broker</dt>
+                                <dd className="tabular-nums text-gray-900">
+                                  {formatEuro(r.provvigioni_broker ?? r.broker_commission ?? null)}
+                                </dd>
+                              </div>
+                              <div className="flex gap-2">
+                                <dt className="w-28 shrink-0 text-xs font-medium text-gray-500">Quota S.A.</dt>
+                                <dd className="tabular-nums text-gray-900">{formatEuro(r.sportello_amico_commission)}</dd>
+                              </div>
+                              <div className="flex gap-2">
+                                <dt className="w-28 shrink-0 text-xs font-medium text-gray-500">Provv. struttura</dt>
+                                <dd className="tabular-nums font-semibold text-gray-900">
+                                  {formatEuro(r.structure_commission_amount)}
+                                </dd>
+                              </div>
+                            </>
+                          ) : (
+                            <div className="flex gap-2">
+                              <dt className="w-28 shrink-0 text-xs font-medium text-gray-500">Provvigione</dt>
+                              <dd className="tabular-nums font-semibold text-gray-900">
+                                {formatCommissionEuro(r.structure_commission_amount)}
+                              </dd>
+                            </div>
+                          )}
                           <div className="flex gap-2">
                             <dt className="w-28 shrink-0 text-xs font-medium text-gray-500">
                               {isFullAccess ? 'Tipo / %' : 'Tipo'}
@@ -520,7 +518,7 @@ export default function CommissionsPage() {
 
             <div className="hidden w-full min-w-0 overflow-x-auto md:block">
               <table
-                className="portal-table w-full min-w-[1320px] table-fixed border-collapse text-left text-sm"
+                className="portal-table w-full min-w-[1370px] table-fixed border-collapse text-left text-sm"
               >
                 <thead>
                   <tr>
@@ -531,7 +529,7 @@ export default function CommissionsPage() {
                           activeKey={tableSort.sortBy}
                           direction={tableSort.sortDir}
                           onRequestSort={tableSort.requestSort}
-                          className="!px-3 !py-3 w-[110px] min-w-[110px] max-w-[110px] align-top"
+                          className="!px-3 !py-2 w-[100px] min-w-[100px] max-w-[100px] align-top"
                         >
                           Data
                         </SortableTh>
@@ -540,7 +538,7 @@ export default function CommissionsPage() {
                           activeKey={tableSort.sortBy}
                           direction={tableSort.sortDir}
                           onRequestSort={tableSort.requestSort}
-                          className="!px-3 !py-3 min-w-[170px] align-top"
+                          className="!px-3 !py-2 w-[180px] min-w-[180px] max-w-[180px] align-top"
                         >
                           Cliente / Polizza
                         </SortableTh>
@@ -549,7 +547,7 @@ export default function CommissionsPage() {
                           activeKey={tableSort.sortBy}
                           direction={tableSort.sortDir}
                           onRequestSort={tableSort.requestSort}
-                          className="!px-3 !py-3 min-w-[140px] align-top"
+                          className="!px-3 !py-2 w-[140px] min-w-[140px] max-w-[140px] align-top"
                         >
                           Struttura
                         </SortableTh>
@@ -558,7 +556,7 @@ export default function CommissionsPage() {
                           activeKey={tableSort.sortBy}
                           direction={tableSort.sortDir}
                           onRequestSort={tableSort.requestSort}
-                          className="!px-3 !py-3 min-w-[160px] align-top"
+                          className="!px-3 !py-2 w-[160px] min-w-[160px] max-w-[160px] align-top"
                         >
                           Portale / Compagnia
                         </SortableTh>
@@ -567,20 +565,45 @@ export default function CommissionsPage() {
                           activeKey={tableSort.sortBy}
                           direction={tableSort.sortDir}
                           onRequestSort={tableSort.requestSort}
-                          className="!px-3 !py-3 w-[100px] min-w-[100px] max-w-[100px] align-top"
+                          align="right"
+                          className="!px-3 !py-2 w-[95px] min-w-[95px] max-w-[95px] align-top"
                         >
                           Premio
+                        </SortableTh>
+                        <SortableTh
+                          sortKey="broker_commission"
+                          activeKey={tableSort.sortBy}
+                          direction={tableSort.sortDir}
+                          onRequestSort={tableSort.requestSort}
+                          align="right"
+                          className="!px-3 !py-2 w-[115px] min-w-[115px] max-w-[115px] align-top"
+                        >
+                          Provv. broker
+                        </SortableTh>
+                        <SortableTh
+                          sortKey="sportello_amico_commission"
+                          activeKey={tableSort.sortBy}
+                          direction={tableSort.sortDir}
+                          onRequestSort={tableSort.requestSort}
+                          align="right"
+                          className="!px-3 !py-2 w-[105px] min-w-[105px] max-w-[105px] align-top"
+                        >
+                          Quota S.A.
                         </SortableTh>
                         <SortableTh
                           sortKey="structure_commission_amount"
                           activeKey={tableSort.sortBy}
                           direction={tableSort.sortDir}
                           onRequestSort={tableSort.requestSort}
-                          className="!px-3 !py-3 min-w-[190px] align-top"
+                          align="right"
+                          className="!px-3 !py-2 w-[120px] min-w-[120px] max-w-[120px] align-top"
                         >
-                          Provvigioni
+                          Provv. struttura
                         </SortableTh>
-                        <th scope="col" className="w-[120px] min-w-[120px] max-w-[120px] px-3 py-3 align-top font-semibold text-gray-700">
+                        <th
+                          scope="col"
+                          className="w-[115px] min-w-[115px] max-w-[115px] px-3 py-2 align-top text-left text-sm font-semibold text-gray-700"
+                        >
                           Tipo / %
                         </th>
                         <SortableTh
@@ -588,13 +611,13 @@ export default function CommissionsPage() {
                           activeKey={tableSort.sortBy}
                           direction={tableSort.sortDir}
                           onRequestSort={tableSort.requestSort}
-                          className="!px-3 !py-3 w-[130px] min-w-[130px] max-w-[130px] align-top"
+                          className="!px-3 !py-2 w-[120px] min-w-[120px] max-w-[120px] align-top"
                         >
                           Stato
                         </SortableTh>
                         <th
                           scope="col"
-                          className="sticky right-0 z-30 w-[128px] min-w-[128px] max-w-[128px] bg-[var(--portal-table-header-bg)] px-2 py-3 text-center align-top font-semibold text-gray-700"
+                          className="sticky right-0 z-30 w-[120px] min-w-[120px] max-w-[120px] bg-[var(--portal-table-header-bg)] px-2 py-2 text-center align-top text-sm font-semibold text-gray-700"
                         >
                           Azioni
                         </th>
@@ -689,7 +712,7 @@ export default function CommissionsPage() {
                 <tbody>
                   {rows.length === 0 ? (
                     <tr>
-                      <td colSpan={9} className="px-3 py-12 text-center text-gray-500">
+                      <td colSpan={isFullAccess ? 11 : 9} className="px-3 py-12 text-center text-gray-500">
                         Nessuna provvigione con i filtri selezionati.
                       </td>
                     </tr>
@@ -700,46 +723,33 @@ export default function CommissionsPage() {
                       if (isFullAccess) {
                         return (
                           <tr key={r.id} className={rowBg}>
-                            <td className="w-[110px] min-w-[110px] max-w-[110px] whitespace-nowrap px-3 py-3 text-gray-700">
+                            <td className="w-[100px] min-w-[100px] max-w-[100px] whitespace-nowrap px-3 py-2 text-gray-700">
                               {formatDate(r.date)}
                             </td>
-                            <td className="min-w-[170px] px-3 py-3 align-top">
+                            <td className="w-[180px] min-w-[180px] max-w-[180px] px-3 py-2 align-top">
                               <p className="line-clamp-2 font-semibold leading-snug text-gray-900">{r.customer_name}</p>
                               <p className="mt-0.5 truncate font-mono text-sm text-gray-500">{r.policy_number}</p>
                             </td>
-                            <td className="min-w-[140px] px-3 py-3 align-top">
+                            <td className="w-[140px] min-w-[140px] max-w-[140px] px-3 py-2 align-top">
                               <p className="line-clamp-2 text-gray-800">{r.structure_name ?? '—'}</p>
                             </td>
-                            <td className="min-w-[160px] px-3 py-3 align-top">
+                            <td className="w-[160px] min-w-[160px] max-w-[160px] px-3 py-2 align-top">
                               <p className="line-clamp-2 text-gray-900">{r.portal ?? '—'}</p>
                               <p className="mt-0.5 line-clamp-2 text-sm text-gray-500">{r.company ?? '—'}</p>
                             </td>
-                            <td className="w-[100px] min-w-[100px] max-w-[100px] whitespace-nowrap px-3 py-3 tabular-nums text-gray-800">
+                            <td className="w-[95px] min-w-[95px] max-w-[95px] whitespace-nowrap px-3 py-2 text-right tabular-nums text-gray-800">
                               {formatEuro(r.policy_premium)}
                             </td>
-                            <td className="min-w-[190px] px-3 py-3 align-top text-xs leading-snug text-gray-800">
-                              <div className="space-y-1">
-                                <div className="flex flex-wrap gap-x-1 gap-y-0">
-                                  <span className="shrink-0 text-gray-500">Provv. broker:</span>
-                                  <span className="min-w-0 truncate tabular-nums font-medium">
-                                    {formatCommissionEuro(r.provvigioni_broker ?? r.broker_commission ?? null)}
-                                  </span>
-                                </div>
-                                <div className="flex flex-wrap gap-x-1 gap-y-0">
-                                  <span className="shrink-0 text-gray-500">Quota S.A.:</span>
-                                  <span className="min-w-0 truncate tabular-nums font-medium">
-                                    {formatCommissionEuro(r.sportello_amico_commission)}
-                                  </span>
-                                </div>
-                                <div className="flex flex-wrap gap-x-1 gap-y-0">
-                                  <span className="shrink-0 text-gray-500">Provv. struttura:</span>
-                                  <span className="min-w-0 truncate tabular-nums font-semibold text-gray-900">
-                                    {formatCommissionEuro(r.structure_commission_amount)}
-                                  </span>
-                                </div>
-                              </div>
+                            <td className="w-[115px] min-w-[115px] max-w-[115px] whitespace-nowrap px-3 py-2 text-right tabular-nums text-gray-900">
+                              {formatEuro(r.provvigioni_broker ?? r.broker_commission ?? null)}
                             </td>
-                            <td className="w-[120px] min-w-[120px] max-w-[120px] px-3 py-3 align-top">
+                            <td className="w-[105px] min-w-[105px] max-w-[105px] whitespace-nowrap px-3 py-2 text-right tabular-nums text-gray-900">
+                              {formatEuro(r.sportello_amico_commission)}
+                            </td>
+                            <td className="w-[120px] min-w-[120px] max-w-[120px] whitespace-nowrap px-3 py-2 text-right tabular-nums font-semibold text-gray-900">
+                              {formatEuro(r.structure_commission_amount)}
+                            </td>
+                            <td className="w-[115px] min-w-[115px] max-w-[115px] px-3 py-2 align-top">
                               <span
                                 className={`badge inline-flex max-w-full whitespace-normal break-words text-left leading-tight ${getCommissionTypeBadgeClass(r.structure_commission_type)}`}
                               >
@@ -747,14 +757,14 @@ export default function CommissionsPage() {
                               </span>
                               <p className="mt-1 text-xs tabular-nums text-gray-600">{r.structure_commission_percentage}%</p>
                             </td>
-                            <td className="w-[130px] min-w-[130px] max-w-[130px] px-3 py-3 align-top">
+                            <td className="w-[120px] min-w-[120px] max-w-[120px] px-3 py-2 align-top">
                               <span
                                 className={`badge inline-flex max-w-full whitespace-normal break-words leading-tight ${getCommissionValorizationBadgeClass(r.commission_status)}`}
                               >
                                 {getCommissionValorizationLabel(r.commission_status)}
                               </span>
                             </td>
-                            <td className="sticky right-0 z-10 w-[128px] min-w-[128px] max-w-[128px] bg-inherit px-2 py-3 align-middle">
+                            <td className="sticky right-0 z-10 w-[120px] min-w-[120px] max-w-[120px] bg-inherit px-2 py-2 align-middle">
                               <CommissionRowActions
                                 row={r}
                                 onAmounts={() => setAmountsModalRow(r)}
