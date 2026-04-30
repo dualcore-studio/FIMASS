@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Banknote, Euro, FileDown, Pencil, Plus, Trash2 } from 'lucide-react';
+import { Euro, FileDown, Pencil, Plus, Trash2 } from 'lucide-react';
 import { api, ApiError } from '../../utils/api';
 import type { Commission, CommissionsListResponse, StructureOption } from '../../types';
 import {
@@ -530,6 +530,7 @@ export default function CommissionsPage() {
                           direction={tableSort.sortDir}
                           onRequestSort={tableSort.requestSort}
                           align="center"
+                          hideSortIcons
                           className="!px-2 !py-3 w-[100px] min-w-[100px] max-w-[100px] align-middle"
                         >
                           Data
@@ -540,6 +541,7 @@ export default function CommissionsPage() {
                           direction={tableSort.sortDir}
                           onRequestSort={tableSort.requestSort}
                           align="center"
+                          hideSortIcons
                           className="!px-2 !py-3 w-[180px] min-w-[180px] max-w-[180px] align-middle"
                         >
                           Cliente / Polizza
@@ -550,6 +552,7 @@ export default function CommissionsPage() {
                           direction={tableSort.sortDir}
                           onRequestSort={tableSort.requestSort}
                           align="center"
+                          hideSortIcons
                           className="!px-2 !py-3 w-[140px] min-w-[140px] max-w-[140px] align-middle"
                         >
                           Struttura
@@ -560,6 +563,7 @@ export default function CommissionsPage() {
                           direction={tableSort.sortDir}
                           onRequestSort={tableSort.requestSort}
                           align="center"
+                          hideSortIcons
                           className="!px-2 !py-3 w-[160px] min-w-[160px] max-w-[160px] align-middle"
                         >
                           Portale / Compagnia
@@ -570,6 +574,7 @@ export default function CommissionsPage() {
                           direction={tableSort.sortDir}
                           onRequestSort={tableSort.requestSort}
                           align="center"
+                          hideSortIcons
                           className="!px-2 !py-3 w-[95px] min-w-[95px] max-w-[95px] align-middle"
                         >
                           Premio
@@ -580,6 +585,7 @@ export default function CommissionsPage() {
                           direction={tableSort.sortDir}
                           onRequestSort={tableSort.requestSort}
                           align="center"
+                          hideSortIcons
                           className="!px-2 !py-3 w-[90px] min-w-[90px] max-w-[90px] align-middle"
                         >
                           Broker
@@ -590,7 +596,7 @@ export default function CommissionsPage() {
                           direction={tableSort.sortDir}
                           onRequestSort={tableSort.requestSort}
                           align="center"
-                          noTruncate
+                          hideSortIcons
                           className="!px-2 !py-3 w-[85px] min-w-[85px] max-w-[85px] align-middle"
                         >
                           Quota S.A.
@@ -601,6 +607,7 @@ export default function CommissionsPage() {
                           direction={tableSort.sortDir}
                           onRequestSort={tableSort.requestSort}
                           align="center"
+                          hideSortIcons
                           className="!px-2 !py-3 w-[95px] min-w-[95px] max-w-[95px] align-middle"
                         >
                           Struttura
@@ -617,6 +624,7 @@ export default function CommissionsPage() {
                           direction={tableSort.sortDir}
                           onRequestSort={tableSort.requestSort}
                           align="center"
+                          hideSortIcons
                           className="!px-2 !py-3 w-[120px] min-w-[120px] max-w-[120px] align-middle"
                         >
                           Stato
@@ -902,14 +910,6 @@ export default function CommissionsPage() {
         onClose={() => setAmountsModalRow(null)}
         onSaved={fetchList}
       />
-
-      {isStruttura ? (
-        <p className="flex items-center gap-2 text-xs text-gray-500">
-          <Banknote className="h-4 w-4 shrink-0 opacity-70" strokeWidth={1.75} />
-          Vedi le provvigioni della tua struttura e l&apos;importo che ti spetta; non sono mostrati provv. broker, quota
-          Sportello Amico o altri importi riferiti al network.
-        </p>
-      ) : null}
     </div>
   );
 }
