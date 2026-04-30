@@ -1,6 +1,16 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Banknote, FileDown, Pencil, Plus, Trash2 } from 'lucide-react';
+import {
+  ArrowDown,
+  ArrowUp,
+  ArrowUpDown,
+  Banknote,
+  EllipsisVertical,
+  FileDown,
+  Pencil,
+  Plus,
+  Trash2,
+} from 'lucide-react';
 import { api, ApiError } from '../../utils/api';
 import type { Commission, CommissionsListResponse, StructureOption } from '../../types';
 import {
@@ -16,7 +26,7 @@ import { useAuth } from '../../context/AuthContext';
 import TablePagination from '../../components/common/TablePagination';
 import { TABLE_PAGE_SIZE } from '../../constants/tablePagination';
 import { useSyncPageToTotalPages } from '../../hooks/useSyncPageToTotalPages';
-import { useListTableSort } from '../../hooks/useListTableSort';
+import { useListTableSort, type SortDirection } from '../../hooks/useListTableSort';
 import SortableTh from '../../components/common/SortableTh';
 import Modal from '../../components/ui/Modal';
 import CommissionAmountsModal from './CommissionAmountsModal';
@@ -70,6 +80,133 @@ function buildExportPdfQuery(params: {
     qs.set('sort_dir', params.sortDir);
   }
   return `/commissions/export-pdf?${qs.toString()}`;
+}
+
+function CommissionMiniSort({
+  label,
+  sortKey,
+  activeKey,
+  direction,
+  onRequestSort,
+}: {
+  label: string;
+  sortKey: string;
+  activeKey: string | null;
+  direction: SortDirection;
+  onRequestSort: (key: string) => void;
+}) {
+  const active = activeKey === sortKey;
+  return (
+    <button
+      type="button"
+      onClick={() => onRequestSort(sortKey)}
+      className={`inline-flex max-w-full min-w-0 items-center gap-0.5 rounded px-1 py-0.5 text-[11px] font-semibold transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/40 ${
+        active ? 'bg-blue-50 text-blue-900 ring-1 ring-blue-200/70' : 'text-gray-600 hover:bg-slate-100 hover:text-gray-900'
+      }`}
+    >
+      <span className="truncate">{label}</span>
+      <span className="inline-flex shrink-0 text-slate-400" aria-hidden>
+        {active ? (
+          direction === 'asc' ? (
+            <ArrowUp className="h-3 w-3 text-blue-700" strokeWidth={2.25} />
+          ) : (
+            <ArrowDown className="h-3 w-3 text-blue-700" strokeWidth={2.25} />
+          )
+        ) : (
+          <ArrowUpDown className="h-3 w-3 opacity-40" strokeWidth={2} />
+        )}
+      </span>
+    </button>
+  );
+}
+
+function CommissionActionsMenu({
+  row,
+  onAmounts,
+  onDelete,
+}: {
+  row: Commission;
+  onAmounts: () => void;
+  onDelete: () => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const wrapRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    const onDoc = (e: MouseEvent) => {
+      if (wrapRef.current && !wrapRef.current.contains(e.target as Node)) setOpen(false);
+    };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setOpen(false);
+    };
+    document.addEventListener('mousedown', onDoc);
+    document.addEventListener('keydown', onKey);
+    return () => {
+      document.removeEventListener('mousedown', onDoc);
+      document.removeEventListener('keydown', onKey);
+    };
+  }, [open]);
+
+  return (
+    <div className="relative flex justify-end" ref={wrapRef}>
+      <button
+        type="button"
+        aria-expanded={open}
+        aria-haspopup="menu"
+        title="Azioni"
+        onClick={() => setOpen((v) => !v)}
+        className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-gray-200 bg-white text-gray-600 shadow-sm transition hover:border-blue-300 hover:bg-blue-50 hover:text-blue-800"
+      >
+        <EllipsisVertical className="h-4 w-4" strokeWidth={2} />
+      </button>
+      {open ? (
+        <ul
+          className="absolute right-0 top-full z-[60] mt-1 min-w-[12rem] rounded-lg border border-slate-200 bg-white py-1 text-left text-sm shadow-lg ring-1 ring-black/5"
+          role="menu"
+        >
+          <li role="none">
+            <button
+              type="button"
+              role="menuitem"
+              className="flex w-full items-center px-3 py-2 text-left text-gray-800 hover:bg-slate-50"
+              onClick={() => {
+                onAmounts();
+                setOpen(false);
+              }}
+            >
+              {row.commission_status === 'DA_VALORIZZARE' ? 'Inserisci importi' : 'Modifica importi'}
+            </button>
+          </li>
+          <li role="none">
+            <Link
+              to={`/provvigioni/${row.id}/modifica`}
+              role="menuitem"
+              className="flex items-center gap-2 px-3 py-2 text-gray-800 hover:bg-slate-50"
+              onClick={() => setOpen(false)}
+            >
+              <Pencil className="h-4 w-4 shrink-0 opacity-70" />
+              Modifica scheda
+            </Link>
+          </li>
+          <li role="none">
+            <button
+              type="button"
+              role="menuitem"
+              className="flex w-full items-center gap-2 px-3 py-2 text-left text-red-700 hover:bg-red-50"
+              onClick={() => {
+                onDelete();
+                setOpen(false);
+              }}
+            >
+              <Trash2 className="h-4 w-4 shrink-0 opacity-80" />
+              Elimina
+            </button>
+          </li>
+        </ul>
+      ) : null}
+    </div>
+  );
 }
 
 function SummaryCard({
@@ -232,7 +369,7 @@ export default function CommissionsPage() {
   if (!isFullAccess && !isStruttura) return null;
 
   return (
-    <div className="space-y-6">
+    <div className="w-full max-w-full min-w-0 space-y-6">
       <header className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
         <div>
           <h1 className="text-2xl font-bold tracking-tight text-gray-900">
@@ -366,7 +503,7 @@ export default function CommissionsPage() {
         ) : null}
       </div>
 
-      <div className="card overflow-hidden">
+      <div className="card w-full max-w-full min-w-0 overflow-hidden">
         {loading ? (
           <div className="flex min-h-[280px] items-center justify-center py-12">
             <div className="flex flex-col items-center gap-3">
@@ -377,195 +514,361 @@ export default function CommissionsPage() {
         ) : listError ? (
           <div className="p-8 text-center text-sm text-red-700">{listError}</div>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="portal-table min-w-full text-left text-sm">
-              <thead>
-                <tr>
-                  <SortableTh sortKey="date" activeKey={tableSort.sortBy} direction={tableSort.sortDir} onRequestSort={tableSort.requestSort}>
-                    Data
-                  </SortableTh>
-                  <SortableTh
-                    sortKey="customer_name"
-                    activeKey={tableSort.sortBy}
-                    direction={tableSort.sortDir}
-                    onRequestSort={tableSort.requestSort}
-                  >
-                    Cliente
-                  </SortableTh>
-                  <SortableTh
-                    sortKey="policy_number"
-                    activeKey={tableSort.sortBy}
-                    direction={tableSort.sortDir}
-                    onRequestSort={tableSort.requestSort}
-                  >
-                    N. Polizza
-                  </SortableTh>
-                  {isFullAccess ? (
-                    <SortableTh
-                      sortKey="structure_name"
-                      activeKey={tableSort.sortBy}
-                      direction={tableSort.sortDir}
-                      onRequestSort={tableSort.requestSort}
-                    >
-                      Struttura
-                    </SortableTh>
-                  ) : null}
-                  <SortableTh sortKey="portal" activeKey={tableSort.sortBy} direction={tableSort.sortDir} onRequestSort={tableSort.requestSort}>
-                    Portale
-                  </SortableTh>
-                  <SortableTh sortKey="company" activeKey={tableSort.sortBy} direction={tableSort.sortDir} onRequestSort={tableSort.requestSort}>
-                    Compagnia
-                  </SortableTh>
-                  <SortableTh
-                    sortKey="policy_premium"
-                    activeKey={tableSort.sortBy}
-                    direction={tableSort.sortDir}
-                    onRequestSort={tableSort.requestSort}
-                  >
-                    Premio
-                  </SortableTh>
-                  {isFullAccess ? (
-                    <SortableTh
-                      sortKey="client_invoice"
-                      activeKey={tableSort.sortBy}
-                      direction={tableSort.sortDir}
-                      onRequestSort={tableSort.requestSort}
-                    >
-                      Fattura cliente
-                    </SortableTh>
-                  ) : null}
-                  {isFullAccess ? (
-                    <SortableTh
-                      sortKey="provvigioni_broker"
-                      activeKey={tableSort.sortBy}
-                      direction={tableSort.sortDir}
-                      onRequestSort={tableSort.requestSort}
-                    >
-                      Prov. broker
-                    </SortableTh>
-                  ) : null}
-                  {isFullAccess ? (
-                    <SortableTh
-                      sortKey="sportello_amico_commission"
-                      activeKey={tableSort.sortBy}
-                      direction={tableSort.sortDir}
-                      onRequestSort={tableSort.requestSort}
-                    >
-                      Quota S.A. 65%
-                    </SortableTh>
-                  ) : null}
-                  <th className="px-4 py-3 font-semibold text-gray-700">Tipo</th>
-                  {isFullAccess ? <th className="px-4 py-3 font-semibold text-gray-700">%</th> : null}
-                  <SortableTh
-                    sortKey="structure_commission_amount"
-                    activeKey={tableSort.sortBy}
-                    direction={tableSort.sortDir}
-                    onRequestSort={tableSort.requestSort}
-                  >
-                    {isFullAccess ? 'Prov. struttura' : 'La tua provvigione'}
-                  </SortableTh>
-                  <SortableTh
-                    sortKey="commission_status"
-                    activeKey={tableSort.sortBy}
-                    direction={tableSort.sortDir}
-                    onRequestSort={tableSort.requestSort}
-                  >
-                    Stato
-                  </SortableTh>
-                  {isFullAccess ? <th className="px-4 py-3 text-right font-semibold text-gray-700">Azioni</th> : null}
-                </tr>
-              </thead>
-              <tbody>
-                {rows.length === 0 ? (
-                  <tr>
-                    <td colSpan={isFullAccess ? 15 : 9} className="px-4 py-12 text-center text-gray-500">
-                      Nessuna provvigione con i filtri selezionati.
-                    </td>
-                  </tr>
-                ) : (
-                  rows.map((r: Commission) => (
-                    <tr
-                      key={r.id}
-                      className={r.commission_status === 'DA_VALORIZZARE' ? 'bg-amber-50/40' : undefined}
-                    >
-                      <td className="whitespace-nowrap px-4 py-3 text-gray-700">{formatDate(r.date)}</td>
-                      <td className="px-4 py-3 font-medium text-gray-900">{r.customer_name}</td>
-                      <td className="px-4 py-3 font-mono text-xs text-gray-800">{r.policy_number}</td>
-                      {isFullAccess ? (
-                        <td className="px-4 py-3 text-gray-700">{r.structure_name ?? '—'}</td>
-                      ) : null}
-                      <td className="px-4 py-3 text-gray-700">{r.portal ?? '—'}</td>
-                      <td className="px-4 py-3 text-gray-700">{r.company ?? '—'}</td>
-                      <td className="whitespace-nowrap px-4 py-3 text-gray-800">{formatEuro(r.policy_premium)}</td>
-                      {isFullAccess ? (
-                        <td className="whitespace-nowrap px-4 py-3 text-gray-800">{formatEuro(r.client_invoice)}</td>
-                      ) : null}
-                      {isFullAccess ? (
-                        <td className="whitespace-nowrap px-4 py-3 text-gray-800">
-                          {formatCommissionEuro(r.provvigioni_broker ?? r.broker_commission ?? null)}
-                        </td>
-                      ) : null}
-                      {isFullAccess ? (
-                        <td className="whitespace-nowrap px-4 py-3 text-gray-800">
-                          {formatCommissionEuro(r.sportello_amico_commission)}
-                        </td>
-                      ) : null}
-                      <td className="px-4 py-3">
-                        <span className={`badge ${getCommissionTypeBadgeClass(r.structure_commission_type)}`}>
-                          {getCommissionTypeLabel(r.structure_commission_type)}
-                        </span>
-                      </td>
-                      {isFullAccess ? (
-                        <td className="whitespace-nowrap px-4 py-3 text-gray-800">{r.structure_commission_percentage}%</td>
-                      ) : null}
-                      <td className="whitespace-nowrap px-4 py-3 font-semibold text-gray-900">
-                        {formatCommissionEuro(r.structure_commission_amount)}
-                      </td>
-                      <td className="align-middle whitespace-nowrap px-4 py-3">
-                        <span
-                          className={`badge ${getCommissionValorizationBadgeClass(r.commission_status)}`}
-                        >
-                          {getCommissionValorizationLabel(r.commission_status)}
-                        </span>
-                      </td>
-                      {isFullAccess ? (
-                        <td className="px-4 py-3">
-                          <div className="flex flex-col items-end gap-2">
-                            <button
-                              type="button"
-                              onClick={() => setAmountsModalRow(r)}
-                              className="rounded-lg border border-slate-200 bg-white px-2.5 py-1 text-xs font-medium text-slate-800 shadow-sm transition hover:border-blue-300 hover:bg-blue-50/70 hover:text-blue-800"
-                            >
-                              {r.commission_status === 'DA_VALORIZZARE'
-                                ? 'Inserisci importi'
-                                : 'Modifica importi'}
-                            </button>
-                            <div className="flex flex-wrap items-center justify-end gap-1">
-                              <Link
-                                to={`/provvigioni/${r.id}/modifica`}
-                                className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-gray-200 bg-white text-gray-600 transition hover:border-blue-300 hover:bg-blue-50 hover:text-blue-700"
-                                title="Modifica scheda completa"
-                              >
-                                <Pencil className="h-4 w-4" />
-                              </Link>
-                              <button
-                                type="button"
-                                onClick={() => setDeleteId(r.id)}
-                                className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-gray-200 bg-white text-gray-600 transition hover:border-red-300 hover:bg-red-50 hover:text-red-700"
-                                title="Elimina"
-                              >
-                                <Trash2 className="h-4 w-4" />
-                              </button>
-                            </div>
+          <>
+            <div className="border-b border-slate-200/80 p-4 md:hidden">
+              {rows.length === 0 ? (
+                <p className="py-8 text-center text-sm text-gray-500">Nessuna provvigione con i filtri selezionati.</p>
+              ) : (
+                <ul className="space-y-3">
+                  {rows.map((r: Commission) => {
+                    const highlight = r.commission_status === 'DA_VALORIZZARE';
+                    return (
+                      <li
+                        key={r.id}
+                        className={`rounded-xl border border-slate-200/90 p-4 shadow-sm ${highlight ? 'border-amber-200/80 bg-amber-50/35' : 'bg-white'}`}
+                      >
+                        <div className="flex flex-wrap items-start justify-between gap-2 border-b border-slate-100 pb-2">
+                          <div className="min-w-0 flex-1">
+                            <p className="font-semibold leading-snug text-gray-900">{r.customer_name}</p>
+                            <p className="font-mono text-xs text-gray-500">{r.policy_number}</p>
                           </div>
-                        </td>
-                      ) : null}
+                          <span className="shrink-0 text-xs text-gray-600">{formatDate(r.date)}</span>
+                        </div>
+                        <dl className="mt-3 space-y-2 text-sm">
+                          {isFullAccess ? (
+                            <div className="flex gap-2">
+                              <dt className="w-28 shrink-0 text-xs font-medium text-gray-500">Struttura</dt>
+                              <dd className="min-w-0 flex-1 text-gray-800">{r.structure_name ?? '—'}</dd>
+                            </div>
+                          ) : null}
+                          <div className="flex gap-2">
+                            <dt className="w-28 shrink-0 text-xs font-medium text-gray-500">Portale</dt>
+                            <dd className="min-w-0 flex-1 truncate text-gray-800">{r.portal ?? '—'}</dd>
+                          </div>
+                          <div className="flex gap-2">
+                            <dt className="w-28 shrink-0 text-xs font-medium text-gray-500">Compagnia</dt>
+                            <dd className="min-w-0 flex-1 truncate text-gray-800">{r.company ?? '—'}</dd>
+                          </div>
+                          <div className="flex gap-2">
+                            <dt className="w-28 shrink-0 text-xs font-medium text-gray-500">Premio</dt>
+                            <dd className="tabular-nums text-gray-900">{formatEuro(r.policy_premium)}</dd>
+                          </div>
+                          <div className="flex gap-2">
+                            <dt className="w-28 shrink-0 text-xs font-medium text-gray-500">Provvigioni</dt>
+                            <dd className="min-w-0 flex-1 space-y-1 text-xs text-gray-800">
+                              {isFullAccess ? (
+                                <>
+                                  <div>
+                                    <span className="text-gray-500">Provv. broker: </span>
+                                    <span className="tabular-nums">
+                                      {formatCommissionEuro(r.provvigioni_broker ?? r.broker_commission ?? null)}
+                                    </span>
+                                  </div>
+                                  <div>
+                                    <span className="text-gray-500">Quota S.A.: </span>
+                                    <span className="tabular-nums">{formatCommissionEuro(r.sportello_amico_commission)}</span>
+                                  </div>
+                                  <div>
+                                    <span className="text-gray-500">Provv. struttura: </span>
+                                    <span className="tabular-nums font-semibold">
+                                      {formatCommissionEuro(r.structure_commission_amount)}
+                                    </span>
+                                  </div>
+                                </>
+                              ) : (
+                                <span className="tabular-nums font-semibold">
+                                  {formatCommissionEuro(r.structure_commission_amount)}
+                                </span>
+                              )}
+                            </dd>
+                          </div>
+                          <div className="flex gap-2">
+                            <dt className="w-28 shrink-0 text-xs font-medium text-gray-500">Tipo / %</dt>
+                            <dd className="min-w-0 flex-1">
+                              <span className={`badge ${getCommissionTypeBadgeClass(r.structure_commission_type)}`}>
+                                {getCommissionTypeLabel(r.structure_commission_type)}
+                              </span>
+                              <p className="mt-1 text-xs text-gray-600">{r.structure_commission_percentage}%</p>
+                            </dd>
+                          </div>
+                          <div className="flex gap-2">
+                            <dt className="w-28 shrink-0 text-xs font-medium text-gray-500">Stato</dt>
+                            <dd>
+                              <span className={`badge ${getCommissionValorizationBadgeClass(r.commission_status)}`}>
+                                {getCommissionValorizationLabel(r.commission_status)}
+                              </span>
+                            </dd>
+                          </div>
+                        </dl>
+                        {isFullAccess ? (
+                          <div className="mt-4 flex flex-wrap justify-end gap-2 border-t border-slate-100 pt-3">
+                            <CommissionActionsMenu
+                              row={r}
+                              onAmounts={() => setAmountsModalRow(r)}
+                              onDelete={() => setDeleteId(r.id)}
+                            />
+                          </div>
+                        ) : null}
+                      </li>
+                    );
+                  })}
+                </ul>
+              )}
+            </div>
+
+            <div className="hidden w-full min-w-0 overflow-x-auto md:block">
+              <table
+                className={`portal-table w-full table-fixed border-collapse text-left text-sm ${isFullAccess ? 'min-w-[1240px]' : 'min-w-[980px]'}`}
+              >
+                <thead>
+                  <tr>
+                    <SortableTh
+                      sortKey="date"
+                      activeKey={tableSort.sortBy}
+                      direction={tableSort.sortDir}
+                      onRequestSort={tableSort.requestSort}
+                      className="!px-3 !py-3 w-[110px] min-w-[110px] max-w-[110px] align-top"
+                    >
+                      Data
+                    </SortableTh>
+                    <th scope="col" className="min-w-[170px] px-3 py-3 align-top font-semibold text-gray-700">
+                      <span className="mb-1.5 block leading-tight">Cliente / Polizza</span>
+                      <div className="flex flex-wrap gap-1">
+                        <CommissionMiniSort
+                          label="Cliente"
+                          sortKey="customer_name"
+                          activeKey={tableSort.sortBy}
+                          direction={tableSort.sortDir}
+                          onRequestSort={tableSort.requestSort}
+                        />
+                        <CommissionMiniSort
+                          label="Polizza"
+                          sortKey="policy_number"
+                          activeKey={tableSort.sortBy}
+                          direction={tableSort.sortDir}
+                          onRequestSort={tableSort.requestSort}
+                        />
+                      </div>
+                    </th>
+                    {isFullAccess ? (
+                      <SortableTh
+                        sortKey="structure_name"
+                        activeKey={tableSort.sortBy}
+                        direction={tableSort.sortDir}
+                        onRequestSort={tableSort.requestSort}
+                        className="!px-3 !py-3 min-w-[140px] align-top"
+                      >
+                        Struttura
+                      </SortableTh>
+                    ) : null}
+                    <th scope="col" className="min-w-[160px] px-3 py-3 align-top font-semibold text-gray-700">
+                      <span className="mb-1.5 block leading-tight">Portale / Compagnia</span>
+                      <div className="flex flex-wrap gap-1">
+                        <CommissionMiniSort
+                          label="Portale"
+                          sortKey="portal"
+                          activeKey={tableSort.sortBy}
+                          direction={tableSort.sortDir}
+                          onRequestSort={tableSort.requestSort}
+                        />
+                        <CommissionMiniSort
+                          label="Compagnia"
+                          sortKey="company"
+                          activeKey={tableSort.sortBy}
+                          direction={tableSort.sortDir}
+                          onRequestSort={tableSort.requestSort}
+                        />
+                      </div>
+                    </th>
+                    {isFullAccess ? (
+                      <th
+                        scope="col"
+                        className="w-[100px] min-w-[100px] max-w-[100px] px-3 py-3 align-top font-semibold text-gray-700"
+                      >
+                        <span className="mb-1.5 block leading-tight">Premio</span>
+                        <div className="flex flex-wrap gap-1">
+                          <CommissionMiniSort
+                            label="Premio"
+                            sortKey="policy_premium"
+                            activeKey={tableSort.sortBy}
+                            direction={tableSort.sortDir}
+                            onRequestSort={tableSort.requestSort}
+                          />
+                          <CommissionMiniSort
+                            label="Fattura"
+                            sortKey="client_invoice"
+                            activeKey={tableSort.sortBy}
+                            direction={tableSort.sortDir}
+                            onRequestSort={tableSort.requestSort}
+                          />
+                        </div>
+                      </th>
+                    ) : (
+                      <SortableTh
+                        sortKey="policy_premium"
+                        activeKey={tableSort.sortBy}
+                        direction={tableSort.sortDir}
+                        onRequestSort={tableSort.requestSort}
+                        className="!px-3 !py-3 w-[100px] min-w-[100px] max-w-[100px] align-top"
+                      >
+                        Premio
+                      </SortableTh>
+                    )}
+                    {isFullAccess ? (
+                      <th scope="col" className="min-w-[190px] px-3 py-3 align-top font-semibold text-gray-700">
+                        <span className="mb-1.5 block leading-tight">Provvigioni</span>
+                        <div className="flex flex-wrap gap-1">
+                          <CommissionMiniSort
+                            label="Broker"
+                            sortKey="provvigioni_broker"
+                            activeKey={tableSort.sortBy}
+                            direction={tableSort.sortDir}
+                            onRequestSort={tableSort.requestSort}
+                          />
+                          <CommissionMiniSort
+                            label="Quota S.A."
+                            sortKey="sportello_amico_commission"
+                            activeKey={tableSort.sortBy}
+                            direction={tableSort.sortDir}
+                            onRequestSort={tableSort.requestSort}
+                          />
+                          <CommissionMiniSort
+                            label="Struttura"
+                            sortKey="structure_commission_amount"
+                            activeKey={tableSort.sortBy}
+                            direction={tableSort.sortDir}
+                            onRequestSort={tableSort.requestSort}
+                          />
+                        </div>
+                      </th>
+                    ) : (
+                      <SortableTh
+                        sortKey="structure_commission_amount"
+                        activeKey={tableSort.sortBy}
+                        direction={tableSort.sortDir}
+                        onRequestSort={tableSort.requestSort}
+                        className="!px-3 !py-3 min-w-[190px] align-top"
+                      >
+                        Provvigioni
+                      </SortableTh>
+                    )}
+                    <th scope="col" className="w-[120px] min-w-[120px] max-w-[120px] px-3 py-3 align-top font-semibold text-gray-700">
+                      Tipo / %
+                    </th>
+                    <SortableTh
+                      sortKey="commission_status"
+                      activeKey={tableSort.sortBy}
+                      direction={tableSort.sortDir}
+                      onRequestSort={tableSort.requestSort}
+                      className="!px-3 !py-3 w-[130px] min-w-[130px] max-w-[130px] align-top"
+                    >
+                      Stato
+                    </SortableTh>
+                    {isFullAccess ? (
+                      <th
+                        scope="col"
+                        className="sticky right-0 z-30 w-[120px] min-w-[120px] max-w-[120px] border-l border-slate-200/90 bg-[var(--portal-table-header-bg)] px-3 py-3 text-right align-top font-semibold text-gray-700 shadow-[-12px_0_28px_-14px_rgba(15,23,42,0.35)]"
+                      >
+                        Azioni
+                      </th>
+                    ) : null}
+                  </tr>
+                </thead>
+                <tbody>
+                  {rows.length === 0 ? (
+                    <tr>
+                      <td colSpan={isFullAccess ? 9 : 7} className="px-3 py-12 text-center text-gray-500">
+                        Nessuna provvigione con i filtri selezionati.
+                      </td>
                     </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
-          </div>
+                  ) : (
+                    rows.map((r: Commission) => {
+                      const highlight = r.commission_status === 'DA_VALORIZZARE';
+                      const rowBg = highlight ? 'group/commrow bg-amber-50/40' : 'group/commrow';
+                      const stickyBg = highlight
+                        ? 'bg-amber-50/40 group-hover/commrow:bg-amber-50/55'
+                        : 'bg-white group-hover/commrow:bg-[rgba(42,77,126,0.045)]';
+                      return (
+                        <tr key={r.id} className={rowBg}>
+                          <td className="w-[110px] min-w-[110px] max-w-[110px] whitespace-nowrap px-3 py-3 text-gray-700">
+                            {formatDate(r.date)}
+                          </td>
+                          <td className="min-w-[170px] px-3 py-3 align-top">
+                            <p className="line-clamp-2 font-semibold leading-snug text-gray-900">{r.customer_name}</p>
+                            <p className="mt-0.5 truncate font-mono text-sm text-gray-500">{r.policy_number}</p>
+                          </td>
+                          {isFullAccess ? (
+                            <td className="min-w-[140px] px-3 py-3 align-top">
+                              <p className="line-clamp-2 text-gray-800">{r.structure_name ?? '—'}</p>
+                            </td>
+                          ) : null}
+                          <td className="min-w-[160px] px-3 py-3 align-top">
+                            <p className="line-clamp-2 text-gray-900">{r.portal ?? '—'}</p>
+                            <p className="mt-0.5 line-clamp-2 text-sm text-gray-500">{r.company ?? '—'}</p>
+                          </td>
+                          <td className="w-[100px] min-w-[100px] max-w-[100px] whitespace-nowrap px-3 py-3 tabular-nums text-gray-800">
+                            {formatEuro(r.policy_premium)}
+                          </td>
+                          {isFullAccess ? (
+                            <td className="min-w-[190px] px-3 py-3 align-top text-xs leading-snug text-gray-800">
+                              <div className="space-y-1">
+                                <div className="flex flex-wrap gap-x-1 gap-y-0">
+                                  <span className="shrink-0 text-gray-500">Provv. broker:</span>
+                                  <span className="min-w-0 truncate tabular-nums font-medium">
+                                    {formatCommissionEuro(r.provvigioni_broker ?? r.broker_commission ?? null)}
+                                  </span>
+                                </div>
+                                <div className="flex flex-wrap gap-x-1 gap-y-0">
+                                  <span className="shrink-0 text-gray-500">Quota S.A.:</span>
+                                  <span className="min-w-0 truncate tabular-nums font-medium">
+                                    {formatCommissionEuro(r.sportello_amico_commission)}
+                                  </span>
+                                </div>
+                                <div className="flex flex-wrap gap-x-1 gap-y-0">
+                                  <span className="shrink-0 text-gray-500">Provv. struttura:</span>
+                                  <span className="min-w-0 truncate tabular-nums font-semibold text-gray-900">
+                                    {formatCommissionEuro(r.structure_commission_amount)}
+                                  </span>
+                                </div>
+                              </div>
+                            </td>
+                          ) : (
+                            <td className="min-w-[190px] whitespace-nowrap px-3 py-3 font-semibold tabular-nums text-gray-900">
+                              {formatCommissionEuro(r.structure_commission_amount)}
+                            </td>
+                          )}
+                          <td className="w-[120px] min-w-[120px] max-w-[120px] px-3 py-3 align-top">
+                            <span
+                              className={`badge inline-flex max-w-full whitespace-normal break-words text-left leading-tight ${getCommissionTypeBadgeClass(r.structure_commission_type)}`}
+                            >
+                              {getCommissionTypeLabel(r.structure_commission_type)}
+                            </span>
+                            <p className="mt-1 text-xs tabular-nums text-gray-600">{r.structure_commission_percentage}%</p>
+                          </td>
+                          <td className="w-[130px] min-w-[130px] max-w-[130px] px-3 py-3 align-top">
+                            <span className={`badge inline-flex max-w-full whitespace-normal break-words leading-tight ${getCommissionValorizationBadgeClass(r.commission_status)}`}>
+                              {getCommissionValorizationLabel(r.commission_status)}
+                            </span>
+                          </td>
+                          {isFullAccess ? (
+                            <td
+                              className={`sticky right-0 z-10 w-[120px] min-w-[120px] max-w-[120px] border-l border-slate-200/90 px-3 py-3 text-right align-middle shadow-[-12px_0_28px_-14px_rgba(15,23,42,0.22)] ${stickyBg}`}
+                            >
+                              <CommissionActionsMenu
+                                row={r}
+                                onAmounts={() => setAmountsModalRow(r)}
+                                onDelete={() => setDeleteId(r.id)}
+                              />
+                            </td>
+                          ) : null}
+                        </tr>
+                      );
+                    })
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </>
         )}
 
         {!loading && !listError && result && result.total > 0 ? (
