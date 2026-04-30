@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Banknote, FileDown, Plus, Trash2 } from 'lucide-react';
+import { Banknote, Euro, FileDown, Pencil, Plus, Trash2 } from 'lucide-react';
 import { api, ApiError } from '../../utils/api';
 import type { Commission, CommissionsListResponse, StructureOption } from '../../types';
 import {
@@ -82,23 +82,29 @@ function CommissionRowActions({
   onDelete: () => void;
 }) {
   const isDaValorizzare = row.commission_status === 'DA_VALORIZZARE';
-  const btnBase =
-    'inline-flex shrink-0 items-center justify-center rounded-md border px-2 py-1 text-[11px] font-semibold leading-tight shadow-sm transition focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/40';
+  const btnIcon =
+    'inline-flex h-[34px] w-[34px] shrink-0 items-center justify-center rounded-lg border border-slate-200/90 text-gray-700 transition hover:border-blue-300 hover:bg-blue-50/70 hover:text-gray-900 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/40';
+  const btnDanger =
+    'inline-flex h-[34px] w-[34px] shrink-0 items-center justify-center rounded-lg border border-red-200/75 text-red-600 transition hover:border-red-300 hover:bg-red-50 hover:text-red-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-red-500/35';
   return (
-    <div className="flex flex-wrap items-center justify-end gap-1.5">
+    <div className="flex flex-col items-center gap-2">
       <button
         type="button"
         onClick={onAmounts}
-        className={`${btnBase} border-slate-200 bg-white text-gray-800 hover:border-blue-300 hover:bg-blue-50`}
+        title={isDaValorizzare ? 'Inserisci importi' : 'Modifica'}
+        aria-label={isDaValorizzare ? 'Inserisci importi' : 'Modifica'}
+        className={btnIcon}
       >
-        {isDaValorizzare ? 'Inserisci importi' : 'Modifica'}
+        {isDaValorizzare ? <Euro className="h-4 w-4" strokeWidth={2} /> : <Pencil className="h-4 w-4" strokeWidth={2} />}
       </button>
       <button
         type="button"
         onClick={onDelete}
-        className={`${btnBase} border-red-200/90 bg-white text-red-700 hover:border-red-300 hover:bg-red-50`}
+        title="Elimina"
+        aria-label="Elimina"
+        className={btnDanger}
       >
-        Elimina
+        <Trash2 className="h-4 w-4" strokeWidth={2} />
       </button>
     </div>
   );
@@ -500,7 +506,7 @@ export default function CommissionsPage() {
                           </div>
                         </dl>
                         {isFullAccess ? (
-                          <div className="mt-4 flex flex-wrap justify-end gap-2 border-t border-slate-100 pt-3">
+                          <div className="mt-4 flex justify-center border-t border-slate-100 pt-3">
                             <CommissionRowActions
                               row={r}
                               onAmounts={() => setAmountsModalRow(r)}
@@ -592,7 +598,7 @@ export default function CommissionsPage() {
                     {isFullAccess ? (
                       <th
                         scope="col"
-                        className="sticky right-0 z-30 min-w-[220px] w-[220px] border-l border-slate-200/90 bg-[var(--portal-table-header-bg)] px-3 py-3 text-right align-top font-semibold text-gray-700 shadow-[-12px_0_28px_-14px_rgba(15,23,42,0.35)]"
+                        className="sticky right-0 z-30 w-[76px] min-w-[76px] max-w-[76px] border-l border-slate-200/90 bg-[var(--portal-table-header-bg)] px-2 py-3 text-right align-top font-semibold text-gray-700 shadow-[-12px_0_28px_-14px_rgba(15,23,42,0.35)]"
                       >
                         Azioni
                       </th>
@@ -610,8 +616,8 @@ export default function CommissionsPage() {
                     rows.map((r: Commission) => {
                       const highlight = r.commission_status === 'DA_VALORIZZARE';
                       const rowBg = highlight ? 'group/commrow bg-amber-50/40' : 'group/commrow';
-                      const stickyBg = highlight
-                        ? 'bg-amber-50/40 group-hover/commrow:bg-amber-50/55'
+                      const stickyActionsCellBg = highlight
+                        ? 'bg-amber-50/40 group-hover/commrow:bg-[rgba(42,77,126,0.045)]'
                         : 'bg-white group-hover/commrow:bg-[rgba(42,77,126,0.045)]';
                       return (
                         <tr key={r.id} className={rowBg}>
@@ -679,7 +685,7 @@ export default function CommissionsPage() {
                           </td>
                           {isFullAccess ? (
                             <td
-                              className={`sticky right-0 z-10 min-w-[220px] w-[220px] border-l border-slate-200/90 px-3 py-3 text-right align-middle shadow-[-12px_0_28px_-14px_rgba(15,23,42,0.22)] ${stickyBg}`}
+                              className={`sticky right-0 z-10 w-[76px] min-w-[76px] max-w-[76px] border-l border-slate-200/90 px-2 py-3 align-middle ${stickyActionsCellBg}`}
                             >
                               <CommissionRowActions
                                 row={r}
