@@ -82,29 +82,26 @@ function CommissionRowActions({
   onDelete: () => void;
 }) {
   const isDaValorizzare = row.commission_status === 'DA_VALORIZZARE';
+  const amountsTitle = isDaValorizzare ? 'Inserisci importi' : 'Modifica importi';
   const btnIcon =
-    'inline-flex h-[34px] w-[34px] shrink-0 items-center justify-center rounded-lg border border-slate-200/90 text-gray-700 transition hover:border-blue-300 hover:bg-blue-50/70 hover:text-gray-900 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/40';
+    'inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-md border border-slate-200/90 text-gray-700 transition hover:border-blue-300 hover:bg-blue-50/70 hover:text-gray-900 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/40';
   const btnDanger =
-    'inline-flex h-[34px] w-[34px] shrink-0 items-center justify-center rounded-lg border border-red-200/75 text-red-600 transition hover:border-red-300 hover:bg-red-50 hover:text-red-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-red-500/35';
+    'inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-md border border-red-200/75 text-red-600 transition hover:border-red-300 hover:bg-red-50 hover:text-red-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-red-500/35';
   return (
-    <div className="flex flex-col items-center gap-2">
-      <button
-        type="button"
-        onClick={onAmounts}
-        title={isDaValorizzare ? 'Inserisci importi' : 'Modifica'}
-        aria-label={isDaValorizzare ? 'Inserisci importi' : 'Modifica'}
+    <div className="flex flex-row items-center justify-center gap-2">
+      <button type="button" onClick={onAmounts} title={amountsTitle} aria-label={amountsTitle} className={btnIcon}>
+        <Euro className="h-4 w-4 shrink-0" strokeWidth={2} />
+      </button>
+      <Link
+        to={`/provvigioni/${row.id}/modifica`}
+        title="Modifica provvigione"
+        aria-label="Modifica provvigione"
         className={btnIcon}
       >
-        {isDaValorizzare ? <Euro className="h-4 w-4" strokeWidth={2} /> : <Pencil className="h-4 w-4" strokeWidth={2} />}
-      </button>
-      <button
-        type="button"
-        onClick={onDelete}
-        title="Elimina"
-        aria-label="Elimina"
-        className={btnDanger}
-      >
-        <Trash2 className="h-4 w-4" strokeWidth={2} />
+        <Pencil className="h-4 w-4 shrink-0" strokeWidth={2} />
+      </Link>
+      <button type="button" onClick={onDelete} title="Elimina" aria-label="Elimina" className={btnDanger}>
+        <Trash2 className="h-4 w-4 shrink-0" strokeWidth={2} />
       </button>
     </div>
   );
@@ -598,7 +595,7 @@ export default function CommissionsPage() {
                     {isFullAccess ? (
                       <th
                         scope="col"
-                        className="sticky right-0 z-30 w-[76px] min-w-[76px] max-w-[76px] border-l border-slate-200/90 bg-[var(--portal-table-header-bg)] px-2 py-3 text-right align-top font-semibold text-gray-700 shadow-[-12px_0_28px_-14px_rgba(15,23,42,0.35)]"
+                        className="sticky right-0 z-30 w-[128px] min-w-[128px] max-w-[128px] bg-[var(--portal-table-header-bg)] px-2 py-3 text-center align-top font-semibold text-gray-700"
                       >
                         Azioni
                       </th>
@@ -615,10 +612,7 @@ export default function CommissionsPage() {
                   ) : (
                     rows.map((r: Commission) => {
                       const highlight = r.commission_status === 'DA_VALORIZZARE';
-                      const rowBg = highlight ? 'group/commrow bg-amber-50/40' : 'group/commrow';
-                      const stickyActionsCellBg = highlight
-                        ? 'bg-amber-50/40 group-hover/commrow:bg-[rgba(42,77,126,0.045)]'
-                        : 'bg-white group-hover/commrow:bg-[rgba(42,77,126,0.045)]';
+                      const rowBg = highlight ? 'group/commrow bg-amber-50/40' : 'group/commrow bg-white';
                       return (
                         <tr key={r.id} className={rowBg}>
                           <td className="w-[110px] min-w-[110px] max-w-[110px] whitespace-nowrap px-3 py-3 text-gray-700">
@@ -684,9 +678,7 @@ export default function CommissionsPage() {
                             </span>
                           </td>
                           {isFullAccess ? (
-                            <td
-                              className={`sticky right-0 z-10 w-[76px] min-w-[76px] max-w-[76px] border-l border-slate-200/90 px-2 py-3 align-middle ${stickyActionsCellBg}`}
-                            >
+                            <td className="sticky right-0 z-10 w-[128px] min-w-[128px] max-w-[128px] bg-inherit px-2 py-3 align-middle">
                               <CommissionRowActions
                                 row={r}
                                 onAmounts={() => setAmountsModalRow(r)}
