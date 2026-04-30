@@ -1,16 +1,6 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import {
-  ArrowDown,
-  ArrowUp,
-  ArrowUpDown,
-  Banknote,
-  EllipsisVertical,
-  FileDown,
-  Pencil,
-  Plus,
-  Trash2,
-} from 'lucide-react';
+import { Banknote, FileDown, Plus, Trash2 } from 'lucide-react';
 import { api, ApiError } from '../../utils/api';
 import type { Commission, CommissionsListResponse, StructureOption } from '../../types';
 import {
@@ -26,7 +16,7 @@ import { useAuth } from '../../context/AuthContext';
 import TablePagination from '../../components/common/TablePagination';
 import { TABLE_PAGE_SIZE } from '../../constants/tablePagination';
 import { useSyncPageToTotalPages } from '../../hooks/useSyncPageToTotalPages';
-import { useListTableSort, type SortDirection } from '../../hooks/useListTableSort';
+import { useListTableSort } from '../../hooks/useListTableSort';
 import SortableTh from '../../components/common/SortableTh';
 import Modal from '../../components/ui/Modal';
 import CommissionAmountsModal from './CommissionAmountsModal';
@@ -82,45 +72,7 @@ function buildExportPdfQuery(params: {
   return `/commissions/export-pdf?${qs.toString()}`;
 }
 
-function CommissionMiniSort({
-  label,
-  sortKey,
-  activeKey,
-  direction,
-  onRequestSort,
-}: {
-  label: string;
-  sortKey: string;
-  activeKey: string | null;
-  direction: SortDirection;
-  onRequestSort: (key: string) => void;
-}) {
-  const active = activeKey === sortKey;
-  return (
-    <button
-      type="button"
-      onClick={() => onRequestSort(sortKey)}
-      className={`inline-flex max-w-full min-w-0 items-center gap-0.5 rounded px-1 py-0.5 text-[11px] font-semibold transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/40 ${
-        active ? 'bg-blue-50 text-blue-900 ring-1 ring-blue-200/70' : 'text-gray-600 hover:bg-slate-100 hover:text-gray-900'
-      }`}
-    >
-      <span className="truncate">{label}</span>
-      <span className="inline-flex shrink-0 text-slate-400" aria-hidden>
-        {active ? (
-          direction === 'asc' ? (
-            <ArrowUp className="h-3 w-3 text-blue-700" strokeWidth={2.25} />
-          ) : (
-            <ArrowDown className="h-3 w-3 text-blue-700" strokeWidth={2.25} />
-          )
-        ) : (
-          <ArrowUpDown className="h-3 w-3 opacity-40" strokeWidth={2} />
-        )}
-      </span>
-    </button>
-  );
-}
-
-function CommissionActionsMenu({
+function CommissionRowActions({
   row,
   onAmounts,
   onDelete,
@@ -129,82 +81,25 @@ function CommissionActionsMenu({
   onAmounts: () => void;
   onDelete: () => void;
 }) {
-  const [open, setOpen] = useState(false);
-  const wrapRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    if (!open) return;
-    const onDoc = (e: MouseEvent) => {
-      if (wrapRef.current && !wrapRef.current.contains(e.target as Node)) setOpen(false);
-    };
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') setOpen(false);
-    };
-    document.addEventListener('mousedown', onDoc);
-    document.addEventListener('keydown', onKey);
-    return () => {
-      document.removeEventListener('mousedown', onDoc);
-      document.removeEventListener('keydown', onKey);
-    };
-  }, [open]);
-
+  const isDaValorizzare = row.commission_status === 'DA_VALORIZZARE';
+  const btnBase =
+    'inline-flex shrink-0 items-center justify-center rounded-md border px-2 py-1 text-[11px] font-semibold leading-tight shadow-sm transition focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/40';
   return (
-    <div className="relative flex justify-end" ref={wrapRef}>
+    <div className="flex flex-wrap items-center justify-end gap-1.5">
       <button
         type="button"
-        aria-expanded={open}
-        aria-haspopup="menu"
-        title="Azioni"
-        onClick={() => setOpen((v) => !v)}
-        className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-gray-200 bg-white text-gray-600 shadow-sm transition hover:border-blue-300 hover:bg-blue-50 hover:text-blue-800"
+        onClick={onAmounts}
+        className={`${btnBase} border-slate-200 bg-white text-gray-800 hover:border-blue-300 hover:bg-blue-50`}
       >
-        <EllipsisVertical className="h-4 w-4" strokeWidth={2} />
+        {isDaValorizzare ? 'Inserisci importi' : 'Modifica'}
       </button>
-      {open ? (
-        <ul
-          className="absolute right-0 top-full z-[60] mt-1 min-w-[12rem] rounded-lg border border-slate-200 bg-white py-1 text-left text-sm shadow-lg ring-1 ring-black/5"
-          role="menu"
-        >
-          <li role="none">
-            <button
-              type="button"
-              role="menuitem"
-              className="flex w-full items-center px-3 py-2 text-left text-gray-800 hover:bg-slate-50"
-              onClick={() => {
-                onAmounts();
-                setOpen(false);
-              }}
-            >
-              {row.commission_status === 'DA_VALORIZZARE' ? 'Inserisci importi' : 'Modifica importi'}
-            </button>
-          </li>
-          <li role="none">
-            <Link
-              to={`/provvigioni/${row.id}/modifica`}
-              role="menuitem"
-              className="flex items-center gap-2 px-3 py-2 text-gray-800 hover:bg-slate-50"
-              onClick={() => setOpen(false)}
-            >
-              <Pencil className="h-4 w-4 shrink-0 opacity-70" />
-              Modifica scheda
-            </Link>
-          </li>
-          <li role="none">
-            <button
-              type="button"
-              role="menuitem"
-              className="flex w-full items-center gap-2 px-3 py-2 text-left text-red-700 hover:bg-red-50"
-              onClick={() => {
-                onDelete();
-                setOpen(false);
-              }}
-            >
-              <Trash2 className="h-4 w-4 shrink-0 opacity-80" />
-              Elimina
-            </button>
-          </li>
-        </ul>
-      ) : null}
+      <button
+        type="button"
+        onClick={onDelete}
+        className={`${btnBase} border-red-200/90 bg-white text-red-700 hover:border-red-300 hover:bg-red-50`}
+      >
+        Elimina
+      </button>
     </div>
   );
 }
@@ -602,7 +497,7 @@ export default function CommissionsPage() {
                         </dl>
                         {isFullAccess ? (
                           <div className="mt-4 flex flex-wrap justify-end gap-2 border-t border-slate-100 pt-3">
-                            <CommissionActionsMenu
+                            <CommissionRowActions
                               row={r}
                               onAmounts={() => setAmountsModalRow(r)}
                               onDelete={() => setDeleteId(r.id)}
@@ -618,7 +513,7 @@ export default function CommissionsPage() {
 
             <div className="hidden w-full min-w-0 overflow-x-auto md:block">
               <table
-                className={`portal-table w-full table-fixed border-collapse text-left text-sm ${isFullAccess ? 'min-w-[1240px]' : 'min-w-[980px]'}`}
+                className={`portal-table w-full table-fixed border-collapse text-left text-sm ${isFullAccess ? 'min-w-[1320px]' : 'min-w-[980px]'}`}
               >
                 <thead>
                   <tr>
@@ -631,25 +526,15 @@ export default function CommissionsPage() {
                     >
                       Data
                     </SortableTh>
-                    <th scope="col" className="min-w-[170px] px-3 py-3 align-top font-semibold text-gray-700">
-                      <span className="mb-1.5 block leading-tight">Cliente / Polizza</span>
-                      <div className="flex flex-wrap gap-1">
-                        <CommissionMiniSort
-                          label="Cliente"
-                          sortKey="customer_name"
-                          activeKey={tableSort.sortBy}
-                          direction={tableSort.sortDir}
-                          onRequestSort={tableSort.requestSort}
-                        />
-                        <CommissionMiniSort
-                          label="Polizza"
-                          sortKey="policy_number"
-                          activeKey={tableSort.sortBy}
-                          direction={tableSort.sortDir}
-                          onRequestSort={tableSort.requestSort}
-                        />
-                      </div>
-                    </th>
+                    <SortableTh
+                      sortKey="customer_name"
+                      activeKey={tableSort.sortBy}
+                      direction={tableSort.sortDir}
+                      onRequestSort={tableSort.requestSort}
+                      className="!px-3 !py-3 min-w-[170px] align-top"
+                    >
+                      Cliente / Polizza
+                    </SortableTh>
                     {isFullAccess ? (
                       <SortableTh
                         sortKey="structure_name"
@@ -661,97 +546,33 @@ export default function CommissionsPage() {
                         Struttura
                       </SortableTh>
                     ) : null}
-                    <th scope="col" className="min-w-[160px] px-3 py-3 align-top font-semibold text-gray-700">
-                      <span className="mb-1.5 block leading-tight">Portale / Compagnia</span>
-                      <div className="flex flex-wrap gap-1">
-                        <CommissionMiniSort
-                          label="Portale"
-                          sortKey="portal"
-                          activeKey={tableSort.sortBy}
-                          direction={tableSort.sortDir}
-                          onRequestSort={tableSort.requestSort}
-                        />
-                        <CommissionMiniSort
-                          label="Compagnia"
-                          sortKey="company"
-                          activeKey={tableSort.sortBy}
-                          direction={tableSort.sortDir}
-                          onRequestSort={tableSort.requestSort}
-                        />
-                      </div>
-                    </th>
-                    {isFullAccess ? (
-                      <th
-                        scope="col"
-                        className="w-[100px] min-w-[100px] max-w-[100px] px-3 py-3 align-top font-semibold text-gray-700"
-                      >
-                        <span className="mb-1.5 block leading-tight">Premio</span>
-                        <div className="flex flex-wrap gap-1">
-                          <CommissionMiniSort
-                            label="Premio"
-                            sortKey="policy_premium"
-                            activeKey={tableSort.sortBy}
-                            direction={tableSort.sortDir}
-                            onRequestSort={tableSort.requestSort}
-                          />
-                          <CommissionMiniSort
-                            label="Fattura"
-                            sortKey="client_invoice"
-                            activeKey={tableSort.sortBy}
-                            direction={tableSort.sortDir}
-                            onRequestSort={tableSort.requestSort}
-                          />
-                        </div>
-                      </th>
-                    ) : (
-                      <SortableTh
-                        sortKey="policy_premium"
-                        activeKey={tableSort.sortBy}
-                        direction={tableSort.sortDir}
-                        onRequestSort={tableSort.requestSort}
-                        className="!px-3 !py-3 w-[100px] min-w-[100px] max-w-[100px] align-top"
-                      >
-                        Premio
-                      </SortableTh>
-                    )}
-                    {isFullAccess ? (
-                      <th scope="col" className="min-w-[190px] px-3 py-3 align-top font-semibold text-gray-700">
-                        <span className="mb-1.5 block leading-tight">Provvigioni</span>
-                        <div className="flex flex-wrap gap-1">
-                          <CommissionMiniSort
-                            label="Broker"
-                            sortKey="provvigioni_broker"
-                            activeKey={tableSort.sortBy}
-                            direction={tableSort.sortDir}
-                            onRequestSort={tableSort.requestSort}
-                          />
-                          <CommissionMiniSort
-                            label="Quota S.A."
-                            sortKey="sportello_amico_commission"
-                            activeKey={tableSort.sortBy}
-                            direction={tableSort.sortDir}
-                            onRequestSort={tableSort.requestSort}
-                          />
-                          <CommissionMiniSort
-                            label="Struttura"
-                            sortKey="structure_commission_amount"
-                            activeKey={tableSort.sortBy}
-                            direction={tableSort.sortDir}
-                            onRequestSort={tableSort.requestSort}
-                          />
-                        </div>
-                      </th>
-                    ) : (
-                      <SortableTh
-                        sortKey="structure_commission_amount"
-                        activeKey={tableSort.sortBy}
-                        direction={tableSort.sortDir}
-                        onRequestSort={tableSort.requestSort}
-                        className="!px-3 !py-3 min-w-[190px] align-top"
-                      >
-                        Provvigioni
-                      </SortableTh>
-                    )}
+                    <SortableTh
+                      sortKey="portal"
+                      activeKey={tableSort.sortBy}
+                      direction={tableSort.sortDir}
+                      onRequestSort={tableSort.requestSort}
+                      className="!px-3 !py-3 min-w-[160px] align-top"
+                    >
+                      Portale / Compagnia
+                    </SortableTh>
+                    <SortableTh
+                      sortKey="policy_premium"
+                      activeKey={tableSort.sortBy}
+                      direction={tableSort.sortDir}
+                      onRequestSort={tableSort.requestSort}
+                      className="!px-3 !py-3 w-[100px] min-w-[100px] max-w-[100px] align-top"
+                    >
+                      Premio
+                    </SortableTh>
+                    <SortableTh
+                      sortKey="structure_commission_amount"
+                      activeKey={tableSort.sortBy}
+                      direction={tableSort.sortDir}
+                      onRequestSort={tableSort.requestSort}
+                      className="!px-3 !py-3 min-w-[190px] align-top"
+                    >
+                      Provvigioni
+                    </SortableTh>
                     <th scope="col" className="w-[120px] min-w-[120px] max-w-[120px] px-3 py-3 align-top font-semibold text-gray-700">
                       Tipo / %
                     </th>
@@ -767,7 +588,7 @@ export default function CommissionsPage() {
                     {isFullAccess ? (
                       <th
                         scope="col"
-                        className="sticky right-0 z-30 w-[120px] min-w-[120px] max-w-[120px] border-l border-slate-200/90 bg-[var(--portal-table-header-bg)] px-3 py-3 text-right align-top font-semibold text-gray-700 shadow-[-12px_0_28px_-14px_rgba(15,23,42,0.35)]"
+                        className="sticky right-0 z-30 min-w-[220px] w-[220px] border-l border-slate-200/90 bg-[var(--portal-table-header-bg)] px-3 py-3 text-right align-top font-semibold text-gray-700 shadow-[-12px_0_28px_-14px_rgba(15,23,42,0.35)]"
                       >
                         Azioni
                       </th>
@@ -852,9 +673,9 @@ export default function CommissionsPage() {
                           </td>
                           {isFullAccess ? (
                             <td
-                              className={`sticky right-0 z-10 w-[120px] min-w-[120px] max-w-[120px] border-l border-slate-200/90 px-3 py-3 text-right align-middle shadow-[-12px_0_28px_-14px_rgba(15,23,42,0.22)] ${stickyBg}`}
+                              className={`sticky right-0 z-10 min-w-[220px] w-[220px] border-l border-slate-200/90 px-3 py-3 text-right align-middle shadow-[-12px_0_28px_-14px_rgba(15,23,42,0.22)] ${stickyBg}`}
                             >
-                              <CommissionActionsMenu
+                              <CommissionRowActions
                                 row={r}
                                 onAmounts={() => setAmountsModalRow(r)}
                                 onDelete={() => setDeleteId(r.id)}
