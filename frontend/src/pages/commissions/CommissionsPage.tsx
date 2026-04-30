@@ -335,7 +335,7 @@ export default function CommissionsPage() {
               accent="slate"
             />
             <SummaryCard
-              title="Quota Sportello Amico (65%)"
+              title="Quota Sportello Amico"
               value={formatEuro(summary.totale_sportello_amico)}
               accent="amber"
             />
@@ -360,7 +360,7 @@ export default function CommissionsPage() {
               accent="slate"
             />
             <SummaryCard
-              title="Quota Sportello Amico (65%)"
+              title="Quota Sportello Amico"
               value={formatEuro(summary.totale_sportello_amico)}
               accent="amber"
             />

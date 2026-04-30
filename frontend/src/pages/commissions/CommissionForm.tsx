@@ -9,7 +9,8 @@ import {
   getCommissionTypeBadgeClass,
   getCommissionTypeLabel,
   getCommissionValorizationLabel,
-  SPORTELLO_AMICO_QUOTA_OF_BROKER,
+  normalizeCommissionStructureType,
+  sportelloAmicoQuotaPercentForType,
 } from '../../utils/helpers';
 
 function roundMoney(n: number): number {
@@ -110,7 +111,9 @@ export default function CommissionForm() {
           } else {
             const sa = row.sportello_amico_commission;
             if (sa != null && Number.isFinite(Number(sa)) && Number(sa) > 0) {
-              setProvvigioniBroker(String(roundMoney(Number(sa) / SPORTELLO_AMICO_QUOTA_OF_BROKER)));
+              const ct = normalizeCommissionStructureType(row.structure_commission_type);
+              const q = sportelloAmicoQuotaPercentForType(ct);
+              setProvvigioniBroker(q > 0 ? String(roundMoney((Number(sa) * 100) / q)) : '');
             } else {
               setProvvigioniBroker('');
             }
@@ -134,12 +137,13 @@ export default function CommissionForm() {
   const selectedStructure = structures.find((s) => s.id === Number(structureId));
   const previewType = selectedStructure?.commission_type ?? 'SEGNALATORE';
   const previewPct = commissionPercentForType(previewType);
+  const previewSaPct = sportelloAmicoQuotaPercentForType(previewType);
   const brokerNum = Number(String(provvigioniBroker).replace(',', '.'));
   const brokerFieldFilled = provvigioniBroker.trim() !== '';
   const hasValidBroker =
     Boolean(structureId) && brokerFieldFilled && Number.isFinite(brokerNum) && brokerNum >= 0;
   const previewStructAmount = hasValidBroker ? roundMoney(brokerNum * (previewPct / 100)) : null;
-  const previewSaQuota = hasValidBroker ? roundMoney(brokerNum * SPORTELLO_AMICO_QUOTA_OF_BROKER) : null;
+  const previewSaQuota = hasValidBroker ? roundMoney(brokerNum * (previewSaPct / 100)) : null;
 
   const validate = (): boolean => {
     const fe: Record<string, string> = {};
@@ -231,7 +235,7 @@ export default function CommissionForm() {
         </h1>
         <p className="mt-1 text-sm text-gray-600">
           {isCreate
-            ? 'Puoi registrare la polizza senza importi provvigionali per tenerne traccia (stato Da valorizzare). Con provvigione broker calcoliamo automaticamente quota struttura e Sportello Amico (65%).'
+            ? 'Puoi registrare la polizza senza importi provvigionali per tenerne traccia (stato Da valorizzare). Con provvigione broker calcoliamo automaticamente Quota S.A. e provvigione struttura in base al tipo struttura.'
             : 'Aggiorna i dati; le quote si ricalcolano da provvigione broker quando valorizzata, in base alla tipologia struttura.'}
         </p>
       </header>
@@ -358,8 +362,8 @@ export default function CommissionForm() {
               placeholder="Lascia vuoto se gli importi arriveranno più avanti"
             />
             <p className="mt-1 text-xs text-gray-500">
-              Facoltativo al primo salvataggio. Tipologia struttura: Segnalatore 30%, Partner 50%, Sportello Amico 65%.
-              Nel riepilogo è inclusa anche la quota Sportello Amico (65% sulla provv. broker).
+              Facoltativo al primo salvataggio. Percentuali su provv. broker: Segnalatore quota S.A. 35% / struttura 30%;
+              Collaboratore IVASS 15% / 50%; Sportello Amico 50% / 50% (stesso importo nelle due colonne).
             </p>
             {fieldErrors.provvigioniBroker ? (
               <p className="mt-1 text-xs text-red-600">{fieldErrors.provvigioniBroker}</p>
@@ -391,7 +395,7 @@ export default function CommissionForm() {
                   <span className="ml-1 font-semibold text-gray-900">{formatEuro(previewStructAmount)}</span>
                 </li>
                 <li>
-                  <span className="text-gray-500">Quota Sportello Amico (65%) (€)</span>
+                  <span className="text-gray-500">Quota S.A. ({previewSaPct}%) (€)</span>
                   <span className="ml-1 font-semibold text-gray-900">{formatEuro(previewSaQuota)}</span>
                 </li>
               </ul>

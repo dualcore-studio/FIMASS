@@ -8,7 +8,7 @@ import {
   formatEuro,
   getCommissionTypeBadgeClass,
   getCommissionTypeLabel,
-  SPORTELLO_AMICO_QUOTA_OF_BROKER,
+  sportelloAmicoQuotaPercentForType,
 } from '../../utils/helpers';
 
 function roundMoney(n: number): number {
@@ -44,10 +44,11 @@ export default function CommissionAmountsModal({ isOpen, onClose, commission, on
 
   const previewType = commission?.structure_commission_type ?? 'SEGNALATORE';
   const previewPct = commissionPercentForType(previewType);
+  const previewSaPct = sportelloAmicoQuotaPercentForType(previewType);
   const brokerNum = Number(String(provvigioniBroker).replace(',', '.'));
   const hasValidBroker = Number.isFinite(brokerNum) && brokerNum >= 0 && provvigioniBroker.trim() !== '';
   const previewStructAmount = hasValidBroker ? roundMoney(brokerNum * (previewPct / 100)) : null;
-  const previewSaQuota = hasValidBroker ? roundMoney(brokerNum * SPORTELLO_AMICO_QUOTA_OF_BROKER) : null;
+  const previewSaQuota = hasValidBroker ? roundMoney(brokerNum * (previewSaPct / 100)) : null;
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
@@ -177,7 +178,7 @@ export default function CommissionAmountsModal({ isOpen, onClose, commission, on
                   <span className="font-semibold">{formatEuro(previewStructAmount)}</span>
                 </li>
                 <li className="flex justify-between gap-2">
-                  <span className="text-gray-500">Quota Sportello Amico (65%)</span>
+                  <span className="text-gray-500">Quota S.A. ({previewSaPct}%)</span>
                   <span className="font-semibold">{formatEuro(previewSaQuota)}</span>
                 </li>
               </ul>

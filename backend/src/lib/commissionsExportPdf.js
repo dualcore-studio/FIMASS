@@ -31,7 +31,7 @@ function ellipsize(s, max) {
 }
 
 function commissionTypeLabel(t) {
-  if (t === 'PARTNER') return 'Partner';
+  if (t === 'PARTNER') return 'Collaboratore IVASS';
   if (t === 'SPORTELLO_AMICO') return 'Sportello Amico';
   return 'Segnalatore';
 }
@@ -90,7 +90,7 @@ function pipeCommissionsListPdf(opts, res) {
     summParts.push(`Tot. provv. broker: ${fmtEuro(summary.totale_provigioni_broker)}`);
   }
   if (isAdmin && summary.totale_sportello_amico != null) {
-    summParts.push(`Quota S.A. (65%): ${fmtEuro(summary.totale_sportello_amico)}`);
+    summParts.push(`Quota S.A.: ${fmtEuro(summary.totale_sportello_amico)}`);
   }
   summParts.push(`Totale provvigioni strutture: ${fmtEuro(summary.totale_provigioni_strutture)}`);
   doc.text(summParts.join('   ·   '), margin, y, { width: usableW });

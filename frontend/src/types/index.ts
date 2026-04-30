@@ -44,7 +44,7 @@ export interface Commission {
   provvigioni_broker?: number | null;
   broker_commission?: number | null;
   client_invoice: number | null;
-  /** Quota S.A. (65% provv. broker), assente per il ruolo struttura. */
+  /** Quota S.A. (% su provv. broker in base al tipo struttura), assente per il ruolo struttura. */
   sportello_amico_commission?: number | null;
   structure_commission_type: CommissionStructureType;
   structure_commission_percentage: number;
@@ -63,7 +63,7 @@ export interface CommissionsListResponse extends PaginatedResponse<Commission> {
     totale_premi: number;
     /** Solo admin/fornitore: somma provvigioni broker. */
     totale_provigioni_broker?: number;
-    /** Solo admin/fornitore: somma quota Sportello Amico (65% su ogni provv. broker). */
+    /** Solo admin/fornitore: somma colonna Quota S.A. */
     totale_sportello_amico?: number;
     totale_provigioni_strutture: number;
     /** Somma provv. struttura liquidate o, per struttura, riepilogo “liquidate”. */

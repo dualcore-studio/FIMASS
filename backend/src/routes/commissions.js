@@ -16,12 +16,18 @@ const { pipeCommissionsListPdf } = require('../lib/commissionsExportPdf');
 const router = express.Router();
 
 const COMMISSION_TYPES = new Set(['SEGNALATORE', 'PARTNER', 'SPORTELLO_AMICO']);
-/** Quota accordo Sportello Amico (organizzazione) sulla provvigione broker (stessa base usata anche per il tipo struttura SA). */
-const SPORTELLO_AMICO_ORG_PCT = 0.65;
 
+/** Quota S.A. (% sulla provvigione broker). Sportello Amico: stesso importo anche in provv. struttura (50%). */
+function quotaSaPctForType(t) {
+  if (t === 'PARTNER') return 15;
+  if (t === 'SPORTELLO_AMICO') return 50;
+  return 35;
+}
+
+/** Provvigione struttura (% sulla provvigione broker); coincide col campo Tipo / %. */
 function structurePctForType(t) {
   if (t === 'PARTNER') return 50;
-  if (t === 'SPORTELLO_AMICO') return 65;
+  if (t === 'SPORTELLO_AMICO') return 50;
   return 30;
 }
 
@@ -45,14 +51,15 @@ function isRowLiquidated(r) {
  */
 function computeFromProvvigioniBroker(provvigioniBroker, structureCommissionType) {
   const type = COMMISSION_TYPES.has(structureCommissionType) ? structureCommissionType : 'SEGNALATORE';
-  const pct = structurePctForType(type);
+  const structPct = structurePctForType(type);
+  const saPct = quotaSaPctForType(type);
   const base = Number(provvigioniBroker);
   const safe = Number.isFinite(base) && base >= 0 ? base : 0;
   return {
     structure_commission_type: type,
-    structure_commission_percentage: pct,
-    structure_commission_amount: roundMoney(safe * (pct / 100)),
-    sportello_amico_commission: roundMoney(safe * SPORTELLO_AMICO_ORG_PCT),
+    structure_commission_percentage: structPct,
+    structure_commission_amount: roundMoney(safe * (structPct / 100)),
+    sportello_amico_commission: roundMoney(safe * (saPct / 100)),
   };
 }
 
@@ -63,14 +70,14 @@ function computeFromProvvigioniBroker(provvigioniBroker, structureCommissionType
  */
 function buildEconomicsPersist(provvigioniBroker, structureCommissionType) {
   const type = COMMISSION_TYPES.has(structureCommissionType) ? structureCommissionType : 'SEGNALATORE';
-  const pct = structurePctForType(type);
+  const structPct = structurePctForType(type);
   if (provvigioniBroker === null) {
     return {
       broker_commission: null,
       sportello_amico_commission: null,
       structure_commission_amount: null,
       structure_commission_type: type,
-      structure_commission_percentage: pct,
+      structure_commission_percentage: structPct,
     };
   }
   const c = computeFromProvvigioniBroker(provvigioniBroker, type);
@@ -95,7 +102,15 @@ function effectiveProvvigioniBrokerFromRow(r) {
     if (Number.isFinite(b) && b >= 0) return b;
   }
   const sa = Number(r.sportello_amico_commission);
-  if (Number.isFinite(sa) && sa > 0) return roundMoney(sa / SPORTELLO_AMICO_ORG_PCT);
+  if (Number.isFinite(sa) && sa > 0) {
+    const t =
+      r.structure_commission_type && COMMISSION_TYPES.has(r.structure_commission_type)
+        ? r.structure_commission_type
+        : 'SEGNALATORE';
+    const q = quotaSaPctForType(t);
+    if (!(q > 0)) return null;
+    return roundMoney(sa / (q / 100));
+  }
   return null;
 }
 
@@ -106,7 +121,7 @@ function enrichCommissionRow(r) {
     r.structure_commission_type && COMMISSION_TYPES.has(r.structure_commission_type)
       ? r.structure_commission_type
       : 'SEGNALATORE';
-  const pct = structurePctForType(t);
+  const structPct = structurePctForType(t);
 
   const rawBroker = r.broker_commission;
   const brokerDirect =
@@ -131,7 +146,8 @@ function enrichCommissionRow(r) {
 
   const sa = Number(r.sportello_amico_commission);
   if (Number.isFinite(sa) && sa > 0) {
-    const broker = roundMoney(sa / SPORTELLO_AMICO_ORG_PCT);
+    const q = quotaSaPctForType(t);
+    const broker = q > 0 ? roundMoney(sa / (q / 100)) : 0;
     const computed = computeFromProvvigioniBroker(broker, t);
     const commission_status = isRowLiquidated(r) ? 'LIQUIDATA' : 'VALORIZZATA';
     return {
@@ -152,7 +168,7 @@ function enrichCommissionRow(r) {
     broker_commission: null,
     sportello_amico_commission: null,
     structure_commission_amount: null,
-    structure_commission_percentage: pct,
+    structure_commission_percentage: structPct,
     commission_status: 'DA_VALORIZZARE',
     liquidated: false,
   };

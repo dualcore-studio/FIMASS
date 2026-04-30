@@ -380,18 +380,18 @@ export default function UserCreate() {
                   Tipo provvigione struttura <span className="text-red-500">*</span>
                 </label>
                 <p className="mb-2 text-xs text-gray-500">
-                  Percentuali provvigione struttura sulla provvigione broker (inserita nelle provvigioni): Segnalatore 30% ·
-                  Partner 50% · Sportello Amico 65%. Nel modulo provvigioni sono calcolati automaticamente anche gli
-                  importi di riepilogo (inclusa la quota Sportello Amico al 65% della provv. broker).
+                  Su provvigione broker: Segnalatore quota S.A. 35% / struttura 30%; Collaboratore IVASS 15% / 50%;
+                  Sportello Amico 50% / 50% (stesso importo Quota S.A. e provv. struttura). Il resto resta al broker e non
+                  è mostrato.
                 </p>
                 <select
                   value={commissionType}
                   onChange={(e) => setCommissionType(e.target.value as CommissionStructureType)}
                   className="input-field"
                 >
-                  <option value="SEGNALATORE">Segnalatore (30% provv. broker)</option>
-                  <option value="PARTNER">Partner (50% provv. broker)</option>
-                  <option value="SPORTELLO_AMICO">Sportello Amico (65% provv. broker)</option>
+                  <option value="SEGNALATORE">Segnalatore (quota S.A. 35%, struttura 30%)</option>
+                  <option value="PARTNER">Collaboratore IVASS (quota S.A. 15%, struttura 50%)</option>
+                  <option value="SPORTELLO_AMICO">Sportello Amico (quota S.A. 50%, struttura 50%)</option>
                 </select>
               </div>
 

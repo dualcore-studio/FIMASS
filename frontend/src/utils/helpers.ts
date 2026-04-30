@@ -112,15 +112,19 @@ export function formatCommissionEuro(value: number | null | undefined): string {
   return new Intl.NumberFormat('it-IT', { style: 'currency', currency: 'EUR' }).format(Number(value));
 }
 
-/** % della provvigione broker per la quota struttura (convenzione vigente). */
+/** % provvigione struttura sulla provv. broker (colonna Tipo / % e importo struttura). */
 export function commissionPercentForType(type: string): number {
   if (type === 'PARTNER') return 50;
-  if (type === 'SPORTELLO_AMICO') return 65;
+  if (type === 'SPORTELLO_AMICO') return 50;
   return 30;
 }
 
-/** Quota Sportello Amico sull’accordo: 65% della provvigione broker (solo calcolo / esposizione). */
-export const SPORTELLO_AMICO_QUOTA_OF_BROKER = 0.65;
+/** % quota S.A. sulla provvigione broker (colonna Quota S.A.). */
+export function sportelloAmicoQuotaPercentForType(type: string): number {
+  if (type === 'PARTNER') return 15;
+  if (type === 'SPORTELLO_AMICO') return 50;
+  return 35;
+}
 
 export function normalizeCommissionStructureType(type: string | null | undefined): CommissionStructureType {
   const u = String(type ?? '').toUpperCase();
@@ -135,7 +139,7 @@ export function getCommissionTypeBadgeClass(type: string): string {
 }
 
 export function getCommissionTypeLabel(type: string): string {
-  if (type === 'PARTNER') return 'Partner';
+  if (type === 'PARTNER') return 'Collaboratore IVASS';
   if (type === 'SPORTELLO_AMICO') return 'Sportello Amico';
   return 'Segnalatore';
 }
