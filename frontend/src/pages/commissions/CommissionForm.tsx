@@ -1,13 +1,14 @@
 import { useEffect, useState, type FormEvent } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { ArrowLeft } from 'lucide-react';
 import { api, ApiError } from '../../utils/api';
-import type { Commission, StructureOption } from '../../types';
+import type { Commission, Policy, StructureOption } from '../../types';
 import {
   commissionPercentForType,
   formatEuro,
   getCommissionTypeBadgeClass,
   getCommissionTypeLabel,
+  getCommissionValorizationLabel,
   SPORTELLO_AMICO_QUOTA_OF_BROKER,
 } from '../../utils/helpers';
 
@@ -17,6 +18,7 @@ function roundMoney(n: number): number {
 
 export default function CommissionForm() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const params = useParams<{ id: string }>();
   const editId = params.id ? Number(params.id) : NaN;
   const isCreate = !Number.isFinite(editId);
@@ -38,6 +40,7 @@ export default function CommissionForm() {
   const [clientInvoice, setClientInvoice] = useState('');
   const [provvigioniBroker, setProvvigioniBroker] = useState('');
   const [notes, setNotes] = useState('');
+  const [valorizationBanner, setValorizationBanner] = useState<Commission['commission_status']>();
 
   useEffect(() => {
     let cancelled = false;
@@ -55,6 +58,33 @@ export default function CommissionForm() {
       cancelled = true;
     };
   }, []);
+
+  useEffect(() => {
+    if (!isCreate) return;
+    const pid = searchParams.get('policy_id');
+    const policyIdNum = pid ? Number(pid) : NaN;
+    if (!Number.isFinite(policyIdNum)) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const p = await api.get<Policy>(`/policies/${policyIdNum}`);
+        if (cancelled) return;
+        if (String(p.stato).trim().toUpperCase() !== 'EMESSA') return;
+        const nomeCliente = [p.assistito_nome, p.assistito_cognome].filter(Boolean).join(' ').trim();
+        if (nomeCliente) setCustomerName(nomeCliente);
+        setPolicyNumber(String(p.numero || '').trim());
+        setStructureId(String(p.struttura_id));
+        if (p.compagnia) setCompany(String(p.compagnia).trim());
+        const em = p.data_emissione ? String(p.data_emissione).slice(0, 10) : '';
+        if (/^\d{4}-\d{2}-\d{2}$/.test(em)) setDate(em);
+      } catch {
+        /* prefetch opzionale */
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [isCreate, searchParams]);
 
   useEffect(() => {
     if (isCreate) return;
@@ -87,6 +117,7 @@ export default function CommissionForm() {
           }
         }
         setNotes(row.notes ?? '');
+        setValorizationBanner(row.commission_status);
       } catch (e) {
         if (!cancelled) {
           setLoadError(e instanceof ApiError ? e.message : 'Impossibile caricare la provvigione.');
@@ -104,9 +135,11 @@ export default function CommissionForm() {
   const previewType = selectedStructure?.commission_type ?? 'SEGNALATORE';
   const previewPct = commissionPercentForType(previewType);
   const brokerNum = Number(String(provvigioniBroker).replace(',', '.'));
-  const hasValidBroker = Number.isFinite(brokerNum) && brokerNum >= 0;
-  const previewStructAmount = structureId && hasValidBroker ? roundMoney(brokerNum * (previewPct / 100)) : null;
-  const previewSaQuota = structureId && hasValidBroker ? roundMoney(brokerNum * SPORTELLO_AMICO_QUOTA_OF_BROKER) : null;
+  const brokerFieldFilled = provvigioniBroker.trim() !== '';
+  const hasValidBroker =
+    Boolean(structureId) && brokerFieldFilled && Number.isFinite(brokerNum) && brokerNum >= 0;
+  const previewStructAmount = hasValidBroker ? roundMoney(brokerNum * (previewPct / 100)) : null;
+  const previewSaQuota = hasValidBroker ? roundMoney(brokerNum * SPORTELLO_AMICO_QUOTA_OF_BROKER) : null;
 
   const validate = (): boolean => {
     const fe: Record<string, string> = {};
@@ -114,8 +147,8 @@ export default function CommissionForm() {
     if (!policyNumber.trim()) fe.policyNumber = 'Obbligatorio.';
     if (!structureId || !Number.isFinite(Number(structureId))) fe.structureId = 'Obbligatorio.';
     const br = Number(String(provvigioniBroker).replace(',', '.'));
-    if (provvigioniBroker.trim() === '' || !Number.isFinite(br) || br < 0) {
-      fe.provvigioniBroker = 'Inserire la provvigione broker (numero ≥ 0).';
+    if (brokerFieldFilled && (!Number.isFinite(br) || br < 0)) {
+      fe.provvigioniBroker = 'Inserisci un importo numerico ≥ 0 oppure lascia vuoto per solo tracciamento.';
     }
     setFieldErrors(fe);
     if (Object.keys(fe).length > 0) {
@@ -138,7 +171,8 @@ export default function CommissionForm() {
       portal: portal.trim() || null,
       company: company.trim() || null,
       policy_premium: policyPremium.trim() === '' ? null : Number(String(policyPremium).replace(',', '.')),
-      provvigioni_broker: Number(String(provvigioniBroker).replace(',', '.')),
+      provvigioni_broker:
+        provvigioniBroker.trim() === '' ? null : Number(String(provvigioniBroker).replace(',', '.')),
       client_invoice: clientInvoice.trim() === '' ? null : Number(String(clientInvoice).replace(',', '.')),
       notes: notes.trim() || null,
     };
@@ -197,8 +231,8 @@ export default function CommissionForm() {
         </h1>
         <p className="mt-1 text-sm text-gray-600">
           {isCreate
-            ? 'Inserisci i dati economici; la provvigione struttura e la quota Sportello Amico (65%) si calcolano sulla provvigione broker.'
-            : 'Aggiorna i dati; le quote si ricalcolano da provvigione broker e tipologia struttura.'}
+            ? 'Puoi registrare la polizza senza importi provvigionali per tenerne traccia (stato Da valorizzare). Con provvigione broker calcoliamo automaticamente quota struttura e Sportello Amico (65%).'
+            : 'Aggiorna i dati; le quote si ricalcolano da provvigione broker quando valorizzata, in base alla tipologia struttura.'}
         </p>
       </header>
 
@@ -208,6 +242,16 @@ export default function CommissionForm() {
 
       {loadError && isCreate ? (
         <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">{loadError}</div>
+      ) : null}
+
+      {valorizationBanner === 'DA_VALORIZZARE' ? (
+        <div className="rounded-lg border border-amber-100 bg-amber-50/70 px-4 py-3 text-sm text-amber-950 ring-1 ring-amber-200/60">
+          <p className="font-medium">{getCommissionValorizationLabel(valorizationBanner)}</p>
+          <p className="mt-1 text-xs text-amber-900">
+            Importi provvigionali non ancora inseriti. Questa scheda serve al tracciamento; compila i campi economici qui
+            sotto o usa &quot;Inserisci importi&quot; dall&apos;elenco provvigioni.
+          </p>
+        </div>
       ) : null}
 
       <form onSubmit={handleSubmit} className="card space-y-6 p-6">
@@ -263,7 +307,9 @@ export default function CommissionForm() {
 
         <div className="space-y-2 border-t border-gray-100 pt-6">
           <p className="text-sm font-medium text-gray-800">Dati economici</p>
-          <p className="text-xs text-gray-500">La base per i calcoli automatici è la provvigione broker.</p>
+          <p className="text-xs text-gray-500">
+            La base per i calcoli è la provvigione broker; facoltativa al primo salvataggio se serve solo tenere la pratica in elenco.
+          </p>
         </div>
         <div className="grid gap-4 sm:grid-cols-2">
           <div>
@@ -291,9 +337,7 @@ export default function CommissionForm() {
             />
           </div>
           <div className="sm:col-span-2">
-            <label className="mb-1 block text-sm font-medium text-gray-700">
-              Provvigioni broker (€) <span className="text-red-500">*</span>
-            </label>
+            <label className="mb-1 block text-sm font-medium text-gray-700">Provvigioni broker (€)</label>
             <input
               type="number"
               inputMode="decimal"
@@ -302,11 +346,11 @@ export default function CommissionForm() {
               value={provvigioniBroker}
               onChange={(e) => setProvvigioniBroker(e.target.value)}
               className="input-field"
-              required
+              placeholder="Lascia vuoto se gli importi arriveranno più avanti"
             />
             <p className="mt-1 text-xs text-gray-500">
-              Importo obbligatorio; la provvigione struttura dipende dal tipo (Segnalatore 30%, Partner 50%, Sportello
-              Amico 65%). Nel riepilogo è indicata anche la quota Sportello Amico (65% della provv. broker).
+              Facoltativo al primo salvataggio. Tipologia struttura: Segnalatore 30%, Partner 50%, Sportello Amico 65%.
+              Nel riepilogo è inclusa anche la quota Sportello Amico (65% sulla provv. broker).
             </p>
             {fieldErrors.provvigioniBroker ? (
               <p className="mt-1 text-xs text-red-600">{fieldErrors.provvigioniBroker}</p>
@@ -327,7 +371,7 @@ export default function CommissionForm() {
           </div>
           <div className="mt-4 space-y-3 sm:mt-0">
             <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">Riepilogo</p>
-            {structureId && hasValidBroker ? (
+            {hasValidBroker ? (
               <ul className="space-y-2 text-sm text-gray-700">
                 <li>
                   <span className="text-gray-500">Percentuale struttura</span>
@@ -343,7 +387,9 @@ export default function CommissionForm() {
                 </li>
               </ul>
             ) : (
-              <p className="text-sm text-gray-500">Seleziona struttura e inserisci la provvigione broker per il calcolo.</p>
+              <p className="text-sm text-gray-500">
+                Seleziona struttura e, se disponibile, inserisci la provvigione broker per vedere il calcolo.
+              </p>
             )}
           </div>
         </div>

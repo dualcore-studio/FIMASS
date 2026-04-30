@@ -6,6 +6,14 @@ function fmtEuro(n) {
   return new Intl.NumberFormat('it-IT', { style: 'currency', currency: 'EUR', maximumFractionDigits: 2 }).format(x);
 }
 
+/** Importi provvigionali: null → testo UX (liste PDF). */
+function fmtCommissionAmountEuro(n) {
+  if (n === null || n === undefined || n === '') return 'Da inserire';
+  const x = Number(n);
+  if (!Number.isFinite(x)) return 'Da inserire';
+  return fmtEuro(x);
+}
+
 function fmtDate(d) {
   if (!d) return '—';
   const s = String(d).slice(0, 10);
@@ -93,11 +101,12 @@ function pipeCommissionsListPdf(opts, res) {
         { header: 'Compagnia', w: 0.07, cell: (r) => ellipsize(r.company || '—', 14) },
         { header: 'Premio', w: 0.08, cell: (r) => fmtEuro(r.policy_premium) },
         { header: 'Fatt. cliente', w: 0.07, cell: (r) => fmtEuro(r.client_invoice) },
-        { header: 'Prov. broker', w: 0.07, cell: (r) => fmtEuro(r.provvigioni_broker ?? r.broker_commission) },
-        { header: 'Quota S.A.', w: 0.065, cell: (r) => fmtEuro(r.sportello_amico_commission) },
+        { header: 'Prov. broker', w: 0.07, cell: (r) => fmtCommissionAmountEuro(r.provvigioni_broker ?? r.broker_commission) },
+        { header: 'Quota S.A.', w: 0.065, cell: (r) => fmtCommissionAmountEuro(r.sportello_amico_commission) },
         { header: 'Tipo', w: 0.055, cell: (r) => commissionTypeLabel(r.structure_commission_type) },
         { header: '%', w: 0.035, cell: (r) => `${r.structure_commission_percentage ?? '—'}%` },
-        { header: 'Prov. struttura', w: 0.075, cell: (r) => fmtEuro(r.structure_commission_amount) },
+        { header: 'Prov. struttura', w: 0.075, cell: (r) => fmtCommissionAmountEuro(r.structure_commission_amount) },
+        { header: 'Stato', w: 0.065, cell: (r) => (r.commission_status === 'VALORIZZATA' ? 'Valorizzata' : 'Da valorizzare') },
       ]
     : [
         { header: 'Data', w: 0.1, cell: (r) => fmtDate(r.date) },
@@ -107,7 +116,8 @@ function pipeCommissionsListPdf(opts, res) {
         { header: 'Compagnia', w: 0.12, cell: (r) => ellipsize(r.company || '—', 18) },
         { header: 'Premio', w: 0.12, cell: (r) => fmtEuro(r.policy_premium) },
         { header: 'Tipo', w: 0.08, cell: (r) => commissionTypeLabel(r.structure_commission_type) },
-        { header: 'La tua provvigione', w: 0.16, cell: (r) => fmtEuro(r.structure_commission_amount) },
+        { header: 'La tua provvigione', w: 0.14, cell: (r) => fmtCommissionAmountEuro(r.structure_commission_amount) },
+        { header: 'Stato', w: 0.07, cell: (r) => (r.commission_status === 'VALORIZZATA' ? 'Valorizzata' : 'Da valorizzare') },
       ];
 
   const rawWs = cols.map((c) => c.w);

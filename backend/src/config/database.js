@@ -191,10 +191,10 @@ function initializeDatabase() {
       policy_premium REAL,
       broker_commission REAL,
       client_invoice REAL,
-      sportello_amico_commission REAL NOT NULL,
+      sportello_amico_commission REAL,
       structure_commission_type TEXT NOT NULL CHECK(structure_commission_type IN ('SEGNALATORE','PARTNER','SPORTELLO_AMICO')),
       structure_commission_percentage INTEGER NOT NULL,
-      structure_commission_amount REAL NOT NULL,
+      structure_commission_amount REAL,
       notes TEXT,
       created_at TEXT DEFAULT (datetime('now')),
       updated_at TEXT DEFAULT (datetime('now'))
@@ -322,10 +322,10 @@ function initializeDatabase() {
         policy_premium REAL,
         broker_commission REAL,
         client_invoice REAL,
-        sportello_amico_commission REAL NOT NULL,
+        sportello_amico_commission REAL,
         structure_commission_type TEXT NOT NULL CHECK(structure_commission_type IN ('SEGNALATORE','PARTNER','SPORTELLO_AMICO')),
         structure_commission_percentage INTEGER NOT NULL,
-        structure_commission_amount REAL NOT NULL,
+        structure_commission_amount REAL,
         notes TEXT,
         created_at TEXT DEFAULT (datetime('now')),
         updated_at TEXT DEFAULT (datetime('now'))
@@ -338,6 +338,7 @@ function initializeDatabase() {
   }
 
   migrateCommissionTypeEnumsIfNeeded();
+  migrateCommissionsNullableEconomicsSqliteIfNeeded();
   migrateFornitoreAndMessagingSqliteIfNeeded();
   migratePrivacyGdprSqliteIfNeeded();
   migratePoliciesScadenzeSqliteIfNeeded();
@@ -551,10 +552,10 @@ function migrateCommissionTypeEnumsIfNeeded() {
           policy_premium REAL,
           broker_commission REAL,
           client_invoice REAL,
-          sportello_amico_commission REAL NOT NULL,
+          sportello_amico_commission REAL,
           structure_commission_type TEXT NOT NULL CHECK(structure_commission_type IN ${inList}),
           structure_commission_percentage INTEGER NOT NULL,
-          structure_commission_amount REAL NOT NULL,
+          structure_commission_amount REAL,
           notes TEXT,
           created_at TEXT DEFAULT (datetime('now')),
           updated_at TEXT DEFAULT (datetime('now'))
@@ -611,6 +612,57 @@ function migrateCommissionTypeEnumsIfNeeded() {
       /* ignore */
     }
     console.error('migrate users commission_type enum:', e);
+  }
+}
+
+/** SQLite: provv. senza importi — sportello_amico_commission / structure_commission_amount possono essere NULL. */
+function migrateCommissionsNullableEconomicsSqliteIfNeeded() {
+  const inList = "('SEGNALATORE','PARTNER','SPORTELLO_AMICO')";
+  try {
+    const comm = db.prepare(`SELECT sql FROM sqlite_master WHERE type='table' AND name='commissions'`).get();
+    const sql = comm?.sql && typeof comm.sql === 'string' ? comm.sql : '';
+    const needsMigrate =
+      sql.includes('sportello_amico_commission REAL NOT NULL') ||
+      sql.includes('structure_commission_amount REAL NOT NULL');
+    if (!needsMigrate) return;
+
+    db.pragma('foreign_keys = OFF');
+    db.exec(`
+      CREATE TABLE commissions__amt_new (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        date TEXT NOT NULL,
+        customer_name TEXT NOT NULL,
+        policy_number TEXT NOT NULL,
+        structure_id INTEGER NOT NULL REFERENCES users(id),
+        structure_name TEXT,
+        collaborator_name TEXT,
+        portal TEXT,
+        company TEXT,
+        policy_premium REAL,
+        broker_commission REAL,
+        client_invoice REAL,
+        sportello_amico_commission REAL,
+        structure_commission_type TEXT NOT NULL CHECK(structure_commission_type IN ${inList}),
+        structure_commission_percentage INTEGER NOT NULL,
+        structure_commission_amount REAL,
+        notes TEXT,
+        created_at TEXT DEFAULT (datetime('now')),
+        updated_at TEXT DEFAULT (datetime('now'))
+      );
+    `);
+    db.exec('INSERT INTO commissions__amt_new SELECT * FROM commissions');
+    db.exec('DROP TABLE commissions');
+    db.exec('ALTER TABLE commissions__amt_new RENAME TO commissions');
+    db.exec('CREATE INDEX IF NOT EXISTS idx_commissions_structure ON commissions(structure_id)');
+    db.exec('CREATE INDEX IF NOT EXISTS idx_commissions_date ON commissions(date)');
+    db.pragma('foreign_keys = ON');
+  } catch (e) {
+    try {
+      db.pragma('foreign_keys = ON');
+    } catch (_) {
+      /* ignore */
+    }
+    console.error('migrate commissions nullable economic columns:', e);
   }
 }
 

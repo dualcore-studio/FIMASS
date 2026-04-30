@@ -6,8 +6,11 @@ import type { Commission, CommissionsListResponse, StructureOption } from '../..
 import {
   formatDate,
   formatEuro,
+  formatCommissionEuro,
   getCommissionTypeBadgeClass,
   getCommissionTypeLabel,
+  getCommissionValorizationBadgeClass,
+  getCommissionValorizationLabel,
 } from '../../utils/helpers';
 import { useAuth } from '../../context/AuthContext';
 import TablePagination from '../../components/common/TablePagination';
@@ -16,6 +19,7 @@ import { useSyncPageToTotalPages } from '../../hooks/useSyncPageToTotalPages';
 import { useListTableSort } from '../../hooks/useListTableSort';
 import SortableTh from '../../components/common/SortableTh';
 import Modal from '../../components/ui/Modal';
+import CommissionAmountsModal from './CommissionAmountsModal';
 
 function buildQuery(params: {
   page: number;
@@ -118,6 +122,7 @@ export default function CommissionsPage() {
   const [actionError, setActionError] = useState<string | null>(null);
   const [exportingPdf, setExportingPdf] = useState(false);
   const [exportPdfError, setExportPdfError] = useState<string | null>(null);
+  const [amountsModalRow, setAmountsModalRow] = useState<Commission | null>(null);
 
   const tableSort = useListTableSort();
 
@@ -235,7 +240,7 @@ export default function CommissionsPage() {
           </h1>
           <p className="mt-1 max-w-2xl text-sm text-gray-600">
             {isFullAccess
-              ? 'Registrazione delle polizze: base provvigione broker, calcolo provvigione struttura (30% / 50% / 65%) e quota Sportello Amico (65%).'
+              ? 'Registra le polizze con o senza importi; le righe senza provv. broker restano “Da valorizzare” fino al completamento economico.'
               : 'Elenco delle provvigioni registrate per la tua struttura.'}
           </p>
         </div>
@@ -459,19 +464,30 @@ export default function CommissionsPage() {
                   >
                     {isFullAccess ? 'Prov. struttura' : 'La tua provvigione'}
                   </SortableTh>
+                  <SortableTh
+                    sortKey="commission_status"
+                    activeKey={tableSort.sortBy}
+                    direction={tableSort.sortDir}
+                    onRequestSort={tableSort.requestSort}
+                  >
+                    Stato
+                  </SortableTh>
                   {isFullAccess ? <th className="px-4 py-3 text-right font-semibold text-gray-700">Azioni</th> : null}
                 </tr>
               </thead>
               <tbody>
                 {rows.length === 0 ? (
                   <tr>
-                    <td colSpan={isFullAccess ? 14 : 8} className="px-4 py-12 text-center text-gray-500">
+                    <td colSpan={isFullAccess ? 15 : 9} className="px-4 py-12 text-center text-gray-500">
                       Nessuna provvigione con i filtri selezionati.
                     </td>
                   </tr>
                 ) : (
                   rows.map((r: Commission) => (
-                    <tr key={r.id}>
+                    <tr
+                      key={r.id}
+                      className={r.commission_status === 'DA_VALORIZZARE' ? 'bg-amber-50/40' : undefined}
+                    >
                       <td className="whitespace-nowrap px-4 py-3 text-gray-700">{formatDate(r.date)}</td>
                       <td className="px-4 py-3 font-medium text-gray-900">{r.customer_name}</td>
                       <td className="px-4 py-3 font-mono text-xs text-gray-800">{r.policy_number}</td>
@@ -486,11 +502,13 @@ export default function CommissionsPage() {
                       ) : null}
                       {isFullAccess ? (
                         <td className="whitespace-nowrap px-4 py-3 text-gray-800">
-                          {formatEuro(r.provvigioni_broker ?? r.broker_commission ?? null)}
+                          {formatCommissionEuro(r.provvigioni_broker ?? r.broker_commission ?? null)}
                         </td>
                       ) : null}
                       {isFullAccess ? (
-                        <td className="whitespace-nowrap px-4 py-3 text-gray-800">{formatEuro(r.sportello_amico_commission)}</td>
+                        <td className="whitespace-nowrap px-4 py-3 text-gray-800">
+                          {formatCommissionEuro(r.sportello_amico_commission)}
+                        </td>
                       ) : null}
                       <td className="px-4 py-3">
                         <span className={`badge ${getCommissionTypeBadgeClass(r.structure_commission_type)}`}>
@@ -501,26 +519,44 @@ export default function CommissionsPage() {
                         <td className="whitespace-nowrap px-4 py-3 text-gray-800">{r.structure_commission_percentage}%</td>
                       ) : null}
                       <td className="whitespace-nowrap px-4 py-3 font-semibold text-gray-900">
-                        {formatEuro(r.structure_commission_amount)}
+                        {formatCommissionEuro(r.structure_commission_amount)}
+                      </td>
+                      <td className="align-middle whitespace-nowrap px-4 py-3">
+                        <span
+                          className={`badge ${getCommissionValorizationBadgeClass(r.commission_status)}`}
+                        >
+                          {getCommissionValorizationLabel(r.commission_status)}
+                        </span>
                       </td>
                       {isFullAccess ? (
                         <td className="px-4 py-3">
-                          <div className="flex flex-wrap items-center justify-end gap-1">
-                            <Link
-                              to={`/provvigioni/${r.id}/modifica`}
-                              className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-gray-200 bg-white text-gray-600 transition hover:border-blue-300 hover:bg-blue-50 hover:text-blue-700"
-                              title="Modifica"
-                            >
-                              <Pencil className="h-4 w-4" />
-                            </Link>
+                          <div className="flex flex-col items-end gap-2">
                             <button
                               type="button"
-                              onClick={() => setDeleteId(r.id)}
-                              className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-gray-200 bg-white text-gray-600 transition hover:border-red-300 hover:bg-red-50 hover:text-red-700"
-                              title="Elimina"
+                              onClick={() => setAmountsModalRow(r)}
+                              className="rounded-lg border border-slate-200 bg-white px-2.5 py-1 text-xs font-medium text-slate-800 shadow-sm transition hover:border-blue-300 hover:bg-blue-50/70 hover:text-blue-800"
                             >
-                              <Trash2 className="h-4 w-4" />
+                              {r.commission_status === 'DA_VALORIZZARE'
+                                ? 'Inserisci importi'
+                                : 'Modifica importi'}
                             </button>
+                            <div className="flex flex-wrap items-center justify-end gap-1">
+                              <Link
+                                to={`/provvigioni/${r.id}/modifica`}
+                                className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-gray-200 bg-white text-gray-600 transition hover:border-blue-300 hover:bg-blue-50 hover:text-blue-700"
+                                title="Modifica scheda completa"
+                              >
+                                <Pencil className="h-4 w-4" />
+                              </Link>
+                              <button
+                                type="button"
+                                onClick={() => setDeleteId(r.id)}
+                                className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-gray-200 bg-white text-gray-600 transition hover:border-red-300 hover:bg-red-50 hover:text-red-700"
+                                title="Elimina"
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </button>
+                            </div>
                           </div>
                         </td>
                       ) : null}
@@ -571,6 +607,13 @@ export default function CommissionsPage() {
           </div>
         </div>
       </Modal>
+
+      <CommissionAmountsModal
+        isOpen={amountsModalRow != null}
+        commission={amountsModalRow}
+        onClose={() => setAmountsModalRow(null)}
+        onSaved={fetchList}
+      />
 
       {isStruttura ? (
         <p className="flex items-center gap-2 text-xs text-gray-500">

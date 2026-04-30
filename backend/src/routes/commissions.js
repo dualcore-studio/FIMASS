@@ -50,34 +50,99 @@ function computeFromProvvigioniBroker(provvigioniBroker, structureCommissionType
 }
 
 /**
+ * Persistenza campi economici da provv. broker (o null se da valorizzare).
+ * @param {number|null} provvigioniBroker
+ * @param {string} structureCommissionType
+ */
+function buildEconomicsPersist(provvigioniBroker, structureCommissionType) {
+  const type = COMMISSION_TYPES.has(structureCommissionType) ? structureCommissionType : 'SEGNALATORE';
+  const pct = structurePctForType(type);
+  if (provvigioniBroker === null) {
+    return {
+      broker_commission: null,
+      sportello_amico_commission: null,
+      structure_commission_amount: null,
+      structure_commission_type: type,
+      structure_commission_percentage: pct,
+    };
+  }
+  const c = computeFromProvvigioniBroker(provvigioniBroker, type);
+  return {
+    broker_commission: provvigioniBroker,
+    sportello_amico_commission: c.sportello_amico_commission,
+    structure_commission_amount: c.structure_commission_amount,
+    structure_commission_type: c.structure_commission_type,
+    structure_commission_percentage: c.structure_commission_percentage,
+  };
+}
+
+/**
  * Compat: record con solo importo S.A. legacy (prima la base era S.A. manuale).
  * @param {object} r
- * @returns {number}
+ * @returns {number|null}
  */
 function effectiveProvvigioniBrokerFromRow(r) {
-  const b = Number(r.broker_commission);
-  if (Number.isFinite(b) && b >= 0) return b;
+  const raw = r.broker_commission;
+  if (raw !== null && raw !== undefined && raw !== '') {
+    const b = Number(raw);
+    if (Number.isFinite(b) && b >= 0) return b;
+  }
   const sa = Number(r.sportello_amico_commission);
   if (Number.isFinite(sa) && sa > 0) return roundMoney(sa / SPORTELLO_AMICO_ORG_PCT);
-  return 0;
+  return null;
 }
 
 /** Ricalcola in output (liste/dettagli/export) per coerenza con la convenzione e dati pre-migrazione. */
 function enrichCommissionRow(r) {
   if (!r || typeof r !== 'object') return r;
-  const broker = effectiveProvvigioniBrokerFromRow(r);
   const t =
     r.structure_commission_type && COMMISSION_TYPES.has(r.structure_commission_type)
       ? r.structure_commission_type
       : 'SEGNALATORE';
-  const computed = computeFromProvvigioniBroker(broker, t);
+  const pct = structurePctForType(t);
+
+  const rawBroker = r.broker_commission;
+  const brokerDirect =
+    rawBroker !== null && rawBroker !== undefined && rawBroker !== '' ? Number(rawBroker) : null;
+  const hasDirectBroker =
+    brokerDirect !== null && Number.isFinite(brokerDirect) && brokerDirect >= 0;
+
+  if (hasDirectBroker) {
+    const computed = computeFromProvvigioniBroker(brokerDirect, t);
+    return {
+      ...r,
+      provvigioni_broker: brokerDirect,
+      broker_commission: brokerDirect,
+      sportello_amico_commission: computed.sportello_amico_commission,
+      structure_commission_percentage: computed.structure_commission_percentage,
+      structure_commission_amount: computed.structure_commission_amount,
+      commission_status: 'VALORIZZATA',
+    };
+  }
+
+  const sa = Number(r.sportello_amico_commission);
+  if (Number.isFinite(sa) && sa > 0) {
+    const broker = roundMoney(sa / SPORTELLO_AMICO_ORG_PCT);
+    const computed = computeFromProvvigioniBroker(broker, t);
+    return {
+      ...r,
+      provvigioni_broker: broker,
+      broker_commission: broker,
+      sportello_amico_commission: computed.sportello_amico_commission,
+      structure_commission_percentage: computed.structure_commission_percentage,
+      structure_commission_amount: computed.structure_commission_amount,
+      commission_status: 'VALORIZZATA',
+    };
+  }
+
   return {
     ...r,
-    provvigioni_broker: broker,
-    broker_commission: broker,
-    sportello_amico_commission: computed.sportello_amico_commission,
-    structure_commission_percentage: computed.structure_commission_percentage,
-    structure_commission_amount: computed.structure_commission_amount,
+    provvigioni_broker: null,
+    broker_commission: null,
+    sportello_amico_commission: null,
+    structure_commission_amount: null,
+    structure_commission_percentage: pct,
+    commission_status: 'DA_VALORIZZARE',
   };
 }
 
@@ -96,18 +161,34 @@ function parseOptionalNumber(v) {
   return Number.isFinite(n) ? n : NaN;
 }
 
-function parseRequiredMoney(v) {
-  if (v === '' || v === null || v === undefined) return NaN;
-  const n = Number(v);
-  return Number.isFinite(n) ? n : NaN;
+/** @param {Record<string, unknown>} body */
+function parseBrokerForCreate(body) {
+  const hasProv = Object.prototype.hasOwnProperty.call(body, 'provvigioni_broker');
+  const hasLegacy = Object.prototype.hasOwnProperty.call(body, 'broker_commission');
+  if (!hasProv && !hasLegacy) return null;
+  const raw = hasProv ? body.provvigioni_broker : body.broker_commission;
+  if (raw === '' || raw === null || raw === undefined) return null;
+  const n = Number(raw);
+  if (!Number.isFinite(n) || n < 0) return NaN;
+  return n;
 }
 
-function parseProvvigioniBrokerInput(body) {
-  const raw =
-    body.provvigioni_broker !== undefined && body.provvigioni_broker !== null
-      ? body.provvigioni_broker
-      : body.broker_commission;
-  return parseRequiredMoney(raw);
+/** @param {Record<string, unknown>} body @param {object} current */
+function resolveBrokerForUpdate(body, current) {
+  const hasProv = Object.prototype.hasOwnProperty.call(body, 'provvigioni_broker');
+  const hasLegacy = Object.prototype.hasOwnProperty.call(body, 'broker_commission');
+  if (!hasProv && !hasLegacy) return effectiveProvvigioniBrokerFromRow(current);
+  const raw = hasProv ? body.provvigioni_broker : body.broker_commission;
+  if (raw === '' || raw === null || raw === undefined) return null;
+  const n = Number(raw);
+  if (!Number.isFinite(n) || n < 0) return NaN;
+  return n;
+}
+
+function currentOptionalMoneyField(prev) {
+  if (prev === null || prev === undefined) return null;
+  const n = Number(prev);
+  return Number.isFinite(n) ? n : null;
 }
 
 function normalizeDateInput(v) {
@@ -307,8 +388,6 @@ router.post('/', authenticateToken, authorizeRoles('admin', 'fornitore'), (req, 
       portal,
       company,
       policy_premium: policyPremiumRaw,
-      broker_commission: brokerCommissionRaw,
-      provvigioni_broker: provvigioniBrokerRaw,
       client_invoice: clientInvoiceRaw,
       notes,
     } = req.body;
@@ -316,18 +395,15 @@ router.post('/', authenticateToken, authorizeRoles('admin', 'fornitore'), (req, 
     const customer_name = customerName != null ? String(customerName).trim() : '';
     const policy_number = policyNumber != null ? String(policyNumber).trim() : '';
     const structure_id = Number(structureIdRaw);
-    const provvigioni_broker = parseProvvigioniBrokerInput({
-      provvigioni_broker: provvigioniBrokerRaw,
-      broker_commission: brokerCommissionRaw,
-    });
+    const provvigioni_broker = parseBrokerForCreate(req.body);
 
     if (!customer_name) return res.status(400).json({ error: 'Nome cliente obbligatorio' });
     if (!policy_number) return res.status(400).json({ error: 'Numero polizza obbligatorio' });
     if (!Number.isFinite(structure_id)) return res.status(400).json({ error: 'Struttura obbligatoria' });
-    if (!Number.isFinite(provvigioni_broker) || provvigioni_broker < 0) {
+    if (provvigioni_broker !== null && Number.isNaN(provvigioni_broker)) {
       return res
         .status(400)
-        .json({ error: 'Provvigioni broker obbligatorie e devono essere un importo valido (≥ 0)' });
+        .json({ error: 'Provvigioni broker non valide (inserisci un importo numerico ≥ 0 o lascia vuoto)' });
     }
 
     const structure = await getById('users', structure_id);
@@ -337,7 +413,7 @@ router.post('/', authenticateToken, authorizeRoles('admin', 'fornitore'), (req, 
     const ct = structure.commission_type && COMMISSION_TYPES.has(structure.commission_type)
       ? structure.commission_type
       : 'SEGNALATORE';
-    const computed = computeFromProvvigioniBroker(provvigioni_broker, ct);
+    const econ = buildEconomicsPersist(provvigioni_broker, ct);
 
     const d = normalizeDateInput(date);
     if (!d) return res.status(400).json({ error: 'Data non valida (usare AAAA-MM-GG)' });
@@ -358,12 +434,12 @@ router.post('/', authenticateToken, authorizeRoles('admin', 'fornitore'), (req, 
       portal: portal != null ? String(portal).trim() || null : null,
       company: company != null ? String(company).trim() || null : null,
       policy_premium: policy_premium ?? null,
-      broker_commission: provvigioni_broker,
+      broker_commission: econ.broker_commission,
       client_invoice: client_invoice ?? null,
-      sportello_amico_commission: computed.sportello_amico_commission,
-      structure_commission_type: computed.structure_commission_type,
-      structure_commission_percentage: computed.structure_commission_percentage,
-      structure_commission_amount: computed.structure_commission_amount,
+      sportello_amico_commission: econ.sportello_amico_commission,
+      structure_commission_type: econ.structure_commission_type,
+      structure_commission_percentage: econ.structure_commission_percentage,
+      structure_commission_amount: econ.structure_commission_amount,
       notes: notes != null ? String(notes).trim() || null : null,
     });
 
@@ -401,8 +477,6 @@ router.put('/:id', authenticateToken, authorizeRoles('admin', 'fornitore'), (req
       portal,
       company,
       policy_premium: policyPremiumRaw,
-      broker_commission: brokerCommissionRaw,
-      provvigioni_broker: provvigioniBrokerRaw,
       client_invoice: clientInvoiceRaw,
       notes,
     } = req.body;
@@ -414,23 +488,15 @@ router.put('/:id', authenticateToken, authorizeRoles('admin', 'fornitore'), (req
     const structure_id =
       structureIdRaw !== undefined ? Number(structureIdRaw) : Number(current.structure_id);
 
-    const hasBrokerInBody =
-      (provvigioniBrokerRaw !== undefined && provvigioniBrokerRaw !== null) ||
-      (brokerCommissionRaw !== undefined && brokerCommissionRaw !== null);
-    const provvigioni_broker = hasBrokerInBody
-      ? parseProvvigioniBrokerInput({
-          provvigioni_broker: provvigioniBrokerRaw,
-          broker_commission: brokerCommissionRaw,
-        })
-      : effectiveProvvigioniBrokerFromRow(current);
+    const provvigioni_broker = resolveBrokerForUpdate(req.body, current);
 
     if (!customer_name) return res.status(400).json({ error: 'Nome cliente obbligatorio' });
     if (!policy_number) return res.status(400).json({ error: 'Numero polizza obbligatorio' });
     if (!Number.isFinite(structure_id)) return res.status(400).json({ error: 'Struttura obbligatoria' });
-    if (!Number.isFinite(provvigioni_broker) || provvigioni_broker < 0) {
+    if (provvigioni_broker !== null && Number.isNaN(provvigioni_broker)) {
       return res
         .status(400)
-        .json({ error: 'Provvigioni broker obbligatorie e devono essere un importo valido (≥ 0)' });
+        .json({ error: 'Provvigioni broker non valide (inserisci un importo numerico ≥ 0 o nulla)' });
     }
 
     const structure = await getById('users', structure_id);
@@ -440,16 +506,20 @@ router.put('/:id', authenticateToken, authorizeRoles('admin', 'fornitore'), (req
     const ct = structure.commission_type && COMMISSION_TYPES.has(structure.commission_type)
       ? structure.commission_type
       : 'SEGNALATORE';
-    const computed = computeFromProvvigioniBroker(provvigioni_broker, ct);
+    const econ = buildEconomicsPersist(provvigioni_broker, ct);
 
     const d =
       date !== undefined ? normalizeDateInput(date) : normalizeDateInput(current.date);
     if (!d) return res.status(400).json({ error: 'Data non valida (usare AAAA-MM-GG)' });
 
     const policy_premium =
-      policyPremiumRaw !== undefined ? parseOptionalNumber(policyPremiumRaw) : Number(current.policy_premium);
+      policyPremiumRaw !== undefined
+        ? parseOptionalNumber(policyPremiumRaw)
+        : currentOptionalMoneyField(current.policy_premium);
     const client_invoice =
-      clientInvoiceRaw !== undefined ? parseOptionalNumber(clientInvoiceRaw) : Number(current.client_invoice);
+      clientInvoiceRaw !== undefined
+        ? parseOptionalNumber(clientInvoiceRaw)
+        : currentOptionalMoneyField(current.client_invoice);
     if ([policy_premium, client_invoice].some((n) => Number.isNaN(n))) {
       return res.status(400).json({ error: 'Importi non validi' });
     }
@@ -464,12 +534,12 @@ router.put('/:id', authenticateToken, authorizeRoles('admin', 'fornitore'), (req
       portal: portal !== undefined ? String(portal).trim() || null : current.portal,
       company: company !== undefined ? String(company).trim() || null : current.company,
       policy_premium: policy_premium ?? null,
-      broker_commission: provvigioni_broker,
+      broker_commission: econ.broker_commission,
       client_invoice: client_invoice ?? null,
-      sportello_amico_commission: computed.sportello_amico_commission,
-      structure_commission_type: computed.structure_commission_type,
-      structure_commission_percentage: computed.structure_commission_percentage,
-      structure_commission_amount: computed.structure_commission_amount,
+      sportello_amico_commission: econ.sportello_amico_commission,
+      structure_commission_type: econ.structure_commission_type,
+      structure_commission_percentage: econ.structure_commission_percentage,
+      structure_commission_amount: econ.structure_commission_amount,
       notes: notes !== undefined ? String(notes).trim() || null : current.notes,
     });
 

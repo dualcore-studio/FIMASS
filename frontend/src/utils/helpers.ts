@@ -106,6 +106,12 @@ export function formatEuro(value: number | null | undefined): string {
   return new Intl.NumberFormat('it-IT', { style: 'currency', currency: 'EUR' }).format(Number(value));
 }
 
+/** Importi provvigionali: null/non numerico → “Da inserire” (non confusione con €0,00). */
+export function formatCommissionEuro(value: number | null | undefined): string {
+  if (value === null || value === undefined || Number.isNaN(Number(value))) return 'Da inserire';
+  return new Intl.NumberFormat('it-IT', { style: 'currency', currency: 'EUR' }).format(Number(value));
+}
+
 /** % della provvigione broker per la quota struttura (convenzione vigente). */
 export function commissionPercentForType(type: string): number {
   if (type === 'PARTNER') return 50;
@@ -132,6 +138,16 @@ export function getCommissionTypeLabel(type: string): string {
   if (type === 'PARTNER') return 'Partner';
   if (type === 'SPORTELLO_AMICO') return 'Sportello Amico';
   return 'Segnalatore';
+}
+
+export function getCommissionValorizationBadgeClass(status: string | null | undefined): string {
+  if (status === 'VALORIZZATA') return 'bg-slate-100 text-slate-800 ring-1 ring-slate-200/80';
+  return 'bg-amber-50 text-amber-900 ring-1 ring-amber-200/70';
+}
+
+export function getCommissionValorizationLabel(status: string | null | undefined): string {
+  if (status === 'VALORIZZATA') return 'Valorizzata';
+  return 'Da valorizzare';
 }
 
 const CONTACT_EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;

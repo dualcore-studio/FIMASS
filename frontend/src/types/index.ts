@@ -27,6 +27,9 @@ export interface StructureOption {
   commission_type: CommissionStructureType;
 }
 
+/** Stato valorizzazione economica (derivato lato API da presenza provv. broker). */
+export type CommissionValorizationStatus = 'DA_VALORIZZARE' | 'VALORIZZATA';
+
 export interface Commission {
   id: number;
   date: string;
@@ -45,7 +48,9 @@ export interface Commission {
   sportello_amico_commission?: number | null;
   structure_commission_type: CommissionStructureType;
   structure_commission_percentage: number;
-  structure_commission_amount: number;
+  structure_commission_amount: number | null;
+  /** Presente sulle risposte API arricchite. */
+  commission_status?: CommissionValorizationStatus;
   notes: string | null;
   created_at?: string;
   updated_at?: string;

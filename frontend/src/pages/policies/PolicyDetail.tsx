@@ -10,6 +10,7 @@ import {
   History,
   LayoutDashboard,
   ExternalLink,
+  Banknote,
 } from 'lucide-react';
 import { api, ApiError } from '../../utils/api';
 import { formatPremioCasaIt } from '../../config/casaPolizzaPackages';
@@ -172,7 +173,15 @@ export default function PolicyDetail() {
               Vai al Preventivo
             </Link>
           )}
-
+          {(role === 'admin' || role === 'fornitore') && policy.stato === 'EMESSA' ? (
+            <Link
+              to={`/provvigioni/nuovo?policy_id=${policy.id}`}
+              className="btn-secondary inline-flex items-center gap-2"
+            >
+              <Banknote className="h-4 w-4" />
+              Registra provvigione
+            </Link>
+          ) : null}
         </div>
       </div>
 
