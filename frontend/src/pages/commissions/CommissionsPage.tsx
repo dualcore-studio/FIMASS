@@ -371,10 +371,19 @@ export default function CommissionsPage() {
             />
           </div>
         ) : (
-          <div className="grid gap-3 sm:grid-cols-3">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
             <SummaryCard title="Totale polizze" value={String(summary.totale_polizze)} accent="slate" />
             <SummaryCard title="Totale premi" value={formatEuro(summary.totale_premi)} accent="blue" />
-            <SummaryCard title="Totale provvigioni" value={formatEuro(summary.totale_provigioni_strutture)} accent="emerald" />
+            <SummaryCard
+              title="Totale provvigioni da liquidare"
+              value={formatEuro(summary.totale_provigioni_strutture_da_liquidare ?? 0)}
+              accent="emerald"
+            />
+            <SummaryCard
+              title="Totale provvigioni liquidate"
+              value={formatEuro(summary.totale_provigioni_strutture_liquidate ?? 0)}
+              accent="emerald"
+            />
           </div>
         )
       ) : null}

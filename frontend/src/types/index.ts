@@ -66,9 +66,9 @@ export interface CommissionsListResponse extends PaginatedResponse<Commission> {
     /** Solo admin/fornitore: somma quota Sportello Amico (65% su ogni provv. broker). */
     totale_sportello_amico?: number;
     totale_provigioni_strutture: number;
-    /** Somma provv. struttura con stato liquidato (solo riepiloghi admin/fornitore). */
+    /** Somma provv. struttura liquidate o, per struttura, riepilogo “liquidate”. */
     totale_provigioni_strutture_liquidate?: number;
-    /** Somma provv. struttura valorizzate non ancora liquidate. */
+    /** Somma provv. struttura con importo valorizzato e non liquidate (es. stato VALORIZZATA). */
     totale_provigioni_strutture_da_liquidare?: number;
   };
 }

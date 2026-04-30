@@ -309,6 +309,8 @@ router.get('/', authenticateToken, assertCommissionReader, (req, res) => {
             totale_polizze: fullSummary.totale_polizze,
             totale_premi: fullSummary.totale_premi,
             totale_provigioni_strutture: fullSummary.totale_provigioni_strutture,
+            totale_provigioni_strutture_da_liquidare: fullSummary.totale_provigioni_strutture_da_liquidare,
+            totale_provigioni_strutture_liquidate: fullSummary.totale_provigioni_strutture_liquidate,
           }
         : fullSummary;
 
