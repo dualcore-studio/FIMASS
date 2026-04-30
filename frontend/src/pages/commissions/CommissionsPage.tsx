@@ -88,7 +88,7 @@ function CommissionRowActions({
   const btnDanger =
     'inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-md border border-red-200/75 text-red-600 transition hover:border-red-300 hover:bg-red-50 hover:text-red-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-red-500/35';
   return (
-    <div className="flex flex-row items-center justify-center gap-2">
+    <div className="flex items-center justify-center gap-2">
       <button type="button" onClick={onAmounts} title={amountsTitle} aria-label={amountsTitle} className={btnIcon}>
         <Euro className="h-4 w-4 shrink-0" strokeWidth={2} />
       </button>
@@ -518,7 +518,7 @@ export default function CommissionsPage() {
 
             <div className="hidden w-full min-w-0 overflow-x-auto md:block">
               <table
-                className="portal-table w-full min-w-[1370px] table-fixed border-collapse text-left text-sm"
+                className={`portal-table w-full ${isFullAccess ? 'min-w-[1300px] text-center' : 'min-w-[1370px] text-left'} table-fixed border-collapse text-sm`}
               >
                 <thead>
                   <tr>
@@ -529,7 +529,8 @@ export default function CommissionsPage() {
                           activeKey={tableSort.sortBy}
                           direction={tableSort.sortDir}
                           onRequestSort={tableSort.requestSort}
-                          className="!px-3 !py-2 w-[100px] min-w-[100px] max-w-[100px] align-top"
+                          align="center"
+                          className="!px-2 !py-3 w-[100px] min-w-[100px] max-w-[100px] align-middle"
                         >
                           Data
                         </SortableTh>
@@ -538,7 +539,8 @@ export default function CommissionsPage() {
                           activeKey={tableSort.sortBy}
                           direction={tableSort.sortDir}
                           onRequestSort={tableSort.requestSort}
-                          className="!px-3 !py-2 w-[180px] min-w-[180px] max-w-[180px] align-top"
+                          align="center"
+                          className="!px-2 !py-3 w-[180px] min-w-[180px] max-w-[180px] align-middle"
                         >
                           Cliente / Polizza
                         </SortableTh>
@@ -547,7 +549,8 @@ export default function CommissionsPage() {
                           activeKey={tableSort.sortBy}
                           direction={tableSort.sortDir}
                           onRequestSort={tableSort.requestSort}
-                          className="!px-3 !py-2 w-[140px] min-w-[140px] max-w-[140px] align-top"
+                          align="center"
+                          className="!px-2 !py-3 w-[140px] min-w-[140px] max-w-[140px] align-middle"
                         >
                           Struttura
                         </SortableTh>
@@ -556,7 +559,8 @@ export default function CommissionsPage() {
                           activeKey={tableSort.sortBy}
                           direction={tableSort.sortDir}
                           onRequestSort={tableSort.requestSort}
-                          className="!px-3 !py-2 w-[160px] min-w-[160px] max-w-[160px] align-top"
+                          align="center"
+                          className="!px-2 !py-3 w-[160px] min-w-[160px] max-w-[160px] align-middle"
                         >
                           Portale / Compagnia
                         </SortableTh>
@@ -565,8 +569,8 @@ export default function CommissionsPage() {
                           activeKey={tableSort.sortBy}
                           direction={tableSort.sortDir}
                           onRequestSort={tableSort.requestSort}
-                          align="right"
-                          className="!px-3 !py-2 w-[95px] min-w-[95px] max-w-[95px] align-top"
+                          align="center"
+                          className="!px-2 !py-3 w-[95px] min-w-[95px] max-w-[95px] align-middle"
                         >
                           Premio
                         </SortableTh>
@@ -575,18 +579,18 @@ export default function CommissionsPage() {
                           activeKey={tableSort.sortBy}
                           direction={tableSort.sortDir}
                           onRequestSort={tableSort.requestSort}
-                          align="right"
-                          className="!px-3 !py-2 w-[115px] min-w-[115px] max-w-[115px] align-top"
+                          align="center"
+                          className="!px-2 !py-3 w-[90px] min-w-[90px] max-w-[90px] align-middle"
                         >
-                          Provv. broker
+                          Broker
                         </SortableTh>
                         <SortableTh
                           sortKey="sportello_amico_commission"
                           activeKey={tableSort.sortBy}
                           direction={tableSort.sortDir}
                           onRequestSort={tableSort.requestSort}
-                          align="right"
-                          className="!px-3 !py-2 w-[105px] min-w-[105px] max-w-[105px] align-top"
+                          align="center"
+                          className="!px-2 !py-3 w-[85px] min-w-[85px] max-w-[85px] align-middle"
                         >
                           Quota S.A.
                         </SortableTh>
@@ -595,14 +599,14 @@ export default function CommissionsPage() {
                           activeKey={tableSort.sortBy}
                           direction={tableSort.sortDir}
                           onRequestSort={tableSort.requestSort}
-                          align="right"
-                          className="!px-3 !py-2 w-[120px] min-w-[120px] max-w-[120px] align-top"
+                          align="center"
+                          className="!px-2 !py-3 w-[95px] min-w-[95px] max-w-[95px] align-middle"
                         >
-                          Provv. struttura
+                          Struttura
                         </SortableTh>
                         <th
                           scope="col"
-                          className="w-[115px] min-w-[115px] max-w-[115px] px-3 py-2 align-top text-left text-sm font-semibold text-gray-700"
+                          className="w-[115px] min-w-[115px] max-w-[115px] px-2 py-3 text-center align-middle text-sm font-semibold text-gray-700"
                         >
                           Tipo / %
                         </th>
@@ -611,13 +615,14 @@ export default function CommissionsPage() {
                           activeKey={tableSort.sortBy}
                           direction={tableSort.sortDir}
                           onRequestSort={tableSort.requestSort}
-                          className="!px-3 !py-2 w-[120px] min-w-[120px] max-w-[120px] align-top"
+                          align="center"
+                          className="!px-2 !py-3 w-[120px] min-w-[120px] max-w-[120px] align-middle"
                         >
                           Stato
                         </SortableTh>
                         <th
                           scope="col"
-                          className="sticky right-0 z-30 w-[120px] min-w-[120px] max-w-[120px] bg-[var(--portal-table-header-bg)] px-2 py-2 text-center align-top text-sm font-semibold text-gray-700"
+                          className="sticky right-0 z-30 w-[120px] min-w-[120px] max-w-[120px] bg-[var(--portal-table-header-bg)] px-2 py-3 text-center align-middle text-sm font-semibold text-gray-700"
                         >
                           Azioni
                         </th>
@@ -723,53 +728,72 @@ export default function CommissionsPage() {
                       if (isFullAccess) {
                         return (
                           <tr key={r.id} className={rowBg}>
-                            <td className="w-[100px] min-w-[100px] max-w-[100px] whitespace-nowrap px-3 py-2 text-gray-700">
+                            <td className="w-[100px] min-w-[100px] max-w-[100px] whitespace-nowrap px-2 py-3 text-center align-middle text-gray-700">
                               {formatDate(r.date)}
                             </td>
-                            <td className="w-[180px] min-w-[180px] max-w-[180px] px-3 py-2 align-top">
-                              <p className="line-clamp-2 font-semibold leading-snug text-gray-900">{r.customer_name}</p>
-                              <p className="mt-0.5 truncate font-mono text-sm text-gray-500">{r.policy_number}</p>
+                            <td className="w-[180px] min-w-[180px] max-w-[180px] px-2 py-3 align-middle">
+                              <div className="flex flex-col items-center justify-center text-center">
+                                <p className="line-clamp-2 max-w-full font-semibold leading-snug text-gray-900">
+                                  {r.customer_name}
+                                </p>
+                                <p className="mt-0.5 max-w-full truncate font-mono text-sm text-gray-500">{r.policy_number}</p>
+                              </div>
                             </td>
-                            <td className="w-[140px] min-w-[140px] max-w-[140px] px-3 py-2 align-top">
-                              <p className="line-clamp-2 text-gray-800">{r.structure_name ?? '—'}</p>
+                            <td className="w-[140px] min-w-[140px] max-w-[140px] px-2 py-3 align-middle">
+                              <div className="flex flex-col items-center justify-center text-center">
+                                <p className="line-clamp-2 max-w-full text-gray-800">{r.structure_name ?? '—'}</p>
+                              </div>
                             </td>
-                            <td className="w-[160px] min-w-[160px] max-w-[160px] px-3 py-2 align-top">
-                              <p className="line-clamp-2 text-gray-900">{r.portal ?? '—'}</p>
-                              <p className="mt-0.5 line-clamp-2 text-sm text-gray-500">{r.company ?? '—'}</p>
+                            <td className="w-[160px] min-w-[160px] max-w-[160px] px-2 py-3 align-middle">
+                              <div className="flex flex-col items-center justify-center text-center">
+                                <p className="line-clamp-2 max-w-full text-gray-900">{r.portal ?? '—'}</p>
+                                <p className="mt-0.5 line-clamp-2 max-w-full text-sm text-gray-500">{r.company ?? '—'}</p>
+                              </div>
                             </td>
-                            <td className="w-[95px] min-w-[95px] max-w-[95px] whitespace-nowrap px-3 py-2 text-right tabular-nums text-gray-800">
+                            <td className="w-[95px] min-w-[95px] max-w-[95px] whitespace-nowrap px-2 py-3 text-center align-middle font-medium tabular-nums text-gray-800">
                               {formatEuro(r.policy_premium)}
                             </td>
-                            <td className="w-[115px] min-w-[115px] max-w-[115px] whitespace-nowrap px-3 py-2 text-right tabular-nums text-gray-900">
+                            <td className="w-[90px] min-w-[90px] max-w-[90px] whitespace-nowrap px-2 py-3 text-center align-middle font-medium tabular-nums text-gray-900">
                               {formatEuro(r.provvigioni_broker ?? r.broker_commission ?? null)}
                             </td>
-                            <td className="w-[105px] min-w-[105px] max-w-[105px] whitespace-nowrap px-3 py-2 text-right tabular-nums text-gray-900">
+                            <td className="w-[85px] min-w-[85px] max-w-[85px] whitespace-nowrap px-2 py-3 text-center align-middle font-medium tabular-nums text-gray-900">
                               {formatEuro(r.sportello_amico_commission)}
                             </td>
-                            <td className="w-[120px] min-w-[120px] max-w-[120px] whitespace-nowrap px-3 py-2 text-right tabular-nums font-semibold text-gray-900">
+                            <td className="w-[95px] min-w-[95px] max-w-[95px] whitespace-nowrap px-2 py-3 text-center align-middle font-semibold tabular-nums text-gray-900">
                               {formatEuro(r.structure_commission_amount)}
                             </td>
-                            <td className="w-[115px] min-w-[115px] max-w-[115px] px-3 py-2 align-top">
-                              <span
-                                className={`badge inline-flex max-w-full whitespace-normal break-words text-left leading-tight ${getCommissionTypeBadgeClass(r.structure_commission_type)}`}
-                              >
-                                {getCommissionTypeLabel(r.structure_commission_type)}
-                              </span>
-                              <p className="mt-1 text-xs tabular-nums text-gray-600">{r.structure_commission_percentage}%</p>
+                            <td className="w-[115px] min-w-[115px] max-w-[115px] px-2 py-3 align-middle">
+                              <div className="flex flex-col items-center justify-center text-center">
+                                <span
+                                  className={`badge inline-flex max-w-full justify-center whitespace-normal break-words text-center leading-tight ${getCommissionTypeBadgeClass(r.structure_commission_type)}`}
+                                >
+                                  {getCommissionTypeLabel(r.structure_commission_type)}
+                                </span>
+                                <p className="mt-1 text-xs tabular-nums text-gray-600">
+                                  {r.structure_commission_percentage != null &&
+                                  !Number.isNaN(Number(r.structure_commission_percentage))
+                                    ? `${r.structure_commission_percentage}%`
+                                    : '—'}
+                                </p>
+                              </div>
                             </td>
-                            <td className="w-[120px] min-w-[120px] max-w-[120px] px-3 py-2 align-top">
-                              <span
-                                className={`badge inline-flex max-w-full whitespace-normal break-words leading-tight ${getCommissionValorizationBadgeClass(r.commission_status)}`}
-                              >
-                                {getCommissionValorizationLabel(r.commission_status)}
-                              </span>
+                            <td className="w-[120px] min-w-[120px] max-w-[120px] px-2 py-3 align-middle">
+                              <div className="flex justify-center">
+                                <span
+                                  className={`badge inline-flex max-w-full justify-center whitespace-normal break-words text-center leading-tight ${getCommissionValorizationBadgeClass(r.commission_status)}`}
+                                >
+                                  {getCommissionValorizationLabel(r.commission_status)}
+                                </span>
+                              </div>
                             </td>
-                            <td className="sticky right-0 z-10 w-[120px] min-w-[120px] max-w-[120px] bg-inherit px-2 py-2 align-middle">
-                              <CommissionRowActions
-                                row={r}
-                                onAmounts={() => setAmountsModalRow(r)}
-                                onDelete={() => setDeleteId(r.id)}
-                              />
+                            <td className="sticky right-0 z-10 w-[120px] min-w-[120px] max-w-[120px] bg-inherit px-2 py-3 align-middle">
+                              <div className="flex justify-center items-center gap-2">
+                                <CommissionRowActions
+                                  row={r}
+                                  onAmounts={() => setAmountsModalRow(r)}
+                                  onDelete={() => setDeleteId(r.id)}
+                                />
+                              </div>
                             </td>
                           </tr>
                         );
