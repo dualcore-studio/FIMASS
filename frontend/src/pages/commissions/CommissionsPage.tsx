@@ -478,12 +478,16 @@ export default function CommissionsPage() {
                             </dd>
                           </div>
                           <div className="flex gap-2">
-                            <dt className="w-28 shrink-0 text-xs font-medium text-gray-500">Tipo / %</dt>
+                            <dt className="w-28 shrink-0 text-xs font-medium text-gray-500">
+                              {isFullAccess ? 'Tipo / %' : 'Tipo'}
+                            </dt>
                             <dd className="min-w-0 flex-1">
                               <span className={`badge ${getCommissionTypeBadgeClass(r.structure_commission_type)}`}>
                                 {getCommissionTypeLabel(r.structure_commission_type)}
                               </span>
-                              <p className="mt-1 text-xs text-gray-600">{r.structure_commission_percentage}%</p>
+                              {isFullAccess ? (
+                                <p className="mt-1 text-xs text-gray-600">{r.structure_commission_percentage}%</p>
+                              ) : null}
                             </dd>
                           </div>
                           <div className="flex gap-2">
@@ -574,7 +578,7 @@ export default function CommissionsPage() {
                       Provvigioni
                     </SortableTh>
                     <th scope="col" className="w-[120px] min-w-[120px] max-w-[120px] px-3 py-3 align-top font-semibold text-gray-700">
-                      Tipo / %
+                      {isFullAccess ? 'Tipo / %' : 'Tipo'}
                     </th>
                     <SortableTh
                       sortKey="commission_status"
@@ -664,7 +668,9 @@ export default function CommissionsPage() {
                             >
                               {getCommissionTypeLabel(r.structure_commission_type)}
                             </span>
-                            <p className="mt-1 text-xs tabular-nums text-gray-600">{r.structure_commission_percentage}%</p>
+                            {isFullAccess ? (
+                              <p className="mt-1 text-xs tabular-nums text-gray-600">{r.structure_commission_percentage}%</p>
+                            ) : null}
                           </td>
                           <td className="w-[130px] min-w-[130px] max-w-[130px] px-3 py-3 align-top">
                             <span className={`badge inline-flex max-w-full whitespace-normal break-words leading-tight ${getCommissionValorizationBadgeClass(r.commission_status)}`}>
