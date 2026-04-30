@@ -109,8 +109,7 @@ function pipeCommissionsListPdf(opts, res) {
         { header: 'Fatt. cliente', w: 0.07, cell: (r) => fmtEuro(r.client_invoice) },
         { header: 'Prov. broker', w: 0.07, cell: (r) => fmtCommissionAmountEuro(r.provvigioni_broker ?? r.broker_commission) },
         { header: 'Quota S.A.', w: 0.065, cell: (r) => fmtCommissionAmountEuro(r.sportello_amico_commission) },
-        { header: 'Tipo', w: 0.055, cell: (r) => commissionTypeLabel(r.structure_commission_type) },
-        { header: '%', w: 0.035, cell: (r) => `${r.structure_commission_percentage ?? '—'}%` },
+        { header: 'Tipo', w: 0.09, cell: (r) => commissionTypeLabel(r.structure_commission_type) },
         { header: 'Prov. struttura', w: 0.075, cell: (r) => fmtCommissionAmountEuro(r.structure_commission_amount) },
         { header: 'Stato', w: 0.065, cell: (r) => commissionListStatusLabel(r.commission_status) },
       ]
