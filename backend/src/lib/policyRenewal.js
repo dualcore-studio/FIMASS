@@ -339,6 +339,7 @@ async function createRenewalQuoteFromScadenza({
       quoteId,
       quoteNumero: numero,
       strutturaNome: strutturaNomePresented,
+      strutturaCittaProvenienza: enrichedPresented.struttura_citta_provenienza,
       assistitoNomeCognome: [enrichedPresented.assistito_nome, enrichedPresented.assistito_cognome]
         .filter(Boolean)
         .join(' ')

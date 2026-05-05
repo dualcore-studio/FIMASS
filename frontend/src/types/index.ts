@@ -12,6 +12,8 @@ export interface User {
   stato: 'attivo' | 'disattivo';
   /** Solo utenti con ruolo struttura; impostabile solo dall’admin. */
   commission_type?: CommissionStructureType | null;
+  /** Solo strutture: città di provenienza (opzionale). */
+  citta_provenienza?: string | null;
   enabled_types: string[] | null;
   last_login: string | null;
   created_at?: string;
@@ -25,6 +27,7 @@ export interface StructureOption {
   email: string;
   role: 'struttura';
   commission_type: CommissionStructureType;
+  citta_provenienza?: string | null;
 }
 
 /** Stato valorizzazione / liquidazione (derivato lato API; liquidazione solo admin). */

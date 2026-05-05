@@ -732,6 +732,7 @@ async function sendQuotePresentedByStructureToAdminMail({
   quoteId,
   quoteNumero,
   strutturaNome,
+  strutturaCittaProvenienza,
   assistitoNomeCognome,
   dataPresentazione,
 }) {
@@ -747,6 +748,12 @@ async function sendQuotePresentedByStructureToAdminMail({
         ${row('Riferimento pratica', `#${quoteId} (${quoteNumero})`)}
         ${row('Assistito', assistitoNomeCognome || '—')}
         ${row('Struttura', strutturaNome)}
+        ${row(
+          'Città di provenienza',
+          strutturaCittaProvenienza && String(strutturaCittaProvenienza).trim()
+            ? String(strutturaCittaProvenienza).trim()
+            : 'Non indicata',
+        )}
         ${row('Stato', 'PRESENTATA')}
         ${row('Data presentazione', dataPresentazione)}
       </table>

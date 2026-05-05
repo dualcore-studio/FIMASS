@@ -35,7 +35,8 @@ function initializeDatabase() {
       last_login TEXT,
       commission_type TEXT CHECK(commission_type IS NULL OR commission_type IN ('SEGNALATORE','PARTNER','SPORTELLO_AMICO')),
       created_at TEXT DEFAULT (datetime('now')),
-      updated_at TEXT DEFAULT (datetime('now'))
+      updated_at TEXT DEFAULT (datetime('now')),
+      citta_provenienza TEXT
     );
 
     CREATE TABLE IF NOT EXISTS insurance_types (
@@ -306,6 +307,8 @@ function initializeDatabase() {
   } catch (e) {
     console.error('ensure users.commission_type migration:', e);
   }
+
+  migrateUsersCittaProvenienzaSqliteIfNeeded();
 
   try {
     db.exec(`
@@ -598,7 +601,8 @@ function migrateCommissionTypeEnumsIfNeeded() {
           last_login TEXT,
           commission_type TEXT CHECK(commission_type IS NULL OR commission_type IN ${inList}),
           created_at TEXT DEFAULT (datetime('now')),
-          updated_at TEXT DEFAULT (datetime('now'))
+          updated_at TEXT DEFAULT (datetime('now')),
+          citta_provenienza TEXT
         );
       `);
       db.exec('INSERT INTO users__enum_new SELECT * FROM users');
@@ -720,7 +724,8 @@ function migrateFornitoreAndMessagingSqliteIfNeeded() {
           last_login TEXT,
           commission_type TEXT CHECK(commission_type IS NULL OR commission_type IN ('SEGNALATORE','PARTNER','SPORTELLO_AMICO')),
           created_at TEXT DEFAULT (datetime('now')),
-          updated_at TEXT DEFAULT (datetime('now'))
+          updated_at TEXT DEFAULT (datetime('now')),
+          citta_provenienza TEXT
         );
       `);
       db.exec('INSERT INTO users__fornitore_new SELECT * FROM users');
@@ -825,6 +830,18 @@ function migrateFornitoreAndMessagingSqliteIfNeeded() {
     `);
   } catch (e) {
     console.error('ensure conversation_reads migration:', e);
+  }
+}
+
+function migrateUsersCittaProvenienzaSqliteIfNeeded() {
+  try {
+    const ucols = db.prepare('PRAGMA table_info(users)').all();
+    const has = Array.isArray(ucols) && ucols.some((c) => c.name === 'citta_provenienza');
+    if (!has) {
+      db.exec('ALTER TABLE users ADD COLUMN citta_provenienza TEXT');
+    }
+  } catch (e) {
+    console.error('ensure users.citta_provenienza migration:', e);
   }
 }
 

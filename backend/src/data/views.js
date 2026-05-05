@@ -59,6 +59,7 @@ function enrichQuote(quote, ctx) {
     tipo_codice: type.codice,
     struttura_nome: struttura.denominazione,
     struttura_email: struttura.email,
+    struttura_citta_provenienza: struttura.citta_provenienza ?? null,
     operatore_nome: operatore.nome,
     operatore_cognome: operatore.cognome,
     fornitore_nome: fornitore.nome,

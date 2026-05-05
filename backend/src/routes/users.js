@@ -10,6 +10,12 @@ const router = express.Router();
 
 const COMMISSION_TYPES = new Set(['SEGNALATORE', 'PARTNER', 'SPORTELLO_AMICO']);
 
+function trimOrNull(v) {
+  if (v === undefined || v === null) return null;
+  const t = String(v).trim();
+  return t || null;
+}
+
 function getUserDisplayName(user) {
   return user.role === 'struttura' ? user.denominazione : `${user.nome} ${user.cognome}`;
 }
@@ -40,7 +46,15 @@ router.get('/', authenticateToken, authorizeRoles('admin', 'supervisore'), (req,
       if (role) users = users.filter((u) => u.role === role);
       if (stato) users = users.filter((u) => u.stato === stato);
       if (search) {
-        users = users.filter((u) => like(u.username, search) || like(u.email, search) || like(u.nome, search) || like(u.cognome, search) || like(u.denominazione, search));
+        users = users.filter(
+          (u) =>
+            like(u.username, search) ||
+            like(u.email, search) ||
+            like(u.nome, search) ||
+            like(u.cognome, search) ||
+            like(u.denominazione, search) ||
+            like(u.citta_provenienza, search),
+        );
       }
       const sortMap = {
         nome: 'denominazione',
@@ -123,6 +137,7 @@ router.get('/structures', authenticateToken, authorizeRoles('admin', 'supervisor
         email: u.email,
         role: 'struttura',
         commission_type: u.commission_type && COMMISSION_TYPES.has(u.commission_type) ? u.commission_type : 'SEGNALATORE',
+        citta_provenienza: u.citta_provenienza ?? null,
       }));
     res.json(structures);
   })();
@@ -151,6 +166,7 @@ router.post('/', authenticateToken, authorizeRoles('admin'), (req, res) => {
       stato,
       enabled_types,
       commission_type,
+      citta_provenienza,
     } = req.body;
 
     if (!username || !password || !role || !email) {
@@ -184,6 +200,7 @@ router.post('/', authenticateToken, authorizeRoles('admin'), (req, res) => {
       stato: stato || 'attivo',
       enabled_types: enabled_types || null,
       commission_type: ctInsert,
+      citta_provenienza: role === 'struttura' ? trimOrNull(citta_provenienza) : null,
     });
 
     await logActivity({
@@ -218,8 +235,19 @@ router.post('/', authenticateToken, authorizeRoles('admin'), (req, res) => {
 
 router.put('/:id', authenticateToken, authorizeRoles('admin'), (req, res) => {
   (async () => {
-    const { nome, cognome, denominazione, email, telefono, stato, enabled_types, role, commission_type, username } =
-      req.body;
+    const {
+      nome,
+      cognome,
+      denominazione,
+      email,
+      telefono,
+      stato,
+      enabled_types,
+      role,
+      commission_type,
+      username,
+      citta_provenienza,
+    } = req.body;
     const userId = req.params.id;
 
     const user = await getById('users', userId);
@@ -254,6 +282,12 @@ router.put('/:id', authenticateToken, authorizeRoles('admin'), (req, res) => {
       nextCommissionType = raw;
     }
 
+    let nextCittaProvenienza = null;
+    if (nextRole === 'struttura') {
+      nextCittaProvenienza =
+        'citta_provenienza' in req.body ? trimOrNull(citta_provenienza) : trimOrNull(user.citta_provenienza);
+    }
+
     const nextStato = stato || 'attivo';
     if (nextStato === 'disattivo' && nextRole === 'admin' && user.stato === 'attivo') {
       const activeAdmins = await countActiveAdmins();
@@ -273,6 +307,7 @@ router.put('/:id', authenticateToken, authorizeRoles('admin'), (req, res) => {
       enabled_types: enabled_types || null,
       role: nextRole,
       commission_type: nextCommissionType,
+      citta_provenienza: nextCittaProvenienza,
     });
 
     await logActivity({

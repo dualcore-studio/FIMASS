@@ -43,6 +43,7 @@ export default function UserEdit() {
   const [username, setUsername] = useState('');
   const [stato, setStato] = useState<User['stato']>('attivo');
   const [commissionType, setCommissionType] = useState<CommissionStructureType>('SEGNALATORE');
+  const [cittaProvenienza, setCittaProvenienza] = useState('');
 
   const [tutteTipologie, setTutteTipologie] = useState(true);
   const [tipologieSelezionate, setTipologieSelezionate] = useState<Set<string>>(() => new Set());
@@ -85,6 +86,7 @@ export default function UserEdit() {
         setUsername(u.username ?? '');
         setStato(u.stato);
         setCommissionType(normalizeCommissionStructureType(u.commission_type));
+        setCittaProvenienza(u.citta_provenienza ? String(u.citta_provenienza) : '');
 
         const enabledList = normalizeEnabledList(u.enabled_types);
         const allT = tipologieAreAll(enabledList.length ? enabledList : null, activeCodes);
@@ -182,6 +184,7 @@ export default function UserEdit() {
     if (role === 'struttura') {
       base.denominazione = denominazione.trim();
       base.telefono = telefono.trim();
+      base.citta_provenienza = cittaProvenienza.trim() || null;
       base.commission_type = commissionType;
       base.enabled_types = tutteTipologie ? ['all'] : Array.from(tipologieSelezionate);
       base.nome = null;
@@ -314,6 +317,16 @@ export default function UserEdit() {
               {fieldErrors.denominazione ? (
                 <p className="mt-1 text-xs text-red-600">{fieldErrors.denominazione}</p>
               ) : null}
+            </div>
+            <div className="sm:col-span-2">
+              <label className="mb-1 block text-sm font-medium text-gray-700">Città di provenienza</label>
+              <input
+                value={cittaProvenienza}
+                onChange={(e) => setCittaProvenienza(e.target.value)}
+                className="input-field"
+                placeholder="Es. Roma"
+                autoComplete="address-level2"
+              />
             </div>
             <div>
               <label className="mb-1 block text-sm font-medium text-gray-700">

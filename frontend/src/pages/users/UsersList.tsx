@@ -306,6 +306,7 @@ export default function UsersList() {
                     Ruolo
                   </SortableTh>
                   <th className="px-4 py-3 font-semibold text-gray-700">Tipo provv.</th>
+                  <th className="px-4 py-3 font-semibold text-gray-700">Città</th>
                   <SortableTh
                     sortKey="email"
                     activeKey={tableSort.sortBy}
@@ -344,7 +345,7 @@ export default function UsersList() {
               <tbody>
                 {rows.length === 0 ? (
                   <tr>
-                    <td colSpan={8} className="px-4 py-12 text-center text-gray-500">
+                    <td colSpan={9} className="px-4 py-12 text-center text-gray-500">
                       Nessun utente trovato con i filtri selezionati.
                     </td>
                   </tr>
@@ -374,6 +375,11 @@ export default function UsersList() {
                           ) : (
                             <span className="text-gray-400">—</span>
                           )}
+                        </td>
+                        <td className="max-w-[140px] truncate px-4 py-3 text-gray-600" title={u.citta_provenienza || ''}>
+                          {u.role === 'struttura' && u.citta_provenienza?.trim()
+                            ? u.citta_provenienza.trim()
+                            : '—'}
                         </td>
                         <td className="px-4 py-3 text-gray-600">{u.email}</td>
                         <td className="px-4 py-3 font-mono text-xs text-gray-700">{u.username}</td>

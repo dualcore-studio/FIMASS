@@ -1264,6 +1264,7 @@ router.post('/', authenticateToken, authorizeRoles('struttura'), (req, res) => {
         quoteId,
         quoteNumero: numero,
         strutturaNome: strutturaNomePresented,
+        strutturaCittaProvenienza: enrichedPresented.struttura_citta_provenienza,
         assistitoNomeCognome: formatAssistitoNomeCognome(
           enrichedPresented.assistito_nome,
           enrichedPresented.assistito_cognome,
