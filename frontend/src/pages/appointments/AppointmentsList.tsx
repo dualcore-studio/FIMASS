@@ -913,7 +913,7 @@ export default function AppointmentsList() {
         <div className="space-y-4">
           <div className="grid gap-4 md:grid-cols-2 md:items-stretch md:gap-x-4">
             <div className="flex min-h-0 flex-col md:h-full">
-              <div className="space-y-3">
+              <div className="shrink-0 space-y-3">
                 <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Dati appuntamento</p>
                 <div>
                   <label className="text-sm font-medium text-slate-700">Broker *</label>
@@ -992,7 +992,7 @@ export default function AppointmentsList() {
                         value={createForm.ora_inizio}
                         onChange={(e) => setCreateForm((f) => ({ ...f, ora_inizio: e.target.value }))}
                       >
-                        <option value="">Seleziona orario…</option>
+                        <option value="">Ora</option>
                         {APPUNTAMENTO_PRESENZA_SLOT_ORARI.map((t) => (
                           <option key={t} value={t}>
                             {t}
@@ -1026,7 +1026,7 @@ export default function AppointmentsList() {
                 ) : null}
               </div>
               {createForm.modalita === 'presenza' ? (
-                <div className="mt-auto space-y-3 pt-3 md:hidden">
+                <div className="mt-auto space-y-3 pt-3">
                   <div>
                     <label className="text-sm font-medium text-slate-700">Luogo *</label>
                     <input
@@ -1039,7 +1039,7 @@ export default function AppointmentsList() {
               ) : null}
             </div>
             <div className="flex min-h-0 flex-col md:h-full">
-              <div className="space-y-3">
+              <div className="flex min-h-0 flex-1 flex-col gap-3">
                 <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Dati assistito</p>
                 <div className="grid grid-cols-2 gap-2">
                   <div>
@@ -1082,7 +1082,16 @@ export default function AppointmentsList() {
                     autoComplete="email"
                   />
                 </div>
-                {createForm.modalita !== 'presenza' ? (
+                {createForm.modalita === 'presenza' ? (
+                  <div className="flex min-h-0 flex-1 flex-col">
+                    <label className="text-sm font-medium text-slate-700">Note</label>
+                    <textarea
+                      className={`mt-1 ${modalInput} box-border min-h-[7.5rem] w-full flex-1 resize-none`}
+                      value={createForm.note}
+                      onChange={(e) => setCreateForm((f) => ({ ...f, note: e.target.value }))}
+                    />
+                  </div>
+                ) : (
                   <div>
                     <label className="text-sm font-medium text-slate-700">Note</label>
                     <textarea
@@ -1092,43 +1101,9 @@ export default function AppointmentsList() {
                       onChange={(e) => setCreateForm((f) => ({ ...f, note: e.target.value }))}
                     />
                   </div>
-                ) : null}
+                )}
               </div>
-              {createForm.modalita === 'presenza' ? (
-                <div className="mt-auto space-y-3 pt-3 md:hidden">
-                  <div>
-                    <label className="text-sm font-medium text-slate-700">Note</label>
-                    <textarea
-                      className={`mt-1 ${modalInput} box-border min-h-[7.5rem] w-full resize-none`}
-                      rows={4}
-                      value={createForm.note}
-                      onChange={(e) => setCreateForm((f) => ({ ...f, note: e.target.value }))}
-                    />
-                  </div>
-                </div>
-              ) : null}
             </div>
-            {createForm.modalita === 'presenza' ? (
-              <div className="col-span-2 hidden gap-4 md:grid md:grid-cols-2 md:gap-x-4 md:items-end">
-                <div>
-                  <label className="text-sm font-medium text-slate-700">Luogo *</label>
-                  <input
-                    className={`mt-1 ${modalInput} box-border w-full`}
-                    value={createForm.luogo}
-                    onChange={(e) => setCreateForm((f) => ({ ...f, luogo: e.target.value }))}
-                  />
-                </div>
-                <div>
-                  <label className="text-sm font-medium text-slate-700">Note</label>
-                  <textarea
-                    className={`mt-1 ${modalInput} box-border min-h-[7.5rem] w-full resize-none`}
-                    rows={4}
-                    value={createForm.note}
-                    onChange={(e) => setCreateForm((f) => ({ ...f, note: e.target.value }))}
-                  />
-                </div>
-              </div>
-            ) : null}
           </div>
         </div>
         <div className="mt-2 flex flex-wrap justify-end gap-2 border-t border-slate-200/90 pt-4">
