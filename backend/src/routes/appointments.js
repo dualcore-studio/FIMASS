@@ -12,6 +12,7 @@ const {
 } = require('../utils/appointmentStato');
 const { TIME_RE, addMinutesToOra, intervalsOverlap, sameData } = require('../utils/appointmentsTime');
 const { validatePresenzaAppointmentSlot } = require('../utils/appointmentPresenzaSlot');
+const { validateVideocallTelefonataAppointmentSlot } = require('../utils/appointmentVideocallTelefonataSlot');
 const {
   sendAppointmentCreatedToFornitoreMail,
   sendAppointmentUpdateToStrutturaMail,
@@ -265,7 +266,10 @@ router.post('/', authenticateToken, authorizeRoles('struttura'), (req, res) => {
     const oggetto = String(body.oggetto || '').trim();
     const data_appuntamento = String(body.data_appuntamento || '').trim();
     const ora_inizio = String(body.ora_inizio || '').trim();
-    const durata_minuti = DURATE_AMMESSE.has(Number(body.durata_minuti)) ? Number(body.durata_minuti) : 60;
+    let durata_minuti = DURATE_AMMESSE.has(Number(body.durata_minuti)) ? Number(body.durata_minuti) : 60;
+    if (modalita === 'videocall' || modalita === 'telefonata') {
+      durata_minuti = 30;
+    }
     const note = body.note != null ? String(body.note) : null;
     const luogo = body.luogo != null ? String(body.luogo).trim() : '';
     const assistito_telefono = body.assistito_telefono != null ? String(body.assistito_telefono).trim() : '';
@@ -296,6 +300,8 @@ router.post('/', authenticateToken, authorizeRoles('struttura'), (req, res) => {
 
       const presenzaErr = validatePresenzaAppointmentSlot(modalita, data_appuntamento, ora_inizio, durata_minuti);
       if (presenzaErr) return res.status(400).json({ error: presenzaErr });
+      const vtErr = validateVideocallTelefonataAppointmentSlot(modalita, data_appuntamento, ora_inizio, durata_minuti);
+      if (vtErr) return res.status(400).json({ error: vtErr });
 
       const ora_fine = addMinutesToOra(ora_inizio, durata_minuti);
       if (!ora_fine) return res.status(400).json({ error: 'Impossibile calcolare l\'orario di fine' });
@@ -441,6 +447,11 @@ router.put('/:id', authenticateToken, authorizeRoles('struttura', 'admin', 'supe
         patch.numero_telefonico_riferimento = null;
       }
 
+      const effModalitaForDurata = String(patch.modalita != null ? patch.modalita : apt0.modalita).toLowerCase();
+      if (effModalitaForDurata === 'videocall' || effModalitaForDurata === 'telefonata') {
+        patch.durata_minuti = 30;
+      }
+
       const assistTelMerged =
         patch.assistito_telefono != null && patch.assistito_telefono !== undefined
           ? String(patch.assistito_telefono).trim()
@@ -488,6 +499,8 @@ router.put('/:id', authenticateToken, authorizeRoles('struttura', 'admin', 'supe
       const effModalitaPut = String(patch.modalita != null ? patch.modalita : apt0.modalita).toLowerCase();
       const presenzaErrPut = validatePresenzaAppointmentSlot(effModalitaPut, d, oi, dm);
       if (presenzaErrPut) return res.status(400).json({ error: presenzaErrPut });
+      const vtErrPut = validateVideocallTelefonataAppointmentSlot(effModalitaPut, d, oi, dm);
+      if (vtErrPut) return res.status(400).json({ error: vtErrPut });
       const of = addMinutesToOra(oi, dm);
       if (!of) return res.status(400).json({ error: 'Ora o durata non valida' });
       patch.ora_fine = of;

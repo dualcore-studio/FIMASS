@@ -8,7 +8,17 @@ import StatusBadge from '../../components/common/StatusBadge';
 import AppointmentRowActions from '../../components/appointments/AppointmentRowActions';
 import { modalitaLabel } from '../../utils/appointmentLabels';
 import { strutturaCanEditTable } from '../../utils/appointmentLabels';
-import { APPUNTAMENTO_PRESENZA_SLOT_ORARI, validatePresenzaAppointmentClient } from '../../utils/appointmentPresenzaSlots';
+import {
+  APPUNTAMENTO_PRESENZA_SLOT_ORARI,
+  dataIsoIsThursday,
+  validatePresenzaAppointmentClient,
+} from '../../utils/appointmentPresenzaSlots';
+import {
+  APPUNTAMENTO_VIDEOCALL_TELEFONATA_SLOT_ORARI,
+  dataIsoIsWeekdayMonFri,
+  validateVideocallTelefonataAppointmentClient,
+} from '../../utils/appointmentVideocallTelefonataSlots';
+import WeekdayDatePicker from '../../components/appointments/WeekdayDatePicker';
 
 type Detail = Appointment & { history: AppointmentHistoryEntry[] };
 
@@ -84,14 +94,28 @@ export default function AppointmentDetail() {
       setError('Indicare il luogo per l’appuntamento in presenza.');
       return;
     }
+    const effDurata =
+      form.modalita === 'presenza' || form.modalita === 'videocall' || form.modalita === 'telefonata'
+        ? 30
+        : Number(form.durata_minuti ?? 60);
     const presenzaErrSave = validatePresenzaAppointmentClient(
       String(form.modalita || ''),
       String(form.data_appuntamento || ''),
       String(form.ora_inizio || ''),
-      Number(form.durata_minuti ?? 60),
+      effDurata,
     );
     if (presenzaErrSave) {
       setError(presenzaErrSave);
+      return;
+    }
+    const vtErrSave = validateVideocallTelefonataAppointmentClient(
+      String(form.modalita || ''),
+      String(form.data_appuntamento || ''),
+      String(form.ora_inizio || ''),
+      effDurata,
+    );
+    if (vtErrSave) {
+      setError(vtErrSave);
       return;
     }
     setSaving(true);
@@ -107,7 +131,7 @@ export default function AppointmentDetail() {
         note: form.note != null ? form.note : null,
         data_appuntamento: form.data_appuntamento,
         ora_inizio: form.ora_inizio,
-        durata_minuti: form.durata_minuti,
+        durata_minuti: effDurata,
         luogo: form.luogo,
         link_videocall: form.link_videocall,
         numero_telefonico_riferimento: form.modalita === 'telefonata' ? null : form.numero_telefonico_riferimento,
@@ -230,11 +254,21 @@ export default function AppointmentDetail() {
                 value={form.modalita || 'presenza'}
                 onChange={(e) => {
                   const m = e.target.value as Appointment['modalita'];
-                  setForm((f) => ({
-                    ...f,
-                    modalita: m,
-                    ...(m === 'presenza' ? { durata_minuti: 30 } : {}),
-                  }));
+                  setForm((f) => {
+                    const dataIso = String(f.data_appuntamento || '').trim().slice(0, 10);
+                    const clearPres = m === 'presenza' && dataIso.length > 0 && !dataIsoIsThursday(dataIso);
+                    const clearWk =
+                      (m === 'videocall' || m === 'telefonata') &&
+                      dataIso.length > 0 &&
+                      !dataIsoIsWeekdayMonFri(dataIso);
+                    return {
+                      ...f,
+                      modalita: m,
+                      ...(m === 'presenza' ? { durata_minuti: 30 } : {}),
+                      ...(m === 'videocall' || m === 'telefonata' ? { durata_minuti: 30 } : {}),
+                      ...(clearPres || clearWk ? { data_appuntamento: '' } : {}),
+                    };
+                  });
                 }}
               >
                 <option value="presenza">In presenza</option>
@@ -244,15 +278,28 @@ export default function AppointmentDetail() {
             </div>
             <div>
               <label className="text-xs text-slate-600">Data</label>
-              <input
-                type="date"
-                className="mt-0.5 w-full rounded border border-slate-200 px-2 py-1.5 text-sm"
-                value={String(form.data_appuntamento || '').slice(0, 10)}
-                onChange={(e) => setForm((f) => ({ ...f, data_appuntamento: e.target.value }))}
-              />
-              {form.modalita === 'presenza' ? (
-                <p className="mt-0.5 text-[11px] text-slate-500">In presenza: solo giovedì.</p>
-              ) : null}
+              {form.modalita === 'videocall' || form.modalita === 'telefonata' ? (
+                <WeekdayDatePicker
+                  className="mt-0.5 w-full"
+                  value={String(form.data_appuntamento || '').slice(0, 10)}
+                  onChange={(iso) => setForm((f) => ({ ...f, data_appuntamento: iso }))}
+                  disabled={saving}
+                  buttonClassName="w-full rounded border border-slate-200 px-2 py-1.5 text-sm"
+                  placeholder="Data"
+                />
+              ) : (
+                <>
+                  <input
+                    type="date"
+                    className="mt-0.5 w-full rounded border border-slate-200 px-2 py-1.5 text-sm"
+                    value={String(form.data_appuntamento || '').slice(0, 10)}
+                    onChange={(e) => setForm((f) => ({ ...f, data_appuntamento: e.target.value }))}
+                  />
+                  {form.modalita === 'presenza' ? (
+                    <p className="mt-0.5 text-[11px] text-slate-500">In presenza: solo giovedì.</p>
+                  ) : null}
+                </>
+              )}
             </div>
             <div>
               <label className="text-xs text-slate-600">Ora</label>
@@ -269,6 +316,19 @@ export default function AppointmentDetail() {
                     </option>
                   ))}
                 </select>
+              ) : form.modalita === 'videocall' || form.modalita === 'telefonata' ? (
+                <select
+                  className="mt-0.5 w-full rounded border border-slate-200 px-2 py-1.5 text-sm"
+                  value={form.ora_inizio || ''}
+                  onChange={(e) => setForm((f) => ({ ...f, ora_inizio: e.target.value }))}
+                >
+                  <option value="">Ora</option>
+                  {APPUNTAMENTO_VIDEOCALL_TELEFONATA_SLOT_ORARI.map((t) => (
+                    <option key={t} value={t}>
+                      {t}
+                    </option>
+                  ))}
+                </select>
               ) : (
                 <input
                   type="time"
@@ -278,18 +338,32 @@ export default function AppointmentDetail() {
                 />
               )}
             </div>
-            <div>
-              <label className="text-xs text-slate-600">Durata (min)</label>
-              <select
-                className="mt-0.5 w-full rounded border border-slate-200 px-2 py-1.5 text-sm"
-                value={String(form.durata_minuti ?? 60)}
-                disabled={form.modalita === 'presenza'}
-                onChange={(e) => setForm((f) => ({ ...f, durata_minuti: Number(e.target.value) as 30 | 60 }))}
-              >
-                <option value={30}>30</option>
-                <option value={60}>60</option>
-              </select>
-            </div>
+            {form.modalita === 'presenza' ? (
+              <div>
+                <label className="text-xs text-slate-600">Durata (min)</label>
+                <select
+                  className="mt-0.5 w-full rounded border border-slate-200 px-2 py-1.5 text-sm"
+                  value={String(form.durata_minuti ?? 60)}
+                  disabled
+                  onChange={(e) => setForm((f) => ({ ...f, durata_minuti: Number(e.target.value) as 30 | 60 }))}
+                >
+                  <option value={30}>30</option>
+                  <option value={60}>60</option>
+                </select>
+              </div>
+            ) : form.modalita === 'videocall' || form.modalita === 'telefonata' ? null : (
+              <div>
+                <label className="text-xs text-slate-600">Durata (min)</label>
+                <select
+                  className="mt-0.5 w-full rounded border border-slate-200 px-2 py-1.5 text-sm"
+                  value={String(form.durata_minuti ?? 60)}
+                  onChange={(e) => setForm((f) => ({ ...f, durata_minuti: Number(e.target.value) as 30 | 60 }))}
+                >
+                  <option value={30}>30</option>
+                  <option value={60}>60</option>
+                </select>
+              </div>
+            )}
             {form.modalita === 'presenza' ? (
               <div className="md:col-span-2">
                 <label className="text-xs text-slate-600">Luogo</label>

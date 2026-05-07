@@ -7,9 +7,11 @@ interface ModalProps {
   title: string;
   children: ReactNode;
   size?: 'sm' | 'md' | 'lg' | 'xl';
+  /** Se false, niente scroll interno sul pannello (il backdrop può scrollare): utile a form con overlay tipo datepicker. */
+  scrollBody?: boolean;
 }
 
-export default function Modal({ isOpen, onClose, title, children, size = 'md' }: ModalProps) {
+export default function Modal({ isOpen, onClose, title, children, size = 'md', scrollBody = true }: ModalProps) {
   /** Evita chiusura quando il mouseup del click finisce sul backdrop dopo selezione testo in un input. */
   const backdropPointerDownRef = useRef(false);
 
@@ -34,7 +36,9 @@ export default function Modal({ isOpen, onClose, title, children, size = 'md' }:
 
   return (
     <div
-      className="fixed inset-0 z-50 flex cursor-pointer items-center justify-center bg-slate-900/40 p-4 backdrop-blur-[2px]"
+      className={`fixed inset-0 z-50 flex cursor-pointer justify-center bg-slate-900/40 p-4 backdrop-blur-[2px] ${
+        scrollBody ? 'items-center' : 'items-start overflow-y-auto py-8'
+      }`}
       onMouseDownCapture={(e) => {
         backdropPointerDownRef.current = e.target === e.currentTarget;
       }}
@@ -43,7 +47,9 @@ export default function Modal({ isOpen, onClose, title, children, size = 'md' }:
       }}
     >
       <div
-        className={`flex max-h-[90vh] w-full cursor-default flex-col rounded-xl border border-slate-200/95 bg-white shadow-[0_24px_48px_-12px_rgba(15,23,42,0.2),0_0_0_1px_rgba(15,23,42,0.04)] ${sizes[size]}`}
+        className={`flex w-full cursor-default flex-col rounded-xl border border-slate-200/95 bg-white shadow-[0_24px_48px_-12px_rgba(15,23,42,0.2),0_0_0_1px_rgba(15,23,42,0.04)] ${
+          scrollBody ? 'max-h-[90vh]' : 'max-h-none'
+        } ${sizes[size]}`}
       >
         <div className="flex items-center justify-between border-b border-slate-200/90 px-6 py-4">
           <h2 className="text-lg font-semibold text-slate-900">{title}</h2>
@@ -55,7 +61,11 @@ export default function Modal({ isOpen, onClose, title, children, size = 'md' }:
             <X size={20} />
           </button>
         </div>
-        <div className="flex-1 overflow-y-auto px-6 py-4 text-slate-700">{children}</div>
+        <div
+          className={`flex-1 px-6 py-4 text-slate-700 ${scrollBody ? 'overflow-y-auto' : 'overflow-visible'}`}
+        >
+          {children}
+        </div>
       </div>
     </div>
   );

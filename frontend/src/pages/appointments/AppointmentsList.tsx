@@ -23,7 +23,13 @@ import {
   dataIsoIsThursday,
   validatePresenzaAppointmentClient,
 } from '../../utils/appointmentPresenzaSlots';
+import {
+  APPUNTAMENTO_VIDEOCALL_TELEFONATA_SLOT_ORARI,
+  dataIsoIsWeekdayMonFri,
+  validateVideocallTelefonataAppointmentClient,
+} from '../../utils/appointmentVideocallTelefonataSlots';
 import PresenzaThursdayDatePicker from '../../components/appointments/PresenzaThursdayDatePicker';
+import WeekdayDatePicker from '../../components/appointments/WeekdayDatePicker';
 
 const STATI = ['RICHIESTO', 'CONFERMATO', 'DA RIPROGRAMMARE', 'COMPLETATO', 'ANNULLATO'] as const;
 const CAL_LIMIT = 500;
@@ -534,7 +540,12 @@ export default function AppointmentsList() {
       setActionError('Indicare il luogo per l’appuntamento in presenza.');
       return;
     }
-    const durataInvio = createForm.modalita === 'presenza' ? 30 : createForm.durata_minuti;
+    const durataInvio =
+      createForm.modalita === 'presenza' ||
+      createForm.modalita === 'videocall' ||
+      createForm.modalita === 'telefonata'
+        ? 30
+        : createForm.durata_minuti;
     const presenzaValidate = validatePresenzaAppointmentClient(
       createForm.modalita,
       createForm.data_appuntamento,
@@ -543,6 +554,16 @@ export default function AppointmentsList() {
     );
     if (presenzaValidate) {
       setActionError(presenzaValidate);
+      return;
+    }
+    const vtValidate = validateVideocallTelefonataAppointmentClient(
+      createForm.modalita,
+      createForm.data_appuntamento,
+      createForm.ora_inizio,
+      durataInvio,
+    );
+    if (vtValidate) {
+      setActionError(vtValidate);
       return;
     }
     setCreateBusy(true);
@@ -909,7 +930,13 @@ export default function AppointmentsList() {
         </>
       )}
 
-      <Modal isOpen={createOpen} onClose={() => !createBusy && setCreateOpen(false)} title="Nuovo appuntamento" size="lg">
+      <Modal
+        isOpen={createOpen}
+        onClose={() => !createBusy && setCreateOpen(false)}
+        title="Nuovo appuntamento"
+        size="lg"
+        scrollBody={false}
+      >
         <div className="space-y-4">
           <div className="grid gap-4 md:grid-cols-2 md:items-stretch md:gap-x-4">
             <div className="flex min-h-0 flex-col md:h-full">
@@ -941,11 +968,18 @@ export default function AppointmentsList() {
                         const dataIso = String(f.data_appuntamento || '').trim().slice(0, 10);
                         const clearDataIfInvalidPresenza =
                           m === 'presenza' && dataIso.length > 0 && !dataIsoIsThursday(dataIso);
+                        const clearDataIfInvalidWeekday =
+                          (m === 'videocall' || m === 'telefonata') &&
+                          dataIso.length > 0 &&
+                          !dataIsoIsWeekdayMonFri(dataIso);
                         return {
                           ...f,
                           modalita: m,
                           ...(m === 'presenza' ? { durata_minuti: 30, ora_inizio: '' } : {}),
-                          ...(clearDataIfInvalidPresenza ? { data_appuntamento: '' } : {}),
+                          ...(m === 'videocall' || m === 'telefonata' ? { durata_minuti: 30 } : {}),
+                          ...(clearDataIfInvalidPresenza || clearDataIfInvalidWeekday
+                            ? { data_appuntamento: '' }
+                            : {}),
                         };
                       });
                     }}
@@ -975,6 +1009,15 @@ export default function AppointmentsList() {
                         buttonClassName={modalInput}
                         placeholder="Data"
                       />
+                    ) : createForm.modalita === 'videocall' || createForm.modalita === 'telefonata' ? (
+                      <WeekdayDatePicker
+                        className="mt-1 w-full"
+                        value={createForm.data_appuntamento}
+                        onChange={(iso) => setCreateForm((f) => ({ ...f, data_appuntamento: iso }))}
+                        disabled={createBusy}
+                        buttonClassName={modalInput}
+                        placeholder="Data"
+                      />
                     ) : (
                       <input
                         type="date"
@@ -985,7 +1028,11 @@ export default function AppointmentsList() {
                     )}
                   </div>
                   <div>
-                    <label className="text-sm font-medium text-slate-700">Ora inizio *</label>
+                    <label className="text-sm font-medium text-slate-700">
+                      {createForm.modalita === 'videocall' || createForm.modalita === 'telefonata'
+                        ? 'Ora *'
+                        : 'Ora inizio *'}
+                    </label>
                     {createForm.modalita === 'presenza' ? (
                       <select
                         className={`mt-1 ${modalInput} w-full`}
@@ -994,6 +1041,19 @@ export default function AppointmentsList() {
                       >
                         <option value="">Ora</option>
                         {APPUNTAMENTO_PRESENZA_SLOT_ORARI.map((t) => (
+                          <option key={t} value={t}>
+                            {t}
+                          </option>
+                        ))}
+                      </select>
+                    ) : createForm.modalita === 'videocall' || createForm.modalita === 'telefonata' ? (
+                      <select
+                        className={`mt-1 ${modalInput} w-full`}
+                        value={createForm.ora_inizio}
+                        onChange={(e) => setCreateForm((f) => ({ ...f, ora_inizio: e.target.value }))}
+                      >
+                        <option value="">Ora</option>
+                        {APPUNTAMENTO_VIDEOCALL_TELEFONATA_SLOT_ORARI.map((t) => (
                           <option key={t} value={t}>
                             {t}
                           </option>
@@ -1009,22 +1069,10 @@ export default function AppointmentsList() {
                     )}
                   </div>
                 </div>
-                {createForm.modalita !== 'presenza' ? (
-                  <div>
-                    <label className="text-sm font-medium text-slate-700">Durata</label>
-                    <select
-                      className={`mt-1 ${modalInput} w-full`}
-                      value={createForm.durata_minuti}
-                      onChange={(e) =>
-                        setCreateForm((f) => ({ ...f, durata_minuti: Number(e.target.value) as 30 | 60 }))
-                      }
-                    >
-                      <option value={30}>30 minuti</option>
-                      <option value={60}>60 minuti</option>
-                    </select>
-                  </div>
-                ) : null}
               </div>
+              {createForm.modalita === 'videocall' || createForm.modalita === 'telefonata' ? (
+                <div className="mt-auto hidden min-h-0 flex-1 md:block" aria-hidden="true" />
+              ) : null}
               {createForm.modalita === 'presenza' ? (
                 <div className="mt-auto space-y-3 pt-3">
                   <div>
@@ -1039,7 +1087,7 @@ export default function AppointmentsList() {
               ) : null}
             </div>
             <div className="flex min-h-0 flex-col md:h-full">
-              <div className="flex min-h-0 flex-1 flex-col gap-3">
+              <div className="flex min-h-0 flex-1 flex-col gap-3 md:min-h-0">
                 <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Dati assistito</p>
                 <div className="grid grid-cols-2 gap-2">
                   <div>
@@ -1068,9 +1116,6 @@ export default function AppointmentsList() {
                     onChange={(e) => setCreateForm((f) => ({ ...f, assistito_telefono: e.target.value }))}
                     autoComplete="tel"
                   />
-                  {createForm.modalita === 'telefonata' ? (
-                    <p className="mt-1 text-xs text-slate-500">Per la telefonata si userà questo numero.</p>
-                  ) : null}
                 </div>
                 <div>
                   <label className="text-sm font-medium text-slate-700">Email assistito *</label>
@@ -1087,6 +1132,15 @@ export default function AppointmentsList() {
                     <label className="text-sm font-medium text-slate-700">Note</label>
                     <textarea
                       className={`mt-1 ${modalInput} box-border min-h-[7.5rem] w-full flex-1 resize-none`}
+                      value={createForm.note}
+                      onChange={(e) => setCreateForm((f) => ({ ...f, note: e.target.value }))}
+                    />
+                  </div>
+                ) : createForm.modalita === 'videocall' || createForm.modalita === 'telefonata' ? (
+                  <div className="flex min-h-0 flex-1 flex-col">
+                    <label className="text-sm font-medium text-slate-700">Note</label>
+                    <textarea
+                      className={`mt-1 ${modalInput} box-border min-h-[12.5rem] w-full flex-1 resize-none`}
                       value={createForm.note}
                       onChange={(e) => setCreateForm((f) => ({ ...f, note: e.target.value }))}
                     />
