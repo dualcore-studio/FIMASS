@@ -1140,7 +1140,7 @@ export default function AppointmentsList() {
                   <div className="flex min-h-0 flex-1 flex-col">
                     <label className="text-sm font-medium text-slate-700">Note</label>
                     <textarea
-                      className={`mt-1 ${modalInput} box-border min-h-[12.5rem] w-full flex-1 resize-none`}
+                      className={`mt-1 ${modalInput} box-border min-h-[7.5rem] w-full flex-1 resize-none`}
                       value={createForm.note}
                       onChange={(e) => setCreateForm((f) => ({ ...f, note: e.target.value }))}
                     />
