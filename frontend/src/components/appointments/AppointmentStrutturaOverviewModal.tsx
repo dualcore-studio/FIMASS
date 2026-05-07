@@ -141,6 +141,13 @@ function StrutturaDetailBody({
           </div>
         ) : null}
 
+        {appointment.stato === 'COMPLETATO' && appointment.note_completamento?.trim() ? (
+          <div className="rounded-lg border border-emerald-200/80 bg-emerald-50/70 px-3 py-2">
+            <p className="text-xs font-medium text-emerald-900/80">Note completamento</p>
+            <p className="mt-1 whitespace-pre-wrap text-sm text-emerald-950">{appointment.note_completamento}</p>
+          </div>
+        ) : null}
+
         <div className="rounded-lg border border-slate-200/70 bg-white px-3 py-2.5">
           <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Storico stati</p>
           <button

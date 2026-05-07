@@ -112,7 +112,7 @@ router.get(
 });
 
 /** Solo fornitori attivi (appuntamenti, filtri). */
-router.get('/suppliers', authenticateToken, authorizeRoles('struttura', 'admin', 'supervisore'), (req, res) => {
+router.get('/suppliers', authenticateToken, authorizeRoles('struttura', 'fornitore', 'admin', 'supervisore'), (req, res) => {
   (async () => {
     const suppliers = (await list('users', (u) => u.role === 'fornitore' && u.stato === 'attivo'))
       .sort((a, b) => `${a.cognome || ''} ${a.nome || ''}`.localeCompare(`${b.cognome || ''} ${b.nome || ''}`, 'it'))
@@ -131,14 +131,26 @@ router.get('/structures', authenticateToken, authorizeRoles('admin', 'supervisor
   (async () => {
     const structures = (await list('users', (u) => u.role === 'struttura' && u.stato === 'attivo'))
       .sort((a, b) => String(a.denominazione || '').localeCompare(String(b.denominazione || ''), 'it'))
-      .map((u) => ({
-        id: u.id,
-        denominazione: u.denominazione,
-        email: u.email,
-        role: 'struttura',
-        commission_type: u.commission_type && COMMISSION_TYPES.has(u.commission_type) ? u.commission_type : 'SEGNALATORE',
-        citta_provenienza: u.citta_provenienza ?? null,
-      }));
+      .map((u) => {
+        let enabledTypes = u.enabled_types;
+        if (typeof enabledTypes === 'string') {
+          try {
+            enabledTypes = JSON.parse(enabledTypes);
+          } catch {
+            enabledTypes = null;
+          }
+        }
+        return {
+          id: u.id,
+          denominazione: u.denominazione,
+          email: u.email,
+          role: 'struttura',
+          commission_type:
+            u.commission_type && COMMISSION_TYPES.has(u.commission_type) ? u.commission_type : 'SEGNALATORE',
+          citta_provenienza: u.citta_provenienza ?? null,
+          enabled_types: Array.isArray(enabledTypes) ? enabledTypes : null,
+        };
+      });
     res.json(structures);
   })();
 });

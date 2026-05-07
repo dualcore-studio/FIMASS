@@ -1072,7 +1072,7 @@ router.get('/:id', authenticateToken, (req, res) => {
   })();
 });
 
-router.post('/', authenticateToken, authorizeRoles('struttura'), (req, res) => {
+router.post('/', authenticateToken, authorizeRoles('struttura', 'fornitore'), (req, res) => {
   (async () => {
     const {
       tipo_assicurazione_id,
@@ -1122,11 +1122,30 @@ router.post('/', authenticateToken, authorizeRoles('struttura'), (req, res) => {
     if (!isInsuranceTypeActive(insType)) {
       return res.status(400).json({ error: 'Questa tipologia non è più attiva per nuove richieste' });
     }
-    if (!strutturaCanUseInsuranceType(req.user, insType.codice)) {
-      return res.status(403).json({ error: 'Tipologia non abilitata per la tua struttura' });
-    }
 
-    const struttura_id = req.user.id;
+    let struttura_id;
+    /** Self-assignment when un broker crea la pratica: così resta visibile nel suo elenco preventivi. */
+    let fornitore_id_creazione = null;
+    if (req.user.role === 'struttura') {
+      if (!strutturaCanUseInsuranceType(req.user, insType.codice)) {
+        return res.status(403).json({ error: 'Tipologia non abilitata per la tua struttura' });
+      }
+      struttura_id = req.user.id;
+    } else {
+      const sid = req.body.struttura_id;
+      if (sid == null || sid === '') {
+        return res.status(400).json({ error: 'Selezionare la struttura di riferimento per il preventivo' });
+      }
+      const structUser = await getById('users', sid);
+      if (!structUser || structUser.role !== 'struttura' || structUser.stato !== 'attivo') {
+        return res.status(400).json({ error: 'Struttura selezionata non valida' });
+      }
+      if (!strutturaCanUseInsuranceType(structUser, insType.codice)) {
+        return res.status(403).json({ error: 'Tipologia non abilitata per la struttura selezionata' });
+      }
+      struttura_id = structUser.id;
+      fornitore_id_creazione = req.user.id;
+    }
 
     let assistito_id;
     if (assistito.id) {
@@ -1203,6 +1222,7 @@ router.post('/', authenticateToken, authorizeRoles('struttura'), (req, res) => {
       assistito_id,
       tipo_assicurazione_id,
       struttura_id,
+      ...(fornitore_id_creazione != null ? { fornitore_id: fornitore_id_creazione } : {}),
       stato: 'PRESENTATA',
       data_decorrenza,
       note_struttura,

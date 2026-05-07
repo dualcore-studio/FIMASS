@@ -3,6 +3,7 @@ import type { Appointment } from '../../types';
 import Modal from '../ui/Modal';
 import { api, ApiError } from '../../utils/api';
 import { isValidAssistitoPhone, isValidContactEmail } from '../../utils/helpers';
+import { APPUNTAMENTO_PRESENZA_SLOT_ORARI, validatePresenzaAppointmentClient } from '../../utils/appointmentPresenzaSlots';
 
 type Props = {
   appointment: Appointment | null;
@@ -36,6 +37,16 @@ export default function AppointmentStrutturaEditModal({ appointment, onClose, on
     }
     if (form.modalita === 'presenza' && !String(form.luogo ?? '').trim()) {
       setLocalError('Indicare il luogo per l’appuntamento in presenza.');
+      return;
+    }
+    const pv = validatePresenzaAppointmentClient(
+      String(form.modalita || ''),
+      String(form.data_appuntamento || ''),
+      String(form.ora_inizio || ''),
+      Number(form.durata_minuti ?? 60),
+    );
+    if (pv) {
+      setLocalError(pv);
       return;
     }
     setSaving(true);
@@ -86,7 +97,14 @@ export default function AppointmentStrutturaEditModal({ appointment, onClose, on
               <select
                 className="input-field mt-0.5 w-full text-sm"
                 value={form.modalita || 'presenza'}
-                onChange={(e) => setForm((f) => ({ ...f, modalita: e.target.value as Appointment['modalita'] }))}
+                onChange={(e) => {
+                  const m = e.target.value as Appointment['modalita'];
+                  setForm((f) => ({
+                    ...f,
+                    modalita: m,
+                    ...(m === 'presenza' ? { durata_minuti: 30 } : {}),
+                  }));
+                }}
               >
                 <option value="presenza">In presenza</option>
                 <option value="videocall">Videocall</option>
@@ -101,21 +119,40 @@ export default function AppointmentStrutturaEditModal({ appointment, onClose, on
                 value={String(form.data_appuntamento || '').slice(0, 10)}
                 onChange={(e) => setForm((f) => ({ ...f, data_appuntamento: e.target.value }))}
               />
+              {form.modalita === 'presenza' ? (
+                <p className="mt-0.5 text-[11px] text-slate-500">In presenza: solo giovedì.</p>
+              ) : null}
             </div>
             <div>
               <label className="text-xs text-slate-600">Ora</label>
-              <input
-                type="time"
-                className="input-field mt-0.5 w-full text-sm"
-                value={form.ora_inizio || ''}
-                onChange={(e) => setForm((f) => ({ ...f, ora_inizio: e.target.value }))}
-              />
+              {form.modalita === 'presenza' ? (
+                <select
+                  className="input-field mt-0.5 w-full text-sm"
+                  value={form.ora_inizio || ''}
+                  onChange={(e) => setForm((f) => ({ ...f, ora_inizio: e.target.value }))}
+                >
+                  <option value="">Seleziona…</option>
+                  {APPUNTAMENTO_PRESENZA_SLOT_ORARI.map((t) => (
+                    <option key={t} value={t}>
+                      {t}
+                    </option>
+                  ))}
+                </select>
+              ) : (
+                <input
+                  type="time"
+                  className="input-field mt-0.5 w-full text-sm"
+                  value={form.ora_inizio || ''}
+                  onChange={(e) => setForm((f) => ({ ...f, ora_inizio: e.target.value }))}
+                />
+              )}
             </div>
             <div>
               <label className="text-xs text-slate-600">Durata (min)</label>
               <select
                 className="input-field mt-0.5 w-full text-sm"
                 value={String(form.durata_minuti ?? 60)}
+                disabled={form.modalita === 'presenza'}
                 onChange={(e) => setForm((f) => ({ ...f, durata_minuti: Number(e.target.value) as 30 | 60 }))}
               >
                 <option value={30}>30</option>

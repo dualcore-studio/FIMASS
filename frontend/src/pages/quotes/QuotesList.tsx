@@ -369,7 +369,7 @@ export default function QuotesList() {
   };
 
   const rows = result?.data ?? [];
-  const canCreate = role === 'struttura';
+  const canCreate = role === 'struttura' || role === 'fornitore';
   const canDeleteQuote = role === 'admin';
   const useQuoteActionsMenu =
     role === 'admin' ||

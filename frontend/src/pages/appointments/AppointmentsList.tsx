@@ -18,6 +18,7 @@ import AppointmentsMonthCalendar from '../../components/appointments/Appointment
 import { parseMonthKey } from '../../utils/appointmentCalendarMonth';
 import { modalitaBadgeClass, modalitaLabel } from '../../utils/appointmentLabels';
 import { getUserDisplayName, formatDate, isValidAssistitoPhone, isValidContactEmail } from '../../utils/helpers';
+import { APPUNTAMENTO_PRESENZA_SLOT_ORARI, validatePresenzaAppointmentClient } from '../../utils/appointmentPresenzaSlots';
 
 const STATI = ['RICHIESTO', 'CONFERMATO', 'DA RIPROGRAMMARE', 'COMPLETATO', 'ANNULLATO'] as const;
 const CAL_LIMIT = 500;
@@ -114,7 +115,7 @@ export default function AppointmentsList() {
     oggetto: '',
     data_appuntamento: '',
     ora_inizio: '',
-    durata_minuti: 60 as 30 | 60,
+    durata_minuti: 30 as 30 | 60,
     assistito_nome: '',
     assistito_cognome: '',
     assistito_telefono: '',
@@ -144,7 +145,9 @@ export default function AppointmentsList() {
   }, [oggettoInput]);
 
   useEffect(() => {
-    api.get<SupplierOption[]>('/users/suppliers').then(setSuppliers).catch(() => {});
+    if (role === 'struttura' || role === 'admin' || role === 'supervisore' || role === 'fornitore') {
+      api.get<SupplierOption[]>('/users/suppliers').then(setSuppliers).catch(() => {});
+    }
     if (role === 'admin' || role === 'supervisore') {
       api.get<StructureOption[]>('/users/structures').then(setStructures).catch(() => {});
     }
@@ -524,6 +527,16 @@ export default function AppointmentsList() {
     }
     if (createForm.modalita === 'presenza' && !createForm.luogo.trim()) {
       setActionError('Indicare il luogo per l’appuntamento in presenza.');
+      return;
+    }
+    const presenzaValidate = validatePresenzaAppointmentClient(
+      createForm.modalita,
+      createForm.data_appuntamento,
+      createForm.ora_inizio,
+      createForm.durata_minuti,
+    );
+    if (presenzaValidate) {
+      setActionError(presenzaValidate);
       return;
     }
     setCreateBusy(true);
@@ -915,7 +928,14 @@ export default function AppointmentsList() {
                 <select
                   className={`mt-1 ${modalInput} w-full`}
                   value={createForm.modalita}
-                  onChange={(e) => setCreateForm((f) => ({ ...f, modalita: e.target.value as typeof f.modalita }))}
+                  onChange={(e) => {
+                    const m = e.target.value as typeof createForm.modalita;
+                    setCreateForm((f) => ({
+                      ...f,
+                      modalita: m,
+                      ...(m === 'presenza' ? { durata_minuti: 30, ora_inizio: '' } : {}),
+                    }));
+                  }}
                 >
                   <option value="presenza">In presenza</option>
                   <option value="videocall">Videocall</option>
@@ -939,15 +959,36 @@ export default function AppointmentsList() {
                     value={createForm.data_appuntamento}
                     onChange={(e) => setCreateForm((f) => ({ ...f, data_appuntamento: e.target.value }))}
                   />
+                  {createForm.modalita === 'presenza' ? (
+                    <p className="mt-1 text-xs text-slate-500">In presenza: solo giorno giovedì.</p>
+                  ) : null}
                 </div>
                 <div>
                   <label className="text-sm font-medium text-slate-700">Ora inizio *</label>
-                  <input
-                    type="time"
-                    className={`mt-1 ${modalInput} w-full`}
-                    value={createForm.ora_inizio}
-                    onChange={(e) => setCreateForm((f) => ({ ...f, ora_inizio: e.target.value }))}
-                  />
+                  {createForm.modalita === 'presenza' ? (
+                    <select
+                      className={`mt-1 ${modalInput} w-full`}
+                      value={createForm.ora_inizio}
+                      onChange={(e) => setCreateForm((f) => ({ ...f, ora_inizio: e.target.value }))}
+                    >
+                      <option value="">Seleziona orario…</option>
+                      {APPUNTAMENTO_PRESENZA_SLOT_ORARI.map((t) => (
+                        <option key={t} value={t}>
+                          {t}
+                        </option>
+                      ))}
+                    </select>
+                  ) : (
+                    <input
+                      type="time"
+                      className={`mt-1 ${modalInput} w-full`}
+                      value={createForm.ora_inizio}
+                      onChange={(e) => setCreateForm((f) => ({ ...f, ora_inizio: e.target.value }))}
+                    />
+                  )}
+                  {createForm.modalita === 'presenza' ? (
+                    <p className="mt-1 text-xs text-slate-500">Finestra 10:00–12:30, slot da 30 minuti.</p>
+                  ) : null}
                 </div>
               </div>
               <div>
@@ -956,9 +997,13 @@ export default function AppointmentsList() {
                   className={`mt-1 ${modalInput} w-full`}
                   value={createForm.durata_minuti}
                   onChange={(e) => setCreateForm((f) => ({ ...f, durata_minuti: Number(e.target.value) as 30 | 60 }))}
+                  disabled={createForm.modalita === 'presenza'}
+                  title={createForm.modalita === 'presenza' ? 'Per la modalità in presenza la durata è fissata a 30 minuti' : undefined}
                 >
                   <option value={30}>30 minuti</option>
-                  <option value={60}>60 minuti</option>
+                  <option value={60} disabled={createForm.modalita === 'presenza'}>
+                    60 minuti
+                  </option>
                 </select>
               </div>
               {createForm.modalita === 'presenza' ? (

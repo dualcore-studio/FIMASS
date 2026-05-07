@@ -393,6 +393,16 @@ function migrateAppointmentsSqliteIfNeeded() {
       );
       CREATE INDEX IF NOT EXISTS idx_appointment_hist_app ON appointment_status_history(appointment_id);
     `);
+
+    try {
+      const acols = db.prepare('PRAGMA table_info(appointments)').all();
+      const aNames = new Set(Array.isArray(acols) ? acols.map((c) => c.name) : []);
+      if (!aNames.has('note_completamento')) {
+        db.exec('ALTER TABLE appointments ADD COLUMN note_completamento TEXT');
+      }
+    } catch (e) {
+      console.error('migrate appointments note_completamento:', e);
+    }
   } catch (e) {
     console.error('migrateAppointmentsSqliteIfNeeded:', e);
   }

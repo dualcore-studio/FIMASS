@@ -71,7 +71,7 @@ function AppRoutes() {
         <Route path="utenti/:id/modifica" element={<ProtectedRoute roles={['admin']}><UserEdit /></ProtectedRoute>} />
 
         <Route path="preventivi" element={<QuotesList />} />
-        <Route path="preventivi/nuovo" element={<ProtectedRoute roles={['struttura']}><QuoteCreate /></ProtectedRoute>} />
+        <Route path="preventivi/nuovo" element={<ProtectedRoute roles={['struttura', 'fornitore']}><QuoteCreate /></ProtectedRoute>} />
         <Route path="preventivi/:id" element={<QuoteDetail />} />
 
         <Route path="polizze" element={<PoliciesList />} />

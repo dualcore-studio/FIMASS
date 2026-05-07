@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import {
   AlertCircle,
@@ -24,7 +24,9 @@ import {
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import { api, ApiError } from '../../utils/api';
-import type { InsuranceType, FormField, ChecklistItem, AssistedPerson } from '../../types';
+import type { InsuranceType, FormField, ChecklistItem, AssistedPerson, StructureOption } from '../../types';
+import { useAuth } from '../../context/AuthContext';
+import { filterInsuranceTypesForStructure } from '../../utils/appointmentPresenzaSlots';
 import { formatDate, formatUnknownValueForDisplay } from '../../utils/helpers';
 import {
   activeCampiForFlow,
@@ -124,7 +126,12 @@ function activeCampiSpecificiQuoteStep(
 
 export default function QuoteCreate() {
   const navigate = useNavigate();
+  const { user } = useAuth();
+  const brokerCreazionePreventivo = user?.role === 'fornitore';
   const [step, setStep] = useState(0);
+
+  const [structuresForQuote, setStructuresForQuote] = useState<StructureOption[]>([]);
+  const [quoteStrutturaId, setQuoteStrutturaId] = useState('');
 
   // Step 1
   const [insuranceTypes, setInsuranceTypes] = useState<InsuranceType[]>([]);
@@ -179,6 +186,30 @@ export default function QuoteCreate() {
       .finally(() => setTypesLoading(false));
   }, []);
 
+  useEffect(() => {
+    if (!brokerCreazionePreventivo) return;
+    api
+      .get<StructureOption[]>('/users/structures')
+      .then(setStructuresForQuote)
+      .catch(() => setStructuresForQuote([]));
+  }, [brokerCreazionePreventivo]);
+
+  const selectedQuoteStructure =
+    brokerCreazionePreventivo && quoteStrutturaId
+      ? structuresForQuote.find((s) => String(s.id) === String(quoteStrutturaId))
+      : null;
+
+  const insuranceTypesForBroker = useMemo(() => {
+    if (!brokerCreazionePreventivo) return insuranceTypes;
+    if (!selectedQuoteStructure) return [];
+    return filterInsuranceTypesForStructure(
+      insuranceTypes,
+      selectedQuoteStructure.enabled_types ?? null,
+    ) as InsuranceType[];
+  }, [brokerCreazionePreventivo, insuranceTypes, selectedQuoteStructure]);
+
+  const typesForStep1 = brokerCreazionePreventivo ? insuranceTypesForBroker : insuranceTypes;
+
   const handleCfBlur = async () => {
     const cf = assisted.codice_fiscale.trim().toUpperCase();
     if (cf.length < 11) return;
@@ -225,8 +256,13 @@ export default function QuoteCreate() {
 
   const validateStep = (s: number): string[] => {
     const errors: string[] = [];
-    if (s === 0 && !selectedType) {
-      errors.push('Seleziona una tipologia assicurativa.');
+    if (s === 0) {
+      if (brokerCreazionePreventivo && !quoteStrutturaId) {
+        errors.push('Selezionare la struttura di riferimento per cui si presenta la richiesta.');
+      }
+      if (!selectedType) {
+        errors.push('Seleziona una tipologia assicurativa.');
+      }
     }
     if (s === 1) {
       if (!assisted.nome.trim()) errors.push('Il nome è obbligatorio.');
@@ -415,6 +451,7 @@ export default function QuoteCreate() {
         note_allegati: noteAllegati.trim() || null,
         privacy_consent_accepted: true,
         marketing_consent: marketingOptIn,
+        ...(brokerCreazionePreventivo ? { struttura_id: Number(quoteStrutturaId) } : {}),
       };
 
       const result = await api.post<{ id: number }>('/quotes', body);
@@ -527,8 +564,36 @@ export default function QuoteCreate() {
             selectedType
             && ['casa', 'sanitaria', 'affitto'].includes(String(selectedType.codice || '').toLowerCase())
           ) && (
-            <Step1Types
-            types={insuranceTypes}
+            <>
+              {brokerCreazionePreventivo ? (
+                <div className="mb-6 space-y-2">
+                  <label htmlFor="quote-struttura-broker" className="block text-sm font-medium text-gray-700">
+                    Struttura di riferimento *
+                  </label>
+                  <select
+                    id="quote-struttura-broker"
+                    className="input-field w-full max-w-md text-sm"
+                    value={quoteStrutturaId}
+                    onChange={(e) => {
+                      setQuoteStrutturaId(e.target.value);
+                      setSelectedType(null);
+                      setDatiSpecifici({});
+                      setAttachmentFiles({});
+                      setStepErrors([]);
+                    }}
+                  >
+                    <option value="">Seleziona struttura…</option>
+                    {structuresForQuote.map((s) => (
+                      <option key={s.id} value={String(s.id)}>
+                        {(s.denominazione || '').trim() || `#${s.id}`}
+                      </option>
+                    ))}
+                  </select>
+                  <p className="text-xs text-gray-500">La richiesta risulterà presentata dalla struttura selezionata.</p>
+                </div>
+              ) : null}
+              <Step1Types
+            types={typesForStep1}
             loading={typesLoading}
             error={typesError}
             selected={selectedType}
@@ -552,7 +617,8 @@ export default function QuoteCreate() {
               }
             }}
           />
-        )}
+            </>
+          )}
         {step === 0 && selectedType && String(selectedType.codice || '').toLowerCase() === 'casa' && (
           <CasaPolizzaPackageStep
             committedPackageId={casaPackage?.id ?? null}

@@ -11,6 +11,7 @@ const {
   strutturaPuoModificare,
 } = require('../utils/appointmentStato');
 const { TIME_RE, addMinutesToOra, intervalsOverlap, sameData } = require('../utils/appointmentsTime');
+const { validatePresenzaAppointmentSlot } = require('../utils/appointmentPresenzaSlot');
 const {
   sendAppointmentCreatedToFornitoreMail,
   sendAppointmentUpdateToStrutturaMail,
@@ -293,6 +294,9 @@ router.post('/', authenticateToken, authorizeRoles('struttura'), (req, res) => {
       );
       if (vMode) return res.status(400).json({ error: vMode });
 
+      const presenzaErr = validatePresenzaAppointmentSlot(modalita, data_appuntamento, ora_inizio, durata_minuti);
+      if (presenzaErr) return res.status(400).json({ error: presenzaErr });
+
       const ora_fine = addMinutesToOra(ora_inizio, durata_minuti);
       if (!ora_fine) return res.status(400).json({ error: 'Impossibile calcolare l\'orario di fine' });
 
@@ -481,6 +485,9 @@ router.put('/:id', authenticateToken, authorizeRoles('struttura', 'admin', 'supe
       const dm = Number(patch.durata_minuti) || 60;
       const oi = String(patch.ora_inizio != null ? patch.ora_inizio : apt0.ora_inizio).trim();
       const d = String(patch.data_appuntamento != null ? patch.data_appuntamento : apt0.data_appuntamento).trim();
+      const effModalitaPut = String(patch.modalita != null ? patch.modalita : apt0.modalita).toLowerCase();
+      const presenzaErrPut = validatePresenzaAppointmentSlot(effModalitaPut, d, oi, dm);
+      if (presenzaErrPut) return res.status(400).json({ error: presenzaErrPut });
       const of = addMinutesToOra(oi, dm);
       if (!of) return res.status(400).json({ error: 'Ora o durata non valida' });
       patch.ora_fine = of;
@@ -641,11 +648,33 @@ router.post('/:id/reschedule', authenticateToken, authorizeRoles('fornitore', 'a
       return res.status(400).json({ error: 'Data o ora non valida' });
     }
     if (!motivo) return res.status(400).json({ error: 'Motivo riprogrammazione obbligatorio' });
+
+    let targetFornitoreId = Number(apt0.fornitore_id);
+    if (body.fornitore_id != null && String(body.fornitore_id).trim() !== '') {
+      targetFornitoreId = Number(body.fornitore_id);
+    }
+    if (!Number.isFinite(targetFornitoreId)) {
+      return res.status(400).json({ error: 'Broker non valido' });
+    }
+    const fornTarget = await getById('users', targetFornitoreId);
+    if (!fornTarget || fornTarget.role !== 'fornitore' || fornTarget.stato !== 'attivo') {
+      return res.status(400).json({ error: 'Broker selezionato non valido' });
+    }
+
+    const effModalitaRe = String(apt0.modalita || '').toLowerCase();
+    const presenzaErrRe = validatePresenzaAppointmentSlot(
+      effModalitaRe,
+      data_appuntamento,
+      ora_inizio,
+      durata_minuti,
+    );
+    if (presenzaErrRe) return res.status(400).json({ error: presenzaErrRe });
+
     const ora_fine = addMinutesToOra(ora_inizio, durata_minuti);
     if (!ora_fine) return res.status(400).json({ error: 'Durata non valida' });
     const { appointments } = await loadApptsContext();
     const conf = findSlotConflict(appointments, {
-      fornitoreId: apt0.fornitore_id,
+      fornitoreId: targetFornitoreId,
       data: data_appuntamento,
       oraInizio: ora_inizio,
       durata: durata_minuti,
@@ -655,6 +684,7 @@ router.post('/:id/reschedule', authenticateToken, authorizeRoles('fornitore', 'a
     const oldS = String(apt0.stato);
     const updated = await upsertById('appointments', id, {
       ...apt0,
+      fornitore_id: targetFornitoreId,
       data_appuntamento,
       ora_inizio,
       durata_minuti,
@@ -664,7 +694,7 @@ router.post('/:id/reschedule', authenticateToken, authorizeRoles('fornitore', 'a
     });
     await recordHistory({ appointmentId: id, oldStatus: oldS, newStatus: 'DA RIPROGRAMMARE', utenteId: user.id, nota: motivo });
     const strutt = await getById('users', apt0.struttura_id);
-    const forn = await getById('users', apt0.fornitore_id);
+    const forn = await getById('users', updated.fornitore_id);
     if (strutt) {
       await sendAppointmentUpdateToStrutturaMail({
         kind: 'riprogrammato',
@@ -763,8 +793,12 @@ router.post('/:id/complete', authenticateToken, authorizeRoles('fornitore', 'adm
       return res.status(403).json({ error: 'Accesso negato' });
     }
     if (isStatoChiuso(apt0.stato)) return res.status(400).json({ error: 'Stato non valido' });
+    const body = req.body || {};
+    let noteComplRaw = body.note_completamento != null ? String(body.note_completamento).trim() : '';
+    if (noteComplRaw.length > 4000) noteComplRaw = noteComplRaw.slice(0, 4000);
+    const noteCompl = noteComplRaw || null;
     const oldS = String(apt0.stato);
-    const updated = await upsertById('appointments', id, { ...apt0, stato: 'COMPLETATO' });
+    const updated = await upsertById('appointments', id, { ...apt0, stato: 'COMPLETATO', note_completamento: noteCompl });
     await recordHistory({ appointmentId: id, oldStatus: oldS, newStatus: 'COMPLETATO', utenteId: user.id, nota: 'Completato' });
     const { usersById } = await loadApptsContext();
     res.json(enrich(updated, usersById));

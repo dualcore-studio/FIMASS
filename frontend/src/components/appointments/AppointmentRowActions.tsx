@@ -8,6 +8,7 @@ import { formatDate } from '../../utils/helpers';
 import { useAuth } from '../../context/AuthContext';
 import Modal from '../ui/Modal';
 import { modalitaLabel, strutturaCanEditTable, isAppointmentClosed } from '../../utils/appointmentLabels';
+import { APPUNTAMENTO_PRESENZA_SLOT_ORARI, validatePresenzaAppointmentClient } from '../../utils/appointmentPresenzaSlots';
 import AppointmentHistoryModal from './AppointmentHistoryModal';
 
 const MENU_WIDTH = 240;
@@ -80,6 +81,7 @@ export default function AppointmentRowActions({
   const [resData, setResData] = useState('');
   const [resOra, setResOra] = useState('');
   const [resDurata, setResDurata] = useState('60');
+  const [resFornitore, setResFornitore] = useState('');
   const [resMotivo, setResMotivo] = useState('');
   const [resBusy, setResBusy] = useState(false);
 
@@ -89,6 +91,7 @@ export default function AppointmentRowActions({
 
   const [completeOpen, setCompleteOpen] = useState(false);
   const [completeBusy, setCompleteBusy] = useState(false);
+  const [completeNotes, setCompleteNotes] = useState('');
 
   const [reassignOpen, setReassignOpen] = useState(false);
   const [reassignFornitore, setReassignFornitore] = useState('');
@@ -136,10 +139,17 @@ export default function AppointmentRowActions({
   }, [confirmOpen, row]);
 
   useEffect(() => {
+    if (completeOpen) setCompleteNotes('');
+  }, [completeOpen, row.id]);
+
+  useEffect(() => {
     if (reschedOpen) {
       setResData(String(row.data_appuntamento || '').slice(0, 10));
       setResOra(row.ora_inizio || '');
-      setResDurata(String(row.durata_minuti || 60));
+      setResDurata(
+        row.modalita === 'presenza' ? '30' : String(row.durata_minuti || 60),
+      );
+      setResFornitore(String(row.fornitore_id ?? ''));
       setResMotivo('');
     }
   }, [reschedOpen, row]);
@@ -181,13 +191,29 @@ export default function AppointmentRowActions({
       onError('Indicare il motivo della riprogrammazione.');
       return;
     }
+    const duraNum = Number(resDurata) || 60;
+    const presErrRes = validatePresenzaAppointmentClient(
+      row.modalita,
+      resData,
+      resOra,
+      duraNum,
+    );
+    if (presErrRes) {
+      onError(presErrRes);
+      return;
+    }
+    if (!resFornitore) {
+      onError('Selezionare il broker assegnato.');
+      return;
+    }
     setResBusy(true);
     try {
       await api.post(`/appointments/${row.id}/reschedule`, {
         data_appuntamento: resData,
         ora_inizio: resOra,
-        durata_minuti: Number(resDurata) || 60,
+        durata_minuti: duraNum,
         motivo_riprogrammazione: resMotivo.trim(),
+        fornitore_id: Number(resFornitore),
       });
       onSuccess?.('Riprogrammazione registrata.');
       setReschedOpen(false);
@@ -223,7 +249,9 @@ export default function AppointmentRowActions({
   const handleComplete = async () => {
     setCompleteBusy(true);
     try {
-      await api.post(`/appointments/${row.id}/complete`, {});
+      await api.post(`/appointments/${row.id}/complete`, {
+        ...(completeNotes.trim() ? { note_completamento: completeNotes.trim() } : {}),
+      });
       onSuccess?.('Appuntamento completato.');
       setCompleteOpen(false);
       closeMenu();
@@ -492,21 +520,60 @@ export default function AppointmentRowActions({
 
       <Modal isOpen={reschedOpen} onClose={() => !resBusy && setReschedOpen(false)} title="Riprogramma appuntamento" size="md">
         <div className="space-y-4">
+          {(role === 'fornitore' || role === 'admin' || role === 'supervisore') ? (
+            <div>
+              <label className="text-sm font-medium text-slate-700">Broker assegnato</label>
+              <select
+                className="input-field mt-1 w-full text-sm"
+                value={resFornitore}
+                onChange={(e) => setResFornitore(e.target.value)}
+              >
+                {suppliers.map((s) => (
+                  <option key={s.id} value={s.id}>
+                    {[s.nome, s.cognome].filter(Boolean).join(' ') || `Utente #${s.id}`}
+                  </option>
+                ))}
+              </select>
+              <p className="mt-1 text-xs text-slate-500">È possibile confermare il broker attuale o assegnare un altro utente Broker.</p>
+            </div>
+          ) : null}
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="text-sm font-medium text-slate-700">Nuova data *</label>
               <input type="date" className="input-field mt-1 w-full text-sm" value={resData} onChange={(e) => setResData(e.target.value)} />
+              {row.modalita === 'presenza' ? (
+                <p className="mt-1 text-xs text-slate-500">In presenza: solo giovedì.</p>
+              ) : null}
             </div>
             <div>
               <label className="text-sm font-medium text-slate-700">Nuova ora *</label>
-              <input type="time" className="input-field mt-1 w-full text-sm" value={resOra} onChange={(e) => setResOra(e.target.value)} />
+              {row.modalita === 'presenza' ? (
+                <select className="input-field mt-1 w-full text-sm" value={resOra} onChange={(e) => setResOra(e.target.value)}>
+                  <option value="">Seleziona…</option>
+                  {APPUNTAMENTO_PRESENZA_SLOT_ORARI.map((t) => (
+                    <option key={t} value={t}>
+                      {t}
+                    </option>
+                  ))}
+                </select>
+              ) : (
+                <input type="time" className="input-field mt-1 w-full text-sm" value={resOra} onChange={(e) => setResOra(e.target.value)} />
+              )}
             </div>
           </div>
           <div>
             <label className="text-sm font-medium text-slate-700">Durata</label>
-            <select className="input-field mt-1 w-full text-sm" value={resDurata} onChange={(e) => setResDurata(e.target.value)}>
+            <select
+              className="input-field mt-1 w-full text-sm"
+              value={resDurata}
+              disabled={row.modalita === 'presenza'}
+              onChange={(e) => setResDurata(e.target.value)}
+              title={row.modalita === 'presenza' ? 'Per la modalità in presenza la durata è 30 minuti' : undefined}
+            >
               <option value="30">30 minuti</option>
-              <option value="60">60 minuti</option>
+              <option value="60" disabled={row.modalita === 'presenza'}>
+                60 minuti
+              </option>
             </select>
           </div>
           <div>
@@ -547,7 +614,22 @@ export default function AppointmentRowActions({
       </Modal>
 
       <Modal isOpen={completeOpen} onClose={() => !completeBusy && setCompleteOpen(false)} title="Completa appuntamento" size="sm">
-        <p className="text-sm text-slate-600">Confermi di voler segnare questo appuntamento come completato? L&apos;operazione aggiornerà lo stato nell&apos;agenda.</p>
+        <p className="text-sm text-slate-600">
+          Confermi di voler segnare questo appuntamento come completato? L&apos;operazione aggiornerà lo stato nell&apos;agenda.
+        </p>
+        <div className="mt-4">
+          <label htmlFor="appt-complete-notes" className="text-sm font-medium text-slate-700">
+            Note
+          </label>
+          <textarea
+            id="appt-complete-notes"
+            className="input-field mt-1 w-full resize-y text-sm"
+            rows={3}
+            placeholder="Inserisci eventuali note sull'appuntamento"
+            value={completeNotes}
+            onChange={(e) => setCompleteNotes(e.target.value)}
+          />
+        </div>
         <div className="mt-4 flex flex-wrap justify-end gap-2 border-t border-slate-200/90 pt-4">
           <button type="button" className="btn-secondary" onClick={() => setCompleteOpen(false)} disabled={completeBusy}>
             Annulla

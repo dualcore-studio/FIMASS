@@ -28,6 +28,8 @@ export interface StructureOption {
   role: 'struttura';
   commission_type: CommissionStructureType;
   citta_provenienza?: string | null;
+  /** Tipologie attive sulla struttura (es. creazione preventivo lato broker). */
+  enabled_types?: string[] | null;
 }
 
 /** Stato valorizzazione / liquidazione (derivato lato API; liquidazione solo admin). */
@@ -410,6 +412,8 @@ export interface Appointment {
   stato: AppointmentStato;
   motivo_riprogrammazione: string | null;
   motivo_annullamento: string | null;
+  /** Note broker al completamento (facoltativo). */
+  note_completamento?: string | null;
   created_at: string;
   updated_at: string;
   struttura?: AppointmentUserRef | null;
