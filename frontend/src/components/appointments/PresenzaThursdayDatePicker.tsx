@@ -52,7 +52,7 @@ export default function PresenzaThursdayDatePicker({
   className,
   buttonClassName,
   disabled,
-  placeholder = 'Seleziona giorno…',
+  placeholder = 'Data',
 }: Props) {
   const rootRef = useRef<HTMLDivElement>(null);
   const [open, setOpen] = useState(false);
@@ -102,13 +102,23 @@ export default function PresenzaThursdayDatePicker({
         aria-expanded={open}
         onClick={() => !disabled && setOpen((o) => !o)}
         className={[
-          'flex min-h-[2.25rem] w-full items-center justify-between gap-2 text-left outline-none',
+          'flex w-full min-w-0 items-center justify-between gap-2 text-left outline-none',
           disabled ? 'cursor-not-allowed opacity-60' : 'cursor-pointer',
           buttonClassName ??
             'rounded border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 shadow-sm ring-offset-white transition hover:border-slate-300 focus-visible:border-slate-300 focus-visible:ring-2 focus-visible:ring-[var(--ui-focus-ring)]',
+          'h-9 py-0',
         ].filter(Boolean).join(' ')}
       >
-        <span className={triggerLabel === placeholder ? 'text-slate-400' : undefined}>{triggerLabel}</span>
+        <span
+          className={[
+            'min-w-0 flex-1 truncate',
+            triggerLabel === placeholder ? 'text-slate-400' : '',
+          ]
+            .filter(Boolean)
+            .join(' ')}
+        >
+          {triggerLabel}
+        </span>
         <CalendarIcon className="h-4 w-4 shrink-0 text-slate-500 opacity-70" aria-hidden />
       </button>
 

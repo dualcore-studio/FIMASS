@@ -534,11 +534,12 @@ export default function AppointmentsList() {
       setActionError('Indicare il luogo per l’appuntamento in presenza.');
       return;
     }
+    const durataInvio = createForm.modalita === 'presenza' ? 30 : createForm.durata_minuti;
     const presenzaValidate = validatePresenzaAppointmentClient(
       createForm.modalita,
       createForm.data_appuntamento,
       createForm.ora_inizio,
-      createForm.durata_minuti,
+      durataInvio,
     );
     if (presenzaValidate) {
       setActionError(presenzaValidate);
@@ -553,7 +554,7 @@ export default function AppointmentsList() {
         oggetto: createForm.oggetto.trim(),
         data_appuntamento: createForm.data_appuntamento,
         ora_inizio: createForm.ora_inizio,
-        durata_minuti: createForm.durata_minuti,
+        durata_minuti: durataInvio,
         assistito_nome: createForm.assistito_nome.trim(),
         assistito_cognome: createForm.assistito_cognome.trim(),
         assistito_telefono: createForm.assistito_telefono.trim(),
@@ -965,15 +966,14 @@ export default function AppointmentsList() {
                 <div>
                   <label className="text-sm font-medium text-slate-700">Data *</label>
                   {createForm.modalita === 'presenza' ? (
-                    <div className="mt-1">
-                      <PresenzaThursdayDatePicker
-                        value={createForm.data_appuntamento}
-                        onChange={(iso) => setCreateForm((f) => ({ ...f, data_appuntamento: iso }))}
-                        disabled={createBusy}
-                        buttonClassName={modalInput}
-                      />
-                      <p className="mt-1 text-xs text-slate-500">In presenza: solo giovedì (nessuna data manuale).</p>
-                    </div>
+                    <PresenzaThursdayDatePicker
+                      className="mt-1 w-full"
+                      value={createForm.data_appuntamento}
+                      onChange={(iso) => setCreateForm((f) => ({ ...f, data_appuntamento: iso }))}
+                      disabled={createBusy}
+                      buttonClassName={modalInput}
+                      placeholder="Data"
+                    />
                   ) : (
                     <input
                       type="date"
@@ -1006,26 +1006,21 @@ export default function AppointmentsList() {
                       onChange={(e) => setCreateForm((f) => ({ ...f, ora_inizio: e.target.value }))}
                     />
                   )}
-                  {createForm.modalita === 'presenza' ? (
-                    <p className="mt-1 text-xs text-slate-500">Finestra 10:00–12:30, slot da 30 minuti.</p>
-                  ) : null}
                 </div>
               </div>
-              <div>
-                <label className="text-sm font-medium text-slate-700">Durata</label>
-                <select
-                  className={`mt-1 ${modalInput} w-full`}
-                  value={createForm.durata_minuti}
-                  onChange={(e) => setCreateForm((f) => ({ ...f, durata_minuti: Number(e.target.value) as 30 | 60 }))}
-                  disabled={createForm.modalita === 'presenza'}
-                  title={createForm.modalita === 'presenza' ? 'Per la modalità in presenza la durata è fissata a 30 minuti' : undefined}
-                >
-                  <option value={30}>30 minuti</option>
-                  <option value={60} disabled={createForm.modalita === 'presenza'}>
-                    60 minuti
-                  </option>
-                </select>
-              </div>
+              {createForm.modalita !== 'presenza' ? (
+                <div>
+                  <label className="text-sm font-medium text-slate-700">Durata</label>
+                  <select
+                    className={`mt-1 ${modalInput} w-full`}
+                    value={createForm.durata_minuti}
+                    onChange={(e) => setCreateForm((f) => ({ ...f, durata_minuti: Number(e.target.value) as 30 | 60 }))}
+                  >
+                    <option value={30}>30 minuti</option>
+                    <option value={60}>60 minuti</option>
+                  </select>
+                </div>
+              ) : null}
               {createForm.modalita === 'presenza' ? (
                 <div>
                   <label className="text-sm font-medium text-slate-700">Luogo *</label>
