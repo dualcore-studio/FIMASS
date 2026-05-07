@@ -18,7 +18,12 @@ import AppointmentsMonthCalendar from '../../components/appointments/Appointment
 import { parseMonthKey } from '../../utils/appointmentCalendarMonth';
 import { modalitaBadgeClass, modalitaLabel } from '../../utils/appointmentLabels';
 import { getUserDisplayName, formatDate, isValidAssistitoPhone, isValidContactEmail } from '../../utils/helpers';
-import { APPUNTAMENTO_PRESENZA_SLOT_ORARI, validatePresenzaAppointmentClient } from '../../utils/appointmentPresenzaSlots';
+import {
+  APPUNTAMENTO_PRESENZA_SLOT_ORARI,
+  dataIsoIsThursday,
+  validatePresenzaAppointmentClient,
+} from '../../utils/appointmentPresenzaSlots';
+import PresenzaThursdayDatePicker from '../../components/appointments/PresenzaThursdayDatePicker';
 
 const STATI = ['RICHIESTO', 'CONFERMATO', 'DA RIPROGRAMMARE', 'COMPLETATO', 'ANNULLATO'] as const;
 const CAL_LIMIT = 500;
@@ -930,11 +935,17 @@ export default function AppointmentsList() {
                   value={createForm.modalita}
                   onChange={(e) => {
                     const m = e.target.value as typeof createForm.modalita;
-                    setCreateForm((f) => ({
-                      ...f,
-                      modalita: m,
-                      ...(m === 'presenza' ? { durata_minuti: 30, ora_inizio: '' } : {}),
-                    }));
+                    setCreateForm((f) => {
+                      const dataIso = String(f.data_appuntamento || '').trim().slice(0, 10);
+                      const clearDataIfInvalidPresenza =
+                        m === 'presenza' && dataIso.length > 0 && !dataIsoIsThursday(dataIso);
+                      return {
+                        ...f,
+                        modalita: m,
+                        ...(m === 'presenza' ? { durata_minuti: 30, ora_inizio: '' } : {}),
+                        ...(clearDataIfInvalidPresenza ? { data_appuntamento: '' } : {}),
+                      };
+                    });
                   }}
                 >
                   <option value="presenza">In presenza</option>
@@ -953,15 +964,24 @@ export default function AppointmentsList() {
               <div className="grid grid-cols-2 gap-2">
                 <div>
                   <label className="text-sm font-medium text-slate-700">Data *</label>
-                  <input
-                    type="date"
-                    className={`mt-1 ${modalInput} w-full`}
-                    value={createForm.data_appuntamento}
-                    onChange={(e) => setCreateForm((f) => ({ ...f, data_appuntamento: e.target.value }))}
-                  />
                   {createForm.modalita === 'presenza' ? (
-                    <p className="mt-1 text-xs text-slate-500">In presenza: solo giorno giovedì.</p>
-                  ) : null}
+                    <div className="mt-1">
+                      <PresenzaThursdayDatePicker
+                        value={createForm.data_appuntamento}
+                        onChange={(iso) => setCreateForm((f) => ({ ...f, data_appuntamento: iso }))}
+                        disabled={createBusy}
+                        buttonClassName={modalInput}
+                      />
+                      <p className="mt-1 text-xs text-slate-500">In presenza: solo giovedì (nessuna data manuale).</p>
+                    </div>
+                  ) : (
+                    <input
+                      type="date"
+                      className={`mt-1 ${modalInput} w-full`}
+                      value={createForm.data_appuntamento}
+                      onChange={(e) => setCreateForm((f) => ({ ...f, data_appuntamento: e.target.value }))}
+                    />
+                  )}
                 </div>
                 <div>
                   <label className="text-sm font-medium text-slate-700">Ora inizio *</label>

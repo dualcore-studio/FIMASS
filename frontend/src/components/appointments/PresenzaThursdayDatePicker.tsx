@@ -1,0 +1,198 @@
+import { useEffect, useRef, useState } from 'react';
+import { Calendar as CalendarIcon, ChevronLeft, ChevronRight } from 'lucide-react';
+import {
+  addMonths,
+  eachDayOfInterval,
+  endOfMonth,
+  endOfWeek,
+  format,
+  isSameDay,
+  isSameMonth,
+  startOfMonth,
+  startOfWeek,
+} from 'date-fns';
+import { it } from 'date-fns/locale';
+import { dataIsoIsThursday } from '../../utils/appointmentPresenzaSlots';
+
+const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
+
+function parseLocalYMD(iso: string): Date | null {
+  const raw = iso.trim().slice(0, 10);
+  if (!DATE_RE.test(raw)) return null;
+  const [yy, mm, dd] = raw.split('-').map((x) => parseInt(x, 10));
+  if (!Number.isFinite(yy) || !Number.isFinite(mm) || !Number.isFinite(dd)) return null;
+  const d = new Date(yy, mm - 1, dd, 12, 0, 0);
+  if (Number.isNaN(d.getTime())) return null;
+  return d;
+}
+
+function toIsoLocal(d: Date): string {
+  return format(d, 'yyyy-MM-dd');
+}
+
+type Props = {
+  value: string;
+  onChange: (isoDate: string) => void;
+  className?: string;
+  buttonClassName?: string;
+  disabled?: boolean;
+  /** Mostrato nel trigger quando non c’è selezione */
+  placeholder?: string;
+};
+
+const WEEKDAY_LABELS = ['L', 'M', 'M', 'G', 'V', 'S', 'D'] as const;
+
+/**
+ * Solo giovedì selezionabili; gli altri giorni sono visivamente disabilitati (grigi / barrati).
+ * Nessuna digitazione diretta sulla data ISO.
+ */
+export default function PresenzaThursdayDatePicker({
+  value,
+  onChange,
+  className,
+  buttonClassName,
+  disabled,
+  placeholder = 'Seleziona giorno…',
+}: Props) {
+  const rootRef = useRef<HTMLDivElement>(null);
+  const [open, setOpen] = useState(false);
+  const selected = parseLocalYMD(value);
+  const [visibleMonth, setVisibleMonth] = useState(() => startOfMonth(selected ?? new Date()));
+
+  useEffect(() => {
+    if (value && dataIsoIsThursday(value)) {
+      const d = parseLocalYMD(value);
+      if (d) setVisibleMonth(startOfMonth(d));
+    }
+  }, [value]);
+
+  useEffect(() => {
+    if (!open) return;
+    const onDoc = (e: MouseEvent) => {
+      if (rootRef.current && !rootRef.current.contains(e.target as Node)) setOpen(false);
+    };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setOpen(false);
+    };
+    document.addEventListener('mousedown', onDoc);
+    document.addEventListener('keydown', onKey);
+    return () => {
+      document.removeEventListener('mousedown', onDoc);
+      document.removeEventListener('keydown', onKey);
+    };
+  }, [open]);
+
+  const monthStart = startOfMonth(visibleMonth);
+  const monthEnd = endOfMonth(visibleMonth);
+  const calStart = startOfWeek(monthStart, { weekStartsOn: 1 });
+  const calEnd = endOfWeek(monthEnd, { weekStartsOn: 1 });
+  const days = eachDayOfInterval({ start: calStart, end: calEnd });
+
+  const triggerLabel =
+    selected && dataIsoIsThursday(value)
+      ? format(selected, "d MMMM yyyy", { locale: it })
+      : placeholder;
+
+  return (
+    <div ref={rootRef} className={['relative', className].filter(Boolean).join(' ')}>
+      <button
+        type="button"
+        disabled={disabled}
+        aria-haspopup="dialog"
+        aria-expanded={open}
+        onClick={() => !disabled && setOpen((o) => !o)}
+        className={[
+          'flex min-h-[2.25rem] w-full items-center justify-between gap-2 text-left outline-none',
+          disabled ? 'cursor-not-allowed opacity-60' : 'cursor-pointer',
+          buttonClassName ??
+            'rounded border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 shadow-sm ring-offset-white transition hover:border-slate-300 focus-visible:border-slate-300 focus-visible:ring-2 focus-visible:ring-[var(--ui-focus-ring)]',
+        ].filter(Boolean).join(' ')}
+      >
+        <span className={triggerLabel === placeholder ? 'text-slate-400' : undefined}>{triggerLabel}</span>
+        <CalendarIcon className="h-4 w-4 shrink-0 text-slate-500 opacity-70" aria-hidden />
+      </button>
+
+      {open && !disabled ? (
+        <div
+          role="dialog"
+          aria-label="Calendario: solo giorni giovedì"
+          className="absolute left-0 z-50 mt-1 min-w-[18rem] max-w-[100vw] rounded-lg border border-slate-200 bg-white p-3 shadow-lg"
+        >
+          <div className="mb-3 flex items-center justify-between gap-2">
+            <button
+              type="button"
+              aria-label="Mese precedente"
+              className="inline-flex rounded p-1.5 text-slate-600 hover:bg-slate-100 focus-visible:ring-2 focus-visible:ring-[var(--ui-focus-ring)] focus-visible:outline-none"
+              onClick={() => setVisibleMonth((m) => startOfMonth(addMonths(m, -1)))}
+            >
+              <ChevronLeft className="h-4 w-4" />
+            </button>
+            <div className="text-center text-sm font-semibold capitalize text-slate-800">
+              {format(visibleMonth, 'LLLL yyyy', { locale: it })}
+            </div>
+            <button
+              type="button"
+              aria-label="Mese successivo"
+              className="inline-flex rounded p-1.5 text-slate-600 hover:bg-slate-100 focus-visible:ring-2 focus-visible:ring-[var(--ui-focus-ring)] focus-visible:outline-none"
+              onClick={() => setVisibleMonth((m) => startOfMonth(addMonths(m, 1)))}
+            >
+              <ChevronRight className="h-4 w-4" />
+            </button>
+          </div>
+
+          <div className="mb-2 grid grid-cols-7 gap-0.5 text-center text-[10px] font-medium uppercase tracking-wide text-slate-500">
+            {WEEKDAY_LABELS.map((l, i) => (
+              <span key={`wdh-${i}-${l}`}>{l}</span>
+            ))}
+          </div>
+
+          <div className="grid grid-cols-7 gap-0.5">
+            {days.map((d) => {
+              const thu = d.getDay() === 4;
+              const inMonth = isSameMonth(d, visibleMonth);
+              const isSel = !!(selected && isSameDay(d, selected));
+
+              const canPick = thu;
+              return (
+                <button
+                  key={toIsoLocal(d)}
+                  type="button"
+                  disabled={!canPick}
+                  onClick={() => {
+                    if (!canPick) return;
+                    onChange(toIsoLocal(d));
+                    setOpen(false);
+                  }}
+                  className={[
+                    'aspect-square max-h-10 rounded-md text-sm transition',
+                    canPick
+                      ? isSel
+                        ? 'bg-[var(--ui-primary)] font-semibold text-white shadow-inner'
+                        : [
+                            'font-medium hover:bg-slate-100 active:bg-slate-200 focus-visible:z-10 focus-visible:ring-2 focus-visible:ring-[var(--ui-focus-ring)] focus-visible:outline-none',
+                            inMonth ? 'text-slate-800' : 'text-slate-600',
+                          ].join(' ')
+                      : ['cursor-not-allowed text-slate-400 line-through opacity-55', !inMonth && 'opacity-35'].filter(Boolean).join(' '),
+                  ].join(' ')}
+                  aria-label={
+                    canPick
+                      ? `Giovedì ${format(d, 'd MMMM yyyy', { locale: it })}`
+                      : `${format(d, 'EEEE d', { locale: it })} non disponibile`
+                  }
+                  aria-pressed={isSel || undefined}
+                >
+                  <span>{format(d, 'd')}</span>
+                </button>
+              );
+            })}
+          </div>
+
+          <p className="mt-3 border-t border-slate-100 pt-2 text-[11px] leading-snug text-slate-500">
+            Sono selezionabili solo i <strong className="font-medium text-slate-600">giovedì</strong>. Gli altri
+            giorni non sono disponibili.
+          </p>
+        </div>
+      ) : null}
+    </div>
+  );
+}
