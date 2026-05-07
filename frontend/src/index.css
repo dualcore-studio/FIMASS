@@ -174,6 +174,31 @@
     box-shadow: 0 0 0 3px var(--ui-focus-ring);
   }
 
+  /**
+   * Allinea i `<select>` agli `<input>` su Safari/macOS e altri browser (altezza, padding, freccia).
+   * Le pagine usano già la classe `.input-field` sulle select — nessun wrapper aggiuntivo.
+   */
+  select.input-field:not([multiple]) {
+    box-sizing: border-box;
+    min-height: 2.25rem;
+    line-height: 1.25rem;
+    appearance: none;
+    -webkit-appearance: none;
+    -moz-appearance: none;
+    background-color: #fff;
+    color: rgb(15 23 42);
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20' stroke='%2364748b'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='m6 8 4 4 4-4'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 0.65rem center;
+    background-size: 0.875rem;
+    padding-right: 2.25rem;
+  }
+
+  select.input-field:not([multiple]):disabled {
+    cursor: not-allowed;
+    opacity: 0.65;
+  }
+
   .card {
     @apply rounded-xl border border-slate-200/90 bg-white text-slate-900 shadow-[0_1px_3px_rgba(15,23,42,0.05),0_1px_2px_rgba(15,23,42,0.04)];
   }

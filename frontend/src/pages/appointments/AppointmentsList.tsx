@@ -1026,7 +1026,7 @@ export default function AppointmentsList() {
                 ) : null}
               </div>
               {createForm.modalita === 'presenza' ? (
-                <div className="mt-auto space-y-3 pt-3">
+                <div className="mt-auto space-y-3 pt-3 md:hidden">
                   <div>
                     <label className="text-sm font-medium text-slate-700">Luogo *</label>
                     <input
@@ -1086,7 +1086,7 @@ export default function AppointmentsList() {
                   <div>
                     <label className="text-sm font-medium text-slate-700">Note</label>
                     <textarea
-                      className={`mt-1 ${modalInput} min-h-[6.75rem] w-full resize-none`}
+                      className={`mt-1 ${modalInput} box-border min-h-[7.5rem] w-full resize-none`}
                       rows={4}
                       value={createForm.note}
                       onChange={(e) => setCreateForm((f) => ({ ...f, note: e.target.value }))}
@@ -1095,11 +1095,11 @@ export default function AppointmentsList() {
                 ) : null}
               </div>
               {createForm.modalita === 'presenza' ? (
-                <div className="mt-auto space-y-3 pt-3">
+                <div className="mt-auto space-y-3 pt-3 md:hidden">
                   <div>
                     <label className="text-sm font-medium text-slate-700">Note</label>
                     <textarea
-                      className={`mt-1 ${modalInput} min-h-[6.75rem] w-full resize-none`}
+                      className={`mt-1 ${modalInput} box-border min-h-[7.5rem] w-full resize-none`}
                       rows={4}
                       value={createForm.note}
                       onChange={(e) => setCreateForm((f) => ({ ...f, note: e.target.value }))}
@@ -1108,6 +1108,27 @@ export default function AppointmentsList() {
                 </div>
               ) : null}
             </div>
+            {createForm.modalita === 'presenza' ? (
+              <div className="col-span-2 hidden gap-4 md:grid md:grid-cols-2 md:gap-x-4 md:items-end">
+                <div>
+                  <label className="text-sm font-medium text-slate-700">Luogo *</label>
+                  <input
+                    className={`mt-1 ${modalInput} box-border w-full`}
+                    value={createForm.luogo}
+                    onChange={(e) => setCreateForm((f) => ({ ...f, luogo: e.target.value }))}
+                  />
+                </div>
+                <div>
+                  <label className="text-sm font-medium text-slate-700">Note</label>
+                  <textarea
+                    className={`mt-1 ${modalInput} box-border min-h-[7.5rem] w-full resize-none`}
+                    rows={4}
+                    value={createForm.note}
+                    onChange={(e) => setCreateForm((f) => ({ ...f, note: e.target.value }))}
+                  />
+                </div>
+              </div>
+            ) : null}
           </div>
         </div>
         <div className="mt-2 flex flex-wrap justify-end gap-2 border-t border-slate-200/90 pt-4">
