@@ -911,179 +911,202 @@ export default function AppointmentsList() {
 
       <Modal isOpen={createOpen} onClose={() => !createBusy && setCreateOpen(false)} title="Nuovo appuntamento" size="lg">
         <div className="space-y-4">
-          <div className="grid max-h-[min(80vh,640px)] gap-4 overflow-y-auto pr-1 md:grid-cols-2">
-            <div className="space-y-3">
-              <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Dati appuntamento</p>
-              <div>
-                <label className="text-sm font-medium text-slate-700">Broker *</label>
-                <select
-                  className={`mt-1 ${modalInput} w-full`}
-                  value={createForm.fornitore_id}
-                  onChange={(e) => setCreateForm((f) => ({ ...f, fornitore_id: e.target.value }))}
-                >
-                  <option value="">Seleziona…</option>
-                  {suppliers.map((s) => (
-                    <option key={s.id} value={s.id}>
-                      {[s.nome, s.cognome].filter(Boolean).join(' ') || `#${s.id}`}
-                    </option>
-                  ))}
-                </select>
-              </div>
-              <div>
-                <label className="text-sm font-medium text-slate-700">Modalità *</label>
-                <select
-                  className={`mt-1 ${modalInput} w-full`}
-                  value={createForm.modalita}
-                  onChange={(e) => {
-                    const m = e.target.value as typeof createForm.modalita;
-                    setCreateForm((f) => {
-                      const dataIso = String(f.data_appuntamento || '').trim().slice(0, 10);
-                      const clearDataIfInvalidPresenza =
-                        m === 'presenza' && dataIso.length > 0 && !dataIsoIsThursday(dataIso);
-                      return {
-                        ...f,
-                        modalita: m,
-                        ...(m === 'presenza' ? { durata_minuti: 30, ora_inizio: '' } : {}),
-                        ...(clearDataIfInvalidPresenza ? { data_appuntamento: '' } : {}),
-                      };
-                    });
-                  }}
-                >
-                  <option value="presenza">In presenza</option>
-                  <option value="videocall">Videocall</option>
-                  <option value="telefonata">Telefonata</option>
-                </select>
-              </div>
-              <div>
-                <label className="text-sm font-medium text-slate-700">Oggetto *</label>
-                <input
-                  className={`mt-1 ${modalInput} w-full`}
-                  value={createForm.oggetto}
-                  onChange={(e) => setCreateForm((f) => ({ ...f, oggetto: e.target.value }))}
-                />
-              </div>
-              <div className="grid grid-cols-2 gap-2">
+          <div className="grid gap-4 md:grid-cols-2 md:items-stretch md:gap-x-4">
+            <div className="flex min-h-0 flex-col md:h-full">
+              <div className="space-y-3">
+                <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Dati appuntamento</p>
                 <div>
-                  <label className="text-sm font-medium text-slate-700">Data *</label>
-                  {createForm.modalita === 'presenza' ? (
-                    <PresenzaThursdayDatePicker
-                      className="mt-1 w-full"
-                      value={createForm.data_appuntamento}
-                      onChange={(iso) => setCreateForm((f) => ({ ...f, data_appuntamento: iso }))}
-                      disabled={createBusy}
-                      buttonClassName={modalInput}
-                      placeholder="Data"
-                    />
-                  ) : (
-                    <input
-                      type="date"
-                      className={`mt-1 ${modalInput} w-full`}
-                      value={createForm.data_appuntamento}
-                      onChange={(e) => setCreateForm((f) => ({ ...f, data_appuntamento: e.target.value }))}
-                    />
-                  )}
-                </div>
-                <div>
-                  <label className="text-sm font-medium text-slate-700">Ora inizio *</label>
-                  {createForm.modalita === 'presenza' ? (
-                    <select
-                      className={`mt-1 ${modalInput} w-full`}
-                      value={createForm.ora_inizio}
-                      onChange={(e) => setCreateForm((f) => ({ ...f, ora_inizio: e.target.value }))}
-                    >
-                      <option value="">Seleziona orario…</option>
-                      {APPUNTAMENTO_PRESENZA_SLOT_ORARI.map((t) => (
-                        <option key={t} value={t}>
-                          {t}
-                        </option>
-                      ))}
-                    </select>
-                  ) : (
-                    <input
-                      type="time"
-                      className={`mt-1 ${modalInput} w-full`}
-                      value={createForm.ora_inizio}
-                      onChange={(e) => setCreateForm((f) => ({ ...f, ora_inizio: e.target.value }))}
-                    />
-                  )}
-                </div>
-              </div>
-              {createForm.modalita !== 'presenza' ? (
-                <div>
-                  <label className="text-sm font-medium text-slate-700">Durata</label>
+                  <label className="text-sm font-medium text-slate-700">Broker *</label>
                   <select
                     className={`mt-1 ${modalInput} w-full`}
-                    value={createForm.durata_minuti}
-                    onChange={(e) => setCreateForm((f) => ({ ...f, durata_minuti: Number(e.target.value) as 30 | 60 }))}
+                    value={createForm.fornitore_id}
+                    onChange={(e) => setCreateForm((f) => ({ ...f, fornitore_id: e.target.value }))}
                   >
-                    <option value={30}>30 minuti</option>
-                    <option value={60}>60 minuti</option>
+                    <option value="">Seleziona…</option>
+                    {suppliers.map((s) => (
+                      <option key={s.id} value={s.id}>
+                        {[s.nome, s.cognome].filter(Boolean).join(' ') || `#${s.id}`}
+                      </option>
+                    ))}
                   </select>
                 </div>
-              ) : null}
-              {createForm.modalita === 'presenza' ? (
                 <div>
-                  <label className="text-sm font-medium text-slate-700">Luogo *</label>
+                  <label className="text-sm font-medium text-slate-700">Modalità *</label>
+                  <select
+                    className={`mt-1 ${modalInput} w-full`}
+                    value={createForm.modalita}
+                    onChange={(e) => {
+                      const m = e.target.value as typeof createForm.modalita;
+                      setCreateForm((f) => {
+                        const dataIso = String(f.data_appuntamento || '').trim().slice(0, 10);
+                        const clearDataIfInvalidPresenza =
+                          m === 'presenza' && dataIso.length > 0 && !dataIsoIsThursday(dataIso);
+                        return {
+                          ...f,
+                          modalita: m,
+                          ...(m === 'presenza' ? { durata_minuti: 30, ora_inizio: '' } : {}),
+                          ...(clearDataIfInvalidPresenza ? { data_appuntamento: '' } : {}),
+                        };
+                      });
+                    }}
+                  >
+                    <option value="presenza">In presenza</option>
+                    <option value="videocall">Videocall</option>
+                    <option value="telefonata">Telefonata</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="text-sm font-medium text-slate-700">Oggetto *</label>
                   <input
                     className={`mt-1 ${modalInput} w-full`}
-                    value={createForm.luogo}
-                    onChange={(e) => setCreateForm((f) => ({ ...f, luogo: e.target.value }))}
+                    value={createForm.oggetto}
+                    onChange={(e) => setCreateForm((f) => ({ ...f, oggetto: e.target.value }))}
                   />
+                </div>
+                <div className="grid grid-cols-2 gap-2">
+                  <div>
+                    <label className="text-sm font-medium text-slate-700">Data *</label>
+                    {createForm.modalita === 'presenza' ? (
+                      <PresenzaThursdayDatePicker
+                        className="mt-1 w-full"
+                        value={createForm.data_appuntamento}
+                        onChange={(iso) => setCreateForm((f) => ({ ...f, data_appuntamento: iso }))}
+                        disabled={createBusy}
+                        buttonClassName={modalInput}
+                        placeholder="Data"
+                      />
+                    ) : (
+                      <input
+                        type="date"
+                        className={`mt-1 ${modalInput} w-full`}
+                        value={createForm.data_appuntamento}
+                        onChange={(e) => setCreateForm((f) => ({ ...f, data_appuntamento: e.target.value }))}
+                      />
+                    )}
+                  </div>
+                  <div>
+                    <label className="text-sm font-medium text-slate-700">Ora inizio *</label>
+                    {createForm.modalita === 'presenza' ? (
+                      <select
+                        className={`mt-1 ${modalInput} w-full`}
+                        value={createForm.ora_inizio}
+                        onChange={(e) => setCreateForm((f) => ({ ...f, ora_inizio: e.target.value }))}
+                      >
+                        <option value="">Seleziona orario…</option>
+                        {APPUNTAMENTO_PRESENZA_SLOT_ORARI.map((t) => (
+                          <option key={t} value={t}>
+                            {t}
+                          </option>
+                        ))}
+                      </select>
+                    ) : (
+                      <input
+                        type="time"
+                        className={`mt-1 ${modalInput} w-full`}
+                        value={createForm.ora_inizio}
+                        onChange={(e) => setCreateForm((f) => ({ ...f, ora_inizio: e.target.value }))}
+                      />
+                    )}
+                  </div>
+                </div>
+                {createForm.modalita !== 'presenza' ? (
+                  <div>
+                    <label className="text-sm font-medium text-slate-700">Durata</label>
+                    <select
+                      className={`mt-1 ${modalInput} w-full`}
+                      value={createForm.durata_minuti}
+                      onChange={(e) =>
+                        setCreateForm((f) => ({ ...f, durata_minuti: Number(e.target.value) as 30 | 60 }))
+                      }
+                    >
+                      <option value={30}>30 minuti</option>
+                      <option value={60}>60 minuti</option>
+                    </select>
+                  </div>
+                ) : null}
+              </div>
+              {createForm.modalita === 'presenza' ? (
+                <div className="mt-auto space-y-3 pt-3">
+                  <div>
+                    <label className="text-sm font-medium text-slate-700">Luogo *</label>
+                    <input
+                      className={`mt-1 ${modalInput} w-full`}
+                      value={createForm.luogo}
+                      onChange={(e) => setCreateForm((f) => ({ ...f, luogo: e.target.value }))}
+                    />
+                  </div>
                 </div>
               ) : null}
             </div>
-            <div className="space-y-3">
-              <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Dati assistito</p>
-              <div className="grid grid-cols-2 gap-2">
-                <div>
-                  <label className="text-sm font-medium text-slate-700">Nome *</label>
-                  <input
-                    className={`mt-1 ${modalInput} w-full`}
-                    value={createForm.assistito_nome}
-                    onChange={(e) => setCreateForm((f) => ({ ...f, assistito_nome: e.target.value }))}
-                  />
+            <div className="flex min-h-0 flex-col md:h-full">
+              <div className="space-y-3">
+                <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Dati assistito</p>
+                <div className="grid grid-cols-2 gap-2">
+                  <div>
+                    <label className="text-sm font-medium text-slate-700">Nome *</label>
+                    <input
+                      className={`mt-1 ${modalInput} w-full`}
+                      value={createForm.assistito_nome}
+                      onChange={(e) => setCreateForm((f) => ({ ...f, assistito_nome: e.target.value }))}
+                    />
+                  </div>
+                  <div>
+                    <label className="text-sm font-medium text-slate-700">Cognome *</label>
+                    <input
+                      className={`mt-1 ${modalInput} w-full`}
+                      value={createForm.assistito_cognome}
+                      onChange={(e) => setCreateForm((f) => ({ ...f, assistito_cognome: e.target.value }))}
+                    />
+                  </div>
                 </div>
                 <div>
-                  <label className="text-sm font-medium text-slate-700">Cognome *</label>
+                  <label className="text-sm font-medium text-slate-700">Telefono assistito *</label>
                   <input
+                    type="tel"
                     className={`mt-1 ${modalInput} w-full`}
-                    value={createForm.assistito_cognome}
-                    onChange={(e) => setCreateForm((f) => ({ ...f, assistito_cognome: e.target.value }))}
+                    value={createForm.assistito_telefono}
+                    onChange={(e) => setCreateForm((f) => ({ ...f, assistito_telefono: e.target.value }))}
+                    autoComplete="tel"
+                  />
+                  {createForm.modalita === 'telefonata' ? (
+                    <p className="mt-1 text-xs text-slate-500">Per la telefonata si userà questo numero.</p>
+                  ) : null}
+                </div>
+                <div>
+                  <label className="text-sm font-medium text-slate-700">Email assistito *</label>
+                  <input
+                    type="email"
+                    className={`mt-1 ${modalInput} w-full`}
+                    value={createForm.assistito_email}
+                    onChange={(e) => setCreateForm((f) => ({ ...f, assistito_email: e.target.value }))}
+                    autoComplete="email"
                   />
                 </div>
-              </div>
-              <div>
-                <label className="text-sm font-medium text-slate-700">Telefono assistito *</label>
-                <input
-                  type="tel"
-                  className={`mt-1 ${modalInput} w-full`}
-                  value={createForm.assistito_telefono}
-                  onChange={(e) => setCreateForm((f) => ({ ...f, assistito_telefono: e.target.value }))}
-                  autoComplete="tel"
-                />
-                {createForm.modalita === 'telefonata' ? (
-                  <p className="mt-1 text-xs text-slate-500">Per la telefonata si userà questo numero.</p>
+                {createForm.modalita !== 'presenza' ? (
+                  <div>
+                    <label className="text-sm font-medium text-slate-700">Note</label>
+                    <textarea
+                      className={`mt-1 ${modalInput} min-h-[6.75rem] w-full resize-none`}
+                      rows={4}
+                      value={createForm.note}
+                      onChange={(e) => setCreateForm((f) => ({ ...f, note: e.target.value }))}
+                    />
+                  </div>
                 ) : null}
               </div>
-              <div>
-                <label className="text-sm font-medium text-slate-700">Email assistito *</label>
-                <input
-                  type="email"
-                  className={`mt-1 ${modalInput} w-full`}
-                  value={createForm.assistito_email}
-                  onChange={(e) => setCreateForm((f) => ({ ...f, assistito_email: e.target.value }))}
-                  autoComplete="email"
-                />
-              </div>
-              <div>
-                <label className="text-sm font-medium text-slate-700">Note</label>
-                <textarea
-                  className={`mt-1 ${modalInput} w-full resize-y`}
-                  rows={4}
-                  value={createForm.note}
-                  onChange={(e) => setCreateForm((f) => ({ ...f, note: e.target.value }))}
-                />
-              </div>
+              {createForm.modalita === 'presenza' ? (
+                <div className="mt-auto space-y-3 pt-3">
+                  <div>
+                    <label className="text-sm font-medium text-slate-700">Note</label>
+                    <textarea
+                      className={`mt-1 ${modalInput} min-h-[6.75rem] w-full resize-none`}
+                      rows={4}
+                      value={createForm.note}
+                      onChange={(e) => setCreateForm((f) => ({ ...f, note: e.target.value }))}
+                    />
+                  </div>
+                </div>
+              ) : null}
             </div>
           </div>
         </div>

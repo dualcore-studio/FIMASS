@@ -145,7 +145,7 @@ export default function PresenzaThursdayDatePicker({
 
   const triggerLabel =
     selected && dataIsoIsThursday(value)
-      ? format(selected, "d MMMM yyyy", { locale: it })
+      ? format(selected, 'dd/MM/yyyy')
       : placeholder;
 
   const calendarPanel = open && !disabled && (
@@ -251,7 +251,7 @@ export default function PresenzaThursdayDatePicker({
       >
         <span
           className={[
-            'min-w-0 flex-1 truncate',
+            'min-w-0 flex-1 whitespace-nowrap tabular-nums',
             triggerLabel === placeholder ? 'text-slate-400' : '',
           ]
             .filter(Boolean)
