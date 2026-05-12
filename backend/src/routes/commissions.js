@@ -17,6 +17,9 @@ const router = express.Router();
 
 const COMMISSION_TYPES = new Set(['SEGNALATORE', 'PARTNER', 'SPORTELLO_AMICO']);
 
+/** Provv. struttura da conteggiare in totali / liquidazione: Segnalatore e Collaboratore IVASS (PARTNER), non Sportello Amico. */
+const STRUCTURE_COMMISSION_LIQUIDABLE_TYPES = new Set(['SEGNALATORE', 'PARTNER']);
+
 /** Quota S.A. (% sulla provvigione broker). Sportello Amico: stesso importo anche in provv. struttura (50%). */
 function quotaSaPctForType(t) {
   if (t === 'PARTNER') return 15;
@@ -257,11 +260,14 @@ function summarize(rows) {
     totaleBroker += Number(e.provvigioni_broker) || 0;
     totaleSa += Number(e.sportello_amico_commission) || 0;
     const strAmt = Number(e.structure_commission_amount) || 0;
-    totaleStrutture += strAmt;
-    if (e.commission_status === 'LIQUIDATA') {
-      totaleStruttureLiquidate += strAmt;
-    } else if (e.commission_status === 'VALORIZZATA') {
-      totaleStruttureDaLiquidare += strAmt;
+    const countsStruttura = STRUCTURE_COMMISSION_LIQUIDABLE_TYPES.has(e.structure_commission_type);
+    if (countsStruttura) {
+      totaleStrutture += strAmt;
+      if (e.commission_status === 'LIQUIDATA') {
+        totaleStruttureLiquidate += strAmt;
+      } else if (e.commission_status === 'VALORIZZATA') {
+        totaleStruttureDaLiquidare += strAmt;
+      }
     }
   }
   return {
@@ -415,6 +421,12 @@ router.patch('/:id/liquidate', authenticateToken, authorizeRoles('admin', 'forni
     if (preview.commission_status !== 'VALORIZZATA') {
       return res.status(400).json({
         error: 'Si possono liquidare solo provvigioni già valorizzate con importo struttura',
+      });
+    }
+    if (preview.structure_commission_type === 'SPORTELLO_AMICO') {
+      return res.status(400).json({
+        error:
+          'Le provvigioni struttura Sportello Amico rientrano solo nel totale Quota Sportello Amico e non nella liquidazione provvigioni struttura',
       });
     }
     if (isRowLiquidated(current)) {
