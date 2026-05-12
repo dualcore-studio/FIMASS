@@ -110,7 +110,7 @@ export default function CommissionForm() {
             setProvvigioniBroker(String(pb));
           } else {
             const sa = row.sportello_amico_commission;
-            if (sa != null && Number.isFinite(Number(sa)) && Number(sa) > 0) {
+            if (sa != null && Number.isFinite(Number(sa)) && Number(sa) !== 0) {
               const ct = normalizeCommissionStructureType(row.structure_commission_type);
               const q = sportelloAmicoQuotaPercentForType(ct);
               setProvvigioniBroker(q > 0 ? String(roundMoney((Number(sa) * 100) / q)) : '');
@@ -141,7 +141,7 @@ export default function CommissionForm() {
   const brokerNum = Number(String(provvigioniBroker).replace(',', '.'));
   const brokerFieldFilled = provvigioniBroker.trim() !== '';
   const hasValidBroker =
-    Boolean(structureId) && brokerFieldFilled && Number.isFinite(brokerNum) && brokerNum >= 0;
+    Boolean(structureId) && brokerFieldFilled && Number.isFinite(brokerNum);
   const previewStructAmount = hasValidBroker ? roundMoney(brokerNum * (previewPct / 100)) : null;
   const previewSaQuota = hasValidBroker ? roundMoney(brokerNum * (previewSaPct / 100)) : null;
 
@@ -151,8 +151,8 @@ export default function CommissionForm() {
     if (!policyNumber.trim()) fe.policyNumber = 'Obbligatorio.';
     if (!structureId || !Number.isFinite(Number(structureId))) fe.structureId = 'Obbligatorio.';
     const br = Number(String(provvigioniBroker).replace(',', '.'));
-    if (brokerFieldFilled && (!Number.isFinite(br) || br < 0)) {
-      fe.provvigioniBroker = 'Inserisci un importo numerico ≥ 0 oppure lascia vuoto per solo tracciamento.';
+    if (brokerFieldFilled && !Number.isFinite(br)) {
+      fe.provvigioniBroker = 'Inserisci un importo numerico oppure lascia vuoto per solo tracciamento.';
     }
     setFieldErrors(fe);
     if (Object.keys(fe).length > 0) {
@@ -235,7 +235,7 @@ export default function CommissionForm() {
         </h1>
         <p className="mt-1 text-sm text-gray-600">
           {isCreate
-            ? 'Puoi registrare la polizza senza importi provvigionali per tenerne traccia (stato Da valorizzare). Con provvigione broker calcoliamo automaticamente Quota S.A. e provvigione struttura in base al tipo struttura.'
+            ? 'Puoi registrare la polizza senza importi provvigionali per tenerne traccia (stato Da valorizzare). Con provvigione broker (anche negativa) calcoliamo automaticamente Quota S.A. e provvigione struttura in base al tipo struttura.'
             : 'Aggiorna i dati; le quote si ricalcolano da provvigione broker quando valorizzata, in base alla tipologia struttura.'}
         </p>
       </header>
@@ -321,7 +321,7 @@ export default function CommissionForm() {
         <div className="space-y-2 border-t border-gray-100 pt-6">
           <p className="text-sm font-medium text-gray-800">Dati economici</p>
           <p className="text-xs text-gray-500">
-            La base per i calcoli è la provvigione broker; facoltativa al primo salvataggio se serve solo tenere la pratica in elenco.
+            La base per i calcoli è la provvigione broker (anche negativa, es. storni); facoltativa al primo salvataggio se serve solo tenere la pratica in elenco.
           </p>
         </div>
         <div className="grid gap-4 sm:grid-cols-2">
@@ -355,14 +355,13 @@ export default function CommissionForm() {
               type="number"
               inputMode="decimal"
               step="0.01"
-              min="0"
               value={provvigioniBroker}
               onChange={(e) => setProvvigioniBroker(e.target.value)}
               className="input-field"
               placeholder="Lascia vuoto se gli importi arriveranno più avanti"
             />
             <p className="mt-1 text-xs text-gray-500">
-              Facoltativo al primo salvataggio. Percentuali su provv. broker: Segnalatore quota S.A. 35% / struttura 30%;
+              Percentuali calcolate sulla provv. broker (anche se negativa): Segnalatore quota S.A. 35% / struttura 30%;
               Collaboratore IVASS 15% / 50%; Sportello Amico 50% / 50% (stesso importo nelle due colonne).
             </p>
             {fieldErrors.provvigioniBroker ? (

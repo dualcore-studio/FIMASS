@@ -57,7 +57,7 @@ function computeFromProvvigioniBroker(provvigioniBroker, structureCommissionType
   const structPct = structurePctForType(type);
   const saPct = quotaSaPctForType(type);
   const base = Number(provvigioniBroker);
-  const safe = Number.isFinite(base) && base >= 0 ? base : 0;
+  const safe = Number.isFinite(base) ? base : 0;
   return {
     structure_commission_type: type,
     structure_commission_percentage: structPct,
@@ -102,10 +102,10 @@ function effectiveProvvigioniBrokerFromRow(r) {
   const raw = r.broker_commission;
   if (raw !== null && raw !== undefined && raw !== '') {
     const b = Number(raw);
-    if (Number.isFinite(b) && b >= 0) return b;
+    if (Number.isFinite(b)) return b;
   }
   const sa = Number(r.sportello_amico_commission);
-  if (Number.isFinite(sa) && sa > 0) {
+  if (Number.isFinite(sa) && sa !== 0) {
     const t =
       r.structure_commission_type && COMMISSION_TYPES.has(r.structure_commission_type)
         ? r.structure_commission_type
@@ -129,8 +129,7 @@ function enrichCommissionRow(r) {
   const rawBroker = r.broker_commission;
   const brokerDirect =
     rawBroker !== null && rawBroker !== undefined && rawBroker !== '' ? Number(rawBroker) : null;
-  const hasDirectBroker =
-    brokerDirect !== null && Number.isFinite(brokerDirect) && brokerDirect >= 0;
+  const hasDirectBroker = brokerDirect !== null && Number.isFinite(brokerDirect);
 
   if (hasDirectBroker) {
     const computed = computeFromProvvigioniBroker(brokerDirect, t);
@@ -148,7 +147,7 @@ function enrichCommissionRow(r) {
   }
 
   const sa = Number(r.sportello_amico_commission);
-  if (Number.isFinite(sa) && sa > 0) {
+  if (Number.isFinite(sa) && sa !== 0) {
     const q = quotaSaPctForType(t);
     const broker = q > 0 ? roundMoney(sa / (q / 100)) : 0;
     const computed = computeFromProvvigioniBroker(broker, t);
@@ -200,7 +199,7 @@ function parseBrokerForCreate(body) {
   const raw = hasProv ? body.provvigioni_broker : body.broker_commission;
   if (raw === '' || raw === null || raw === undefined) return null;
   const n = Number(raw);
-  if (!Number.isFinite(n) || n < 0) return NaN;
+  if (!Number.isFinite(n)) return NaN;
   return n;
 }
 
@@ -212,7 +211,7 @@ function resolveBrokerForUpdate(body, current) {
   const raw = hasProv ? body.provvigioni_broker : body.broker_commission;
   if (raw === '' || raw === null || raw === undefined) return null;
   const n = Number(raw);
-  if (!Number.isFinite(n) || n < 0) return NaN;
+  if (!Number.isFinite(n)) return NaN;
   return n;
 }
 
@@ -487,7 +486,7 @@ router.post('/', authenticateToken, authorizeRoles('admin', 'fornitore'), (req, 
     if (provvigioni_broker !== null && Number.isNaN(provvigioni_broker)) {
       return res
         .status(400)
-        .json({ error: 'Provvigioni broker non valide (inserisci un importo numerico ≥ 0 o lascia vuoto)' });
+        .json({ error: 'Provvigioni broker non valide (inserisci un importo numerico o lascia vuoto)' });
     }
 
     const structure = await getById('users', structure_id);
@@ -581,7 +580,7 @@ router.put('/:id', authenticateToken, authorizeRoles('admin', 'fornitore'), (req
     if (provvigioni_broker !== null && Number.isNaN(provvigioni_broker)) {
       return res
         .status(400)
-        .json({ error: 'Provvigioni broker non valide (inserisci un importo numerico ≥ 0 o nulla)' });
+        .json({ error: 'Provvigioni broker non valide (inserisci un importo numerico o nulla)' });
     }
 
     const structure = await getById('users', structure_id);

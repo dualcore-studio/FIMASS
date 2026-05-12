@@ -46,7 +46,7 @@ export default function CommissionAmountsModal({ isOpen, onClose, commission, on
   const previewPct = commissionPercentForType(previewType);
   const previewSaPct = sportelloAmicoQuotaPercentForType(previewType);
   const brokerNum = Number(String(provvigioniBroker).replace(',', '.'));
-  const hasValidBroker = Number.isFinite(brokerNum) && brokerNum >= 0 && provvigioniBroker.trim() !== '';
+  const hasValidBroker = Number.isFinite(brokerNum) && provvigioniBroker.trim() !== '';
   const previewStructAmount = hasValidBroker ? roundMoney(brokerNum * (previewPct / 100)) : null;
   const previewSaQuota = hasValidBroker ? roundMoney(brokerNum * (previewSaPct / 100)) : null;
 
@@ -60,8 +60,8 @@ export default function CommissionAmountsModal({ isOpen, onClose, commission, on
     let provv: number | null = null;
     if (brRaw !== '') {
       const br = Number(brRaw.replace(',', '.'));
-      if (!Number.isFinite(br) || br < 0) {
-        setError('Provvigioni broker: inserire un numero ≥ 0 o lasciare vuoto.');
+      if (!Number.isFinite(br)) {
+        setError('Provvigioni broker: inserire un numero valido o lasciare vuoto.');
         return;
       }
       provv = br;
@@ -157,7 +157,6 @@ export default function CommissionAmountsModal({ isOpen, onClose, commission, on
                 type="number"
                 inputMode="decimal"
                 step="0.01"
-                min="0"
                 value={provvigioniBroker}
                 onChange={(e) => setProvvigioniBroker(e.target.value)}
                 className="input-field"
