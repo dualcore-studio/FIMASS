@@ -414,7 +414,7 @@ router.get('/export-pdf', authenticateToken, assertCommissionReader, (req, res) 
     const enrichedExport = rows.map(enrichCommissionRow);
     rows = sortBy(enrichedExport, sortKey, dir);
 
-    pipeCommissionsListPdf(
+    await pipeCommissionsListPdf(
       {
         rows,
         summary,
