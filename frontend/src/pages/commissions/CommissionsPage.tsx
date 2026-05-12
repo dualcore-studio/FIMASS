@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Euro, FileDown, FilterX, Pencil, Plus, Trash2, CheckCircle } from 'lucide-react';
+import { Euro, FileDown, FilterX, Pencil, Plus, RefreshCw, Trash2, CheckCircle } from 'lucide-react';
 import { api, ApiError } from '../../utils/api';
 import type { Commission, CommissionValorizationStatus, CommissionsListResponse, StructureOption } from '../../types';
 import {
@@ -26,6 +26,19 @@ const COMMISSION_STATUS_FILTER_OPTIONS: CommissionValorizationStatus[] = [
   'VALORIZZATA',
   'LIQUIDATA',
 ];
+
+function allowedCommissionStatusTargets(
+  current: CommissionValorizationStatus | undefined,
+): CommissionValorizationStatus[] {
+  switch (current) {
+    case 'VALORIZZATA':
+      return ['LIQUIDATA', 'DA_VALORIZZARE'];
+    case 'LIQUIDATA':
+      return ['VALORIZZATA', 'DA_VALORIZZARE'];
+    default:
+      return [];
+  }
+}
 
 function buildQuery(params: {
   page: number;
@@ -87,13 +100,17 @@ function CommissionRowActions({
   onAmounts,
   onDelete,
   onMarkLiquidata,
+  onOpenStatus,
   showMarkLiquidata,
+  showAdminStatus,
 }: {
   row: Commission;
   onAmounts: () => void;
   onDelete: () => void;
   onMarkLiquidata: () => void;
+  onOpenStatus: () => void;
   showMarkLiquidata: boolean;
+  showAdminStatus: boolean;
 }) {
   const isDaValorizzare = row.commission_status === 'DA_VALORIZZARE';
   const amountsTitle = isDaValorizzare ? 'Inserisci importi' : 'Modifica importi';
@@ -116,6 +133,17 @@ function CommissionRowActions({
       >
         <Pencil className="h-4 w-4 shrink-0" strokeWidth={2} />
       </Link>
+      {showAdminStatus ? (
+        <button
+          type="button"
+          onClick={onOpenStatus}
+          title="Cambia stato"
+          aria-label="Cambia stato"
+          className={btnIcon}
+        >
+          <RefreshCw className="h-4 w-4 shrink-0" strokeWidth={2} />
+        </button>
+      ) : null}
       {showMarkLiquidata ? (
         <button
           type="button"
@@ -188,6 +216,10 @@ export default function CommissionsPage() {
   const [exportingPdf, setExportingPdf] = useState(false);
   const [exportPdfError, setExportPdfError] = useState<string | null>(null);
   const [amountsModalRow, setAmountsModalRow] = useState<Commission | null>(null);
+  const [statusEditRow, setStatusEditRow] = useState<Commission | null>(null);
+  const [statusEditTarget, setStatusEditTarget] = useState<CommissionValorizationStatus | ''>('');
+  const [statusEditSubmitting, setStatusEditSubmitting] = useState(false);
+  const [statusEditError, setStatusEditError] = useState<string | null>(null);
 
   const tableSort = useListTableSort();
 
@@ -317,6 +349,32 @@ export default function CommissionsPage() {
       setActionError(e instanceof ApiError ? e.message : 'Aggiornamento liquidazione non riuscito.');
     } finally {
       setLiquidateSubmitting(false);
+    }
+  };
+
+  const openStatusEditor = (row: Commission) => {
+    const allowed = allowedCommissionStatusTargets(row.commission_status);
+    if (!allowed.length) return;
+    setStatusEditError(null);
+    setStatusEditTarget(allowed[0]);
+    setStatusEditRow(row);
+  };
+
+  const handleStatusEditSave = async () => {
+    if (statusEditRow == null || !statusEditTarget) return;
+    setStatusEditSubmitting(true);
+    setStatusEditError(null);
+    try {
+      await api.patch<Commission>(`/commissions/${statusEditRow.id}/status`, {
+        commission_status: statusEditTarget,
+      });
+      setStatusEditRow(null);
+      setStatusEditTarget('');
+      await fetchList();
+    } catch (e) {
+      setStatusEditError(e instanceof ApiError ? e.message : 'Aggiornamento stato non riuscito.');
+    } finally {
+      setStatusEditSubmitting(false);
     }
   };
 
@@ -640,7 +698,14 @@ export default function CommissionsPage() {
                               onAmounts={() => setAmountsModalRow(r)}
                               onDelete={() => setDeleteId(r.id)}
                               onMarkLiquidata={() => setLiquidateId(r.id)}
-                              showMarkLiquidata={isFullAccess && r.commission_status === 'VALORIZZATA'}
+                              onOpenStatus={() => openStatusEditor(r)}
+                              showMarkLiquidata={
+                                isFullAccess && !isAdmin && r.commission_status === 'VALORIZZATA'
+                              }
+                              showAdminStatus={
+                                isAdmin &&
+                                allowedCommissionStatusTargets(r.commission_status).length > 0
+                              }
                             />
                           </div>
                         ) : null}
@@ -653,7 +718,7 @@ export default function CommissionsPage() {
 
             <div className="hidden w-full min-w-0 overflow-x-auto md:block">
               <table
-                className={`portal-table w-full ${isFullAccess ? 'min-w-[1380px] text-center' : 'min-w-[1370px] text-left'} table-fixed border-collapse text-sm`}
+                className={`portal-table w-full ${isFullAccess ? 'min-w-[1396px] text-center' : 'min-w-[1370px] text-left'} table-fixed border-collapse text-sm`}
               >
                 <thead>
                   <tr>
@@ -766,7 +831,7 @@ export default function CommissionsPage() {
                         </SortableTh>
                         <th
                           scope="col"
-                          className="sticky right-0 z-30 w-[148px] min-w-[148px] max-w-[148px] bg-[var(--portal-table-header-bg)] px-2 py-3 text-center align-middle text-sm font-semibold text-gray-700"
+                          className="sticky right-0 z-30 w-[165px] min-w-[165px] max-w-[165px] bg-[var(--portal-table-header-bg)] px-2 py-3 text-center align-middle text-sm font-semibold text-gray-700"
                         >
                           Azioni
                         </th>
@@ -924,14 +989,21 @@ export default function CommissionsPage() {
                                 </span>
                               </div>
                             </td>
-                            <td className="sticky right-0 z-10 w-[148px] min-w-[148px] max-w-[148px] bg-inherit px-2 py-3 align-middle">
+                            <td className="sticky right-0 z-10 w-[165px] min-w-[165px] max-w-[165px] bg-inherit px-2 py-3 align-middle">
                               <div className="flex justify-center items-center gap-2">
                                 <CommissionRowActions
                                   row={r}
                                   onAmounts={() => setAmountsModalRow(r)}
                                   onDelete={() => setDeleteId(r.id)}
                                   onMarkLiquidata={() => setLiquidateId(r.id)}
-                                  showMarkLiquidata={isFullAccess && r.commission_status === 'VALORIZZATA'}
+                                  onOpenStatus={() => openStatusEditor(r)}
+                                  showMarkLiquidata={
+                                    isFullAccess && !isAdmin && r.commission_status === 'VALORIZZATA'
+                                  }
+                                  showAdminStatus={
+                                    isAdmin &&
+                                    allowedCommissionStatusTargets(r.commission_status).length > 0
+                                  }
                                 />
                               </div>
                             </td>
@@ -1067,6 +1139,94 @@ export default function CommissionsPage() {
             </button>
           </div>
         </div>
+      </Modal>
+
+      <Modal
+        isOpen={statusEditRow != null}
+        onClose={() => {
+          if (!statusEditSubmitting) {
+            setStatusEditRow(null);
+            setStatusEditTarget('');
+            setStatusEditError(null);
+          }
+        }}
+        title="Cambia stato provvigione"
+        size="sm"
+      >
+        {statusEditRow ? (
+          <div className="space-y-4">
+            <div className="text-sm text-gray-600">
+              <p className="font-medium text-gray-900">{statusEditRow.customer_name}</p>
+              <p className="font-mono text-xs text-gray-500">{statusEditRow.policy_number}</p>
+              <p className="mt-2">
+                Stato attuale:{' '}
+                <span className={`badge ${getCommissionValorizationBadgeClass(statusEditRow.commission_status)}`}>
+                  {getCommissionValorizationLabel(statusEditRow.commission_status)}
+                </span>
+              </p>
+            </div>
+            <div>
+              <label htmlFor="comm-status-new" className="mb-1 block text-xs font-medium text-gray-600">
+                Nuovo stato
+              </label>
+              <select
+                id="comm-status-new"
+                value={statusEditTarget}
+                onChange={(e) => setStatusEditTarget(e.target.value as CommissionValorizationStatus)}
+                disabled={statusEditSubmitting}
+                className="input-field h-9 w-full py-1.5 text-sm"
+              >
+                {allowedCommissionStatusTargets(statusEditRow.commission_status).map((s) => (
+                  <option key={s} value={s}>
+                    {getCommissionValorizationLabel(s)}
+                  </option>
+                ))}
+              </select>
+            </div>
+            {statusEditTarget === 'DA_VALORIZZARE' ? (
+              <p className="rounded-lg border border-amber-200/80 bg-amber-50/60 px-3 py-2 text-xs text-amber-900">
+                Verranno rimossi tutti gli importi provvigionali (broker, quota S.A. e struttura). La riga tornerà in
+                «Da valorizzare».
+              </p>
+            ) : null}
+            {statusEditTarget === 'LIQUIDATA' ? (
+              <p className="rounded-lg border border-emerald-200/80 bg-emerald-50/50 px-3 py-2 text-xs text-emerald-900">
+                La provvigione verrà segnata come liquidata.
+              </p>
+            ) : null}
+            {statusEditTarget === 'VALORIZZATA' &&
+            statusEditRow.commission_status === 'LIQUIDATA' ? (
+              <p className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-700">
+                Verrà rimosso il flag di liquidazione; importi restano invariati.
+              </p>
+            ) : null}
+            {statusEditError ? <p className="text-sm text-red-700">{statusEditError}</p> : null}
+            <div className="flex justify-end gap-2 pt-2">
+              <button
+                type="button"
+                disabled={statusEditSubmitting}
+                onClick={() => {
+                  if (!statusEditSubmitting) {
+                    setStatusEditRow(null);
+                    setStatusEditTarget('');
+                    setStatusEditError(null);
+                  }
+                }}
+                className="btn-secondary"
+              >
+                Annulla
+              </button>
+              <button
+                type="button"
+                disabled={statusEditSubmitting || !statusEditTarget}
+                onClick={() => void handleStatusEditSave()}
+                className="btn-primary"
+              >
+                {statusEditSubmitting ? 'Salvataggio…' : 'Salva stato'}
+              </button>
+            </div>
+          </div>
+        ) : null}
       </Modal>
 
       <CommissionAmountsModal

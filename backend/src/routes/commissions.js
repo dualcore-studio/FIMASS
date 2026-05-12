@@ -466,6 +466,103 @@ router.patch('/:id/liquidate', authenticateToken, authorizeRoles('admin', 'forni
   });
 });
 
+/** Solo admin: imposta lo stato derivato (coerente con persistenza broker / flag liquidato). */
+router.patch('/:id/status', authenticateToken, authorizeRoles('admin'), (req, res) => {
+  (async () => {
+    const id = Number(req.params.id);
+    if (!Number.isFinite(id)) return res.status(400).json({ error: 'ID non valido' });
+
+    const target = parseCommissionStatusFilter(req.body?.commission_status);
+    if (!target) return res.status(400).json({ error: 'Stato non valido' });
+
+    const current = await getById('commissions', id);
+    if (!current) return res.status(404).json({ error: 'Provvigione non trovata' });
+
+    const cur = enrichCommissionRow(current).commission_status;
+    if (cur === target) return res.json(enrichCommissionRow(current));
+
+    const structure = await getById('users', Number(current.structure_id));
+    if (!structure || structure.role !== 'struttura') {
+      return res.status(400).json({ error: 'Struttura non valida' });
+    }
+    const ct =
+      structure.commission_type && COMMISSION_TYPES.has(structure.commission_type)
+        ? structure.commission_type
+        : 'SEGNALATORE';
+
+    const statusLabel = (s) => {
+      if (s === 'LIQUIDATA') return 'Liquidata';
+      if (s === 'VALORIZZATA') return 'Valorizzata';
+      return 'Da valorizzare';
+    };
+
+    if (target === 'DA_VALORIZZARE') {
+      if (cur === 'DA_VALORIZZARE') return res.json(enrichCommissionRow(current));
+      const econ = buildEconomicsPersist(null, ct);
+      const updated = await upsertById('commissions', id, { ...econ, liquidated: false });
+      await logActivity({
+        utente_id: req.user.id,
+        utente_nome: getUserDisplayName(req.user),
+        ruolo: req.user.role,
+        azione: 'MODIFICA_STATO_PROVVIGIONE',
+        modulo: 'provvigioni',
+        riferimento_id: id,
+        riferimento_tipo: 'commission',
+        dettaglio: `Provvigione #${id}: stato ${statusLabel(cur)} → ${statusLabel(target)}`,
+      });
+      return res.json(enrichCommissionRow(updated));
+    }
+
+    if (target === 'VALORIZZATA') {
+      if (cur === 'DA_VALORIZZARE') {
+        return res.status(400).json({
+          error:
+            'Per passare a Valorizzata inserisci gli importi dalla scheda provvigione (icona euro)',
+        });
+      }
+      if (cur === 'LIQUIDATA') {
+        const updated = await upsertById('commissions', id, { liquidated: false });
+        await logActivity({
+          utente_id: req.user.id,
+          utente_nome: getUserDisplayName(req.user),
+          ruolo: req.user.role,
+          azione: 'MODIFICA_STATO_PROVVIGIONE',
+          modulo: 'provvigioni',
+          riferimento_id: id,
+          riferimento_tipo: 'commission',
+          dettaglio: `Provvigione #${id}: stato ${statusLabel(cur)} → ${statusLabel(target)}`,
+        });
+        return res.json(enrichCommissionRow(updated));
+      }
+    }
+
+    if (target === 'LIQUIDATA') {
+      if (cur !== 'VALORIZZATA') {
+        return res.status(400).json({
+          error: 'Si possono liquidare solo provvigioni già valorizzate',
+        });
+      }
+      const updated = await upsertById('commissions', id, { liquidated: true });
+      await logActivity({
+        utente_id: req.user.id,
+        utente_nome: getUserDisplayName(req.user),
+        ruolo: req.user.role,
+        azione: 'MODIFICA_STATO_PROVVIGIONE',
+        modulo: 'provvigioni',
+        riferimento_id: id,
+        riferimento_tipo: 'commission',
+        dettaglio: `Provvigione #${id}: stato ${statusLabel(cur)} → ${statusLabel(target)}`,
+      });
+      return res.json(enrichCommissionRow(updated));
+    }
+
+    return res.status(400).json({ error: 'Transizione di stato non consentita' });
+  })().catch((err) => {
+    console.error('commissions status:', err);
+    res.status(500).json({ error: "Errore nell'aggiornamento dello stato" });
+  });
+});
+
 router.get('/:id', authenticateToken, assertCommissionReader, (req, res) => {
   (async () => {
     const row = await getById('commissions', req.params.id);
