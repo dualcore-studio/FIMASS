@@ -17,7 +17,7 @@ const router = express.Router();
 
 const COMMISSION_TYPES = new Set(['SEGNALATORE', 'PARTNER', 'SPORTELLO_AMICO']);
 
-/** Provv. struttura da conteggiare in totali / liquidazione: Segnalatore e Collaboratore IVASS (PARTNER), non Sportello Amico. */
+/** Provv. struttura nei totali da liquidare/liquidate/strutture: solo Segnalatore e Collaboratore IVASS. Sportello Amico resta in Quota S.A.; lo stato Liquidata su riga SA è solo anagrafico e non incrementa quei totali. */
 const STRUCTURE_COMMISSION_LIQUIDABLE_TYPES = new Set(['SEGNALATORE', 'PARTNER']);
 
 /** Quota S.A. (% sulla provvigione broker). Sportello Amico: stesso importo anche in provv. struttura (50%). */
@@ -421,12 +421,6 @@ router.patch('/:id/liquidate', authenticateToken, authorizeRoles('admin', 'forni
     if (preview.commission_status !== 'VALORIZZATA') {
       return res.status(400).json({
         error: 'Si possono liquidare solo provvigioni già valorizzate con importo struttura',
-      });
-    }
-    if (preview.structure_commission_type === 'SPORTELLO_AMICO') {
-      return res.status(400).json({
-        error:
-          'Le provvigioni struttura Sportello Amico rientrano solo nel totale Quota Sportello Amico e non nella liquidazione provvigioni struttura',
       });
     }
     if (isRowLiquidated(current)) {

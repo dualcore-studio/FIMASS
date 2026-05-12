@@ -569,11 +569,7 @@ export default function CommissionsPage() {
                               onAmounts={() => setAmountsModalRow(r)}
                               onDelete={() => setDeleteId(r.id)}
                               onMarkLiquidata={() => setLiquidateId(r.id)}
-                              showMarkLiquidata={
-                                isFullAccess &&
-                                r.commission_status === 'VALORIZZATA' &&
-                                r.structure_commission_type !== 'SPORTELLO_AMICO'
-                              }
+                              showMarkLiquidata={isFullAccess && r.commission_status === 'VALORIZZATA'}
                             />
                           </div>
                         ) : null}
@@ -864,11 +860,7 @@ export default function CommissionsPage() {
                                   onAmounts={() => setAmountsModalRow(r)}
                                   onDelete={() => setDeleteId(r.id)}
                                   onMarkLiquidata={() => setLiquidateId(r.id)}
-                                  showMarkLiquidata={
-                                    isFullAccess &&
-                                    r.commission_status === 'VALORIZZATA' &&
-                                    r.structure_commission_type !== 'SPORTELLO_AMICO'
-                                  }
+                                  showMarkLiquidata={isFullAccess && r.commission_status === 'VALORIZZATA'}
                                 />
                               </div>
                             </td>
