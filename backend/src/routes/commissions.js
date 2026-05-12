@@ -17,6 +17,8 @@ const router = express.Router();
 
 const COMMISSION_TYPES = new Set(['SEGNALATORE', 'PARTNER', 'SPORTELLO_AMICO']);
 
+const COMMISSION_STATUS_VALUES = new Set(['DA_VALORIZZARE', 'VALORIZZATA', 'LIQUIDATA']);
+
 /** Provv. struttura nei totali da liquidare/liquidate/strutture: solo Segnalatore e Collaboratore IVASS. Sportello Amico resta in Quota S.A.; lo stato Liquidata su riga SA è solo anagrafico e non incrementa quei totali. */
 const STRUCTURE_COMMISSION_LIQUIDABLE_TYPES = new Set(['SEGNALATORE', 'PARTNER']);
 
@@ -228,13 +230,17 @@ function normalizeDateInput(v) {
   return s;
 }
 
-function rowMatchesFilters(row, { search, structureId, company, portal, dataDa, dataAl }) {
+function rowMatchesFilters(row, { search, structureId, company, portal, dataDa, dataAl, commissionStatus }) {
   if (structureId && Number(row.structure_id) !== Number(structureId)) return false;
   if (company && !like(row.company, company)) return false;
   if (portal && !like(row.portal, portal)) return false;
   const d = row.date ? String(row.date).slice(0, 10) : '';
   if (dataDa && d && d < dataDa) return false;
   if (dataAl && d && d > dataAl) return false;
+  if (commissionStatus) {
+    const st = enrichCommissionRow(row).commission_status;
+    if (st !== commissionStatus) return false;
+  }
   if (search) {
     const ok =
       like(row.customer_name, search) ||
@@ -244,6 +250,12 @@ function rowMatchesFilters(row, { search, structureId, company, portal, dataDa, 
     if (!ok) return false;
   }
   return true;
+}
+
+function parseCommissionStatusFilter(raw) {
+  if (raw == null || raw === '') return null;
+  const s = String(raw).trim().toUpperCase();
+  return COMMISSION_STATUS_VALUES.has(s) ? s : null;
 }
 
 function summarize(rows) {
@@ -303,9 +315,12 @@ router.get('/', authenticateToken, assertCommissionReader, (req, res) => {
       portal,
       data_da: dataDa,
       data_a: dataAl,
+      commission_status: commissionStatusRaw,
       sort_by: sortByField,
       sort_dir: sortDir,
     } = req.query;
+
+    const commissionStatus = parseCommissionStatusFilter(commissionStatusRaw);
 
     let rows = await list('commissions');
     if (req.user.role === 'struttura') {
@@ -320,6 +335,7 @@ router.get('/', authenticateToken, assertCommissionReader, (req, res) => {
         portal,
         dataDa,
         dataAl,
+        commissionStatus,
       }),
     );
 
@@ -359,9 +375,12 @@ router.get('/export-pdf', authenticateToken, assertCommissionReader, (req, res) 
       portal,
       data_da: dataDa,
       data_a: dataAl,
+      commission_status: commissionStatusRaw,
       sort_by: sortByField,
       sort_dir: sortDir,
     } = req.query;
+
+    const commissionStatus = parseCommissionStatusFilter(commissionStatusRaw);
 
     let rows = await list('commissions');
     if (req.user.role === 'struttura') {
@@ -376,6 +395,7 @@ router.get('/export-pdf', authenticateToken, assertCommissionReader, (req, res) 
         portal,
         dataDa,
         dataAl,
+        commissionStatus,
       }),
     );
 

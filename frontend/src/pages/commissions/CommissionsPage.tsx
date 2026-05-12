@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Euro, FileDown, Pencil, Plus, Trash2, CheckCircle } from 'lucide-react';
+import { Euro, FileDown, FilterX, Pencil, Plus, Trash2, CheckCircle } from 'lucide-react';
 import { api, ApiError } from '../../utils/api';
-import type { Commission, CommissionsListResponse, StructureOption } from '../../types';
+import type { Commission, CommissionValorizationStatus, CommissionsListResponse, StructureOption } from '../../types';
 import {
   formatDate,
   formatEuro,
@@ -21,6 +21,12 @@ import SortableTh from '../../components/common/SortableTh';
 import Modal from '../../components/ui/Modal';
 import CommissionAmountsModal from './CommissionAmountsModal';
 
+const COMMISSION_STATUS_FILTER_OPTIONS: CommissionValorizationStatus[] = [
+  'DA_VALORIZZARE',
+  'VALORIZZATA',
+  'LIQUIDATA',
+];
+
 function buildQuery(params: {
   page: number;
   search: string;
@@ -29,6 +35,7 @@ function buildQuery(params: {
   portal: string;
   dataDa: string;
   dataAl: string;
+  commissionStatus: string;
   sortBy: string | null;
   sortDir: 'asc' | 'desc';
 }): string {
@@ -41,6 +48,7 @@ function buildQuery(params: {
   if (params.portal.trim()) qs.set('portal', params.portal.trim());
   if (params.dataDa) qs.set('data_da', params.dataDa);
   if (params.dataAl) qs.set('data_a', params.dataAl);
+  if (params.commissionStatus) qs.set('commission_status', params.commissionStatus);
   if (params.sortBy) {
     qs.set('sort_by', params.sortBy);
     qs.set('sort_dir', params.sortDir);
@@ -55,6 +63,7 @@ function buildExportPdfQuery(params: {
   portal: string;
   dataDa: string;
   dataAl: string;
+  commissionStatus: string;
   sortBy: string | null;
   sortDir: 'asc' | 'desc';
 }): string {
@@ -65,6 +74,7 @@ function buildExportPdfQuery(params: {
   if (params.portal.trim()) qs.set('portal', params.portal.trim());
   if (params.dataDa) qs.set('data_da', params.dataDa);
   if (params.dataAl) qs.set('data_a', params.dataAl);
+  if (params.commissionStatus) qs.set('commission_status', params.commissionStatus);
   if (params.sortBy) {
     qs.set('sort_by', params.sortBy);
     qs.set('sort_dir', params.sortDir);
@@ -161,6 +171,7 @@ export default function CommissionsPage() {
   const [structureFilter, setStructureFilter] = useState('');
   const [companyFilter, setCompanyFilter] = useState('');
   const [portalFilter, setPortalFilter] = useState('');
+  const [statusFilter, setStatusFilter] = useState('');
   const [dataDa, setDataDa] = useState('');
   const [dataAl, setDataAl] = useState('');
 
@@ -195,7 +206,17 @@ export default function CommissionsPage() {
 
   useEffect(() => {
     setPage(1);
-  }, [debouncedSearch, structureFilter, companyFilter, portalFilter, dataDa, dataAl, tableSort.sortBy, tableSort.sortDir]);
+  }, [
+    debouncedSearch,
+    structureFilter,
+    companyFilter,
+    portalFilter,
+    statusFilter,
+    dataDa,
+    dataAl,
+    tableSort.sortBy,
+    tableSort.sortDir,
+  ]);
 
   const fetchList = useCallback(async () => {
     setListError(null);
@@ -209,6 +230,7 @@ export default function CommissionsPage() {
         portal: portalFilter,
         dataDa,
         dataAl,
+        commissionStatus: statusFilter,
         sortBy: tableSort.sortBy,
         sortDir: tableSort.sortDir,
       });
@@ -226,6 +248,7 @@ export default function CommissionsPage() {
     structureFilter,
     companyFilter,
     portalFilter,
+    statusFilter,
     dataDa,
     dataAl,
     tableSort.sortBy,
@@ -254,6 +277,7 @@ export default function CommissionsPage() {
         portal: portalFilter,
         dataDa,
         dataAl,
+        commissionStatus: statusFilter,
         sortBy: tableSort.sortBy,
         sortDir: tableSort.sortDir,
       });
@@ -294,6 +318,26 @@ export default function CommissionsPage() {
     } finally {
       setLiquidateSubmitting(false);
     }
+  };
+
+  const hasActiveFilters =
+    Boolean(searchInput.trim()) ||
+    Boolean(isFullAccess && structureFilter) ||
+    Boolean(companyFilter.trim()) ||
+    Boolean(portalFilter.trim()) ||
+    Boolean(statusFilter) ||
+    Boolean(dataDa) ||
+    Boolean(dataAl);
+
+  const resetFilters = () => {
+    setSearchInput('');
+    setDebouncedSearch('');
+    setStructureFilter('');
+    setCompanyFilter('');
+    setPortalFilter('');
+    setStatusFilter('');
+    setDataDa('');
+    setDataAl('');
   };
 
   const tf = 'input-field h-9 w-full min-w-0 py-1.5 text-sm';
@@ -440,6 +484,24 @@ export default function CommissionsPage() {
             <input id="comm-portal" value={portalFilter} onChange={(e) => setPortalFilter(e.target.value)} className={tf} />
           </div>
           <div className="flex min-w-[9rem] w-full flex-1 flex-col gap-px lg:min-w-0">
+            <label htmlFor="comm-stato" className="whitespace-nowrap text-[11px] font-normal text-gray-600">
+              Stato
+            </label>
+            <select
+              id="comm-stato"
+              value={statusFilter}
+              onChange={(e) => setStatusFilter(e.target.value)}
+              className={tf}
+            >
+              <option value="">Tutti</option>
+              {COMMISSION_STATUS_FILTER_OPTIONS.map((s) => (
+                <option key={s} value={s}>
+                  {getCommissionValorizationLabel(s)}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div className="flex min-w-[9rem] w-full flex-1 flex-col gap-px lg:min-w-0">
             <label htmlFor="comm-da" className="whitespace-nowrap text-[11px] font-normal text-gray-600">
               Data da
             </label>
@@ -451,7 +513,16 @@ export default function CommissionsPage() {
             </label>
             <input id="comm-a" type="date" value={dataAl} onChange={(e) => setDataAl(e.target.value)} className={tf} />
           </div>
-          <div className="flex w-full shrink-0 justify-end pt-2 lg:w-auto lg:pt-0">
+          <div className="flex w-full shrink-0 flex-col gap-2 pt-2 sm:flex-row sm:items-end sm:justify-end lg:w-auto lg:pt-0">
+            <button
+              type="button"
+              onClick={resetFilters}
+              disabled={!hasActiveFilters}
+              className="btn-secondary inline-flex h-9 w-full items-center justify-center gap-2 whitespace-nowrap px-3 text-sm sm:w-auto disabled:opacity-50"
+            >
+              <FilterX className="h-4 w-4 shrink-0" />
+              Azzera filtri
+            </button>
             <button
               type="button"
               onClick={() => void handleExportPdf()}
