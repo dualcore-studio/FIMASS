@@ -20,6 +20,7 @@
  *   variant?: 'struttura' | 'admin',
  *   title?: string,
  *   timestamp?: string,          // es. "12/05/2026, 10:32:08"; se omesso → generato in it-IT
+ *   structureName?: string,      // nome struttura (header a destra), opzionale
  *   totals: { polizze, premi, provvigioni },
  *   adminMeta?: { totaleProvvigioniBroker?, totaleSportelloAmico? },
  *   provvigioni: [
@@ -108,7 +109,7 @@ function validateProvvigioniSectionData(data) {
  * @param {object[]} opts.rows              righe già arricchite (enrichCommissionRow)
  * @param {object} opts.summary             output summarize()
  * @param {'admin'|'struttura'} opts.role
- * @param {string} [opts.timestamp]
+ * @param {string} [opts.structureName]
  */
 function buildProvvigioniSectionPayload(opts) {
   const { rows, summary, role } = opts;
@@ -152,10 +153,16 @@ function buildProvvigioniSectionPayload(opts) {
     provvigioni: Number(summary.totale_provigioni_strutture) || 0,
   };
 
+  const structureName =
+    typeof opts.structureName === 'string' && opts.structureName.trim() !== ''
+      ? opts.structureName.trim()
+      : '';
+
   return {
     variant,
     title: isAdmin ? 'Provvigioni' : 'Le tue provvigioni',
     timestamp,
+    structureName,
     totals,
     adminMeta:
       isAdmin
@@ -209,6 +216,7 @@ function generateProvvigioniSection(data, options = {}) {
       variant: 'struttura',
       title: 'Le tue provvigioni',
       timestamp: new Date().toLocaleString('it-IT'),
+      structureName: '',
       totals: { polizze: 0, premi: 0, provvigioni: 0 },
       provvigioni: [],
       _validationErrors: validation.errors,
@@ -221,6 +229,10 @@ function generateProvvigioniSection(data, options = {}) {
     typeof data.timestamp === 'string' && data.timestamp.trim() !== ''
       ? escapeHtml(data.timestamp.trim())
       : escapeHtml(new Date().toLocaleString('it-IT'));
+  const structureName =
+    typeof data.structureName === 'string' && data.structureName.trim() !== ''
+      ? escapeHtml(data.structureName.trim())
+      : '';
 
   const totals = data.totals || { polizze: 0, premi: 0, provvigioni: 0 };
   const polizzeN = Number(totals.polizze) || 0;
@@ -369,16 +381,62 @@ function generateProvvigioniSection(data, options = {}) {
       white-space: nowrap;
       flex-shrink: 0;
     }
-    #provvigioni.fimass-provvigioni-pdf .pv-ts {
-      margin: 16px 0 20px;
+    #provvigioni.fimass-provvigioni-pdf .pv-head-row {
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      gap: 16px;
+      flex-wrap: nowrap;
+      margin-bottom: 8px;
+    }
+    #provvigioni.fimass-provvigioni-pdf .pv-head-left {
+      display: flex;
+      align-items: baseline;
+      flex-wrap: wrap;
+      gap: 6px;
+      min-width: 0;
+      flex: 1;
+    }
+    #provvigioni.fimass-provvigioni-pdf .pv-head-title {
+      margin: 0;
+      font-size: 24px;
+      font-weight: 800;
+      letter-spacing: -0.02em;
+      line-height: 1.15;
+      color: ${dark ? '#e2e8f0' : '#0f172a'};
+    }
+    #provvigioni.fimass-provvigioni-pdf .pv-head-stamp {
+      margin: 0;
       font-size: 11px;
+      font-weight: 400;
       color: var(--fimass-pv-muted, #64748b);
+      white-space: nowrap;
+    }
+    #provvigioni.fimass-provvigioni-pdf .pv-head-structure {
+      margin: 0;
+      font-size: 18px;
+      font-weight: 800;
+      letter-spacing: -0.02em;
+      line-height: 1.15;
+      text-align: right;
+      flex-shrink: 0;
+      max-width: 42%;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      color: ${dark ? '#e2e8f0' : '#0f172a'};
     }
   </style>
 
   <header style="margin-bottom:20px;">
-    <h1 style="margin:0 0 6px;font-size:24px;font-weight:800;letter-spacing:-0.02em;color:${dark ? '#e2e8f0' : '#0f172a'};">${escapeHtml(title)}</h1>
-    <div style="height:3px;width:56px;border-radius:2px;background:linear-gradient(90deg,#185fa5 0%,#3b6d11 50%,#ef9f27 100%);"></div>
+    <div class="pv-head-row">
+      <div class="pv-head-left">
+        <h1 class="pv-head-title">${escapeHtml(title)}</h1>
+        <span class="pv-head-stamp">(Generato il ${timestamp})</span>
+      </div>
+      ${structureName ? `<p class="pv-head-structure">${structureName}</p>` : ''}
+    </div>
+    <div style="margin-top:6px;height:3px;width:56px;border-radius:2px;background:linear-gradient(90deg,#185fa5 0%,#3b6d11 50%,#ef9f27 100%);"></div>
   </header>
 
   <div class="pv-kpi-grid">
@@ -395,8 +453,6 @@ function generateProvvigioniSection(data, options = {}) {
       <p class="pv-card-value" style="color:#854f0b;">${escapeHtml(formatEuroIt(provN))}</p>
     </div>
   </div>
-
-  <p class="pv-ts">Generato il <time datetime="">${timestamp}</time></p>
 
   ${adminMetaHtml}
 

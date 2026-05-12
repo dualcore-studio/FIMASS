@@ -99,11 +99,16 @@ function strokeRoundedRect(doc, x, y, w, h, r, strokeColor, lineWidth = 2) {
  * @param {object[]} opts.rows
  * @param {object} opts.summary
  * @param {'admin'|'struttura'} opts.role
+ * @param {string} [opts.structureName] — mostrato in alto a destra (grassetto)
  * @param {import('http').ServerResponse} res
  */
 function pipeCommissionsListPdf(opts, res) {
   const { rows, summary, role } = opts;
   const isAdmin = role === 'admin';
+  const structureNameRaw =
+    typeof opts.structureName === 'string' && opts.structureName.trim() !== ''
+      ? opts.structureName.trim()
+      : '';
 
   const doc = new PDFDocument({
     margin: 36,
@@ -132,9 +137,31 @@ function pipeCommissionsListPdf(opts, res) {
   let y = margin;
 
   const titleText = isAdmin ? 'Provvigioni' : 'Le tue provvigioni';
+  const stampParen = `(Generato il ${stamp})`;
+  const headerLineY = y;
 
-  doc.fontSize(20).font('Helvetica-Bold').fillColor(COLORS.title).text(titleText, margin, y);
-  y += 24;
+  doc.fontSize(17).font('Helvetica-Bold').fillColor(COLORS.title);
+  const structureDraw = structureNameRaw ? ellipsize(structureNameRaw, 54) : '';
+  const structureW = structureDraw ? doc.widthOfString(structureDraw) : 0;
+  const headerGutter = structureDraw ? 14 : 0;
+  const leftBudget = usableW - structureW - headerGutter;
+
+  let xHead = margin;
+  doc.fontSize(20).font('Helvetica-Bold').fillColor(COLORS.title);
+  doc.text(titleText, xHead, headerLineY, { lineBreak: false });
+  xHead += doc.widthOfString(titleText);
+  doc.fontSize(10).font('Helvetica').fillColor(COLORS.muted);
+  doc.text(` ${stampParen}`, xHead, headerLineY, {
+    width: Math.max(40, leftBudget - (xHead - margin)),
+    lineBreak: false,
+  });
+
+  if (structureDraw) {
+    doc.fontSize(17).font('Helvetica-Bold').fillColor(COLORS.title);
+    doc.text(structureDraw, margin + usableW - structureW, headerLineY - 1, { lineBreak: false });
+  }
+
+  y += 26;
 
   const barY = y;
   const seg = 18;
@@ -191,13 +218,6 @@ function pipeCommissionsListPdf(opts, res) {
       });
   }
   y += cardH + 14;
-
-  doc
-    .fontSize(9)
-    .font('Helvetica')
-    .fillColor(COLORS.muted)
-    .text(`Generato il ${stamp}`, margin, y);
-  y += 22;
 
   if (
     isAdmin &&

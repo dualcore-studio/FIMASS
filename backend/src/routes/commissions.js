@@ -49,6 +49,23 @@ function isRowLiquidated(r) {
   return false;
 }
 
+/** Intestazione PDF provvigioni: nome struttura a destra (utente struttura o filtro admin singola struttura). */
+function structureNameForCommissionPdf(req, rows) {
+  if (req.user.role === 'struttura') {
+    const d = req.user.denominazione;
+    return d != null && String(d).trim() !== '' ? String(d).trim() : '';
+  }
+  const sid = req.query.structure_id;
+  if (sid == null || String(sid).trim() === '') return '';
+  const id = Number(sid);
+  if (!Number.isFinite(id)) return '';
+  const names = [
+    ...new Set(rows.map((r) => r.structure_name).filter((n) => n != null && String(n).trim() !== '')),
+  ];
+  if (names.length === 1) return String(names[0]).trim();
+  return '';
+}
+
 /**
  * @param {number} provvigioniBroker
  * @param {string} structureCommissionType
@@ -419,6 +436,7 @@ router.get('/export-pdf', authenticateToken, assertCommissionReader, (req, res) 
         rows,
         summary,
         role: req.user.role === 'struttura' ? 'struttura' : 'admin',
+        structureName: structureNameForCommissionPdf(req, rows),
       },
       res,
     );
