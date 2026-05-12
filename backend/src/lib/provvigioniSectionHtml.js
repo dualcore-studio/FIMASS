@@ -240,9 +240,7 @@ function generateProvvigioniSection(data, options = {}) {
   <td style="padding:10px 12px;border-bottom:1px solid #e5e5e0;">${escapeHtml(r.cliente)}</td>
   <td style="padding:10px 12px;border-bottom:1px solid #e5e5e0;font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,monospace;font-size:12px;">${escapeHtml(r.numPolizza)}</td>
   <td style="padding:10px 12px;border-bottom:1px solid #e5e5e0;text-align:right;font-variant-numeric:tabular-nums;">${escapeHtml(formatEuroIt(r.premio))}</td>
-  <td style="padding:10px 12px;border-bottom:1px solid #e5e5e0;text-align:right;">
-    <span style="display:inline-block;padding:6px 14px;border-radius:16px;background:#faeeda;color:#854f0b;font-weight:600;font-variant-numeric:tabular-nums;">${escapeHtml(formatProvvigioneCell(r.provvigione))}</span>
-  </td>
+  <td style="padding:10px 12px;border-bottom:1px solid #e5e5e0;text-align:right;font-weight:600;font-variant-numeric:tabular-nums;color:#854f0b;">${escapeHtml(formatProvvigioneCell(r.provvigione))}</td>
   <td style="padding:10px 12px;border-bottom:1px solid #e5e5e0;font-size:12px;color:#334155;">${escapeHtml(r.stato || '—')}</td>
 </tr>`;
     })
@@ -264,9 +262,7 @@ function generateProvvigioniSection(data, options = {}) {
   <td style="padding:6px 8px;border-bottom:1px solid #e5e5e0;font-size:10px;text-align:right;">${escapeHtml(formatProvvigioneCell(r.provBroker))}</td>
   <td style="padding:6px 8px;border-bottom:1px solid #e5e5e0;font-size:10px;text-align:right;">${escapeHtml(formatProvvigioneCell(r.quotaSa))}</td>
   <td style="padding:6px 8px;border-bottom:1px solid #e5e5e0;font-size:9px;">${escapeHtml(r.tipo || '—')}</td>
-  <td style="padding:6px 8px;border-bottom:1px solid #e5e5e0;text-align:right;">
-    <span style="display:inline-block;padding:4px 10px;border-radius:16px;background:#faeeda;color:#854f0b;font-weight:600;font-size:10px;font-variant-numeric:tabular-nums;">${escapeHtml(formatProvvigioneCell(r.provvigione))}</span>
-  </td>
+  <td style="padding:6px 8px;border-bottom:1px solid #e5e5e0;font-size:10px;text-align:right;font-weight:600;font-variant-numeric:tabular-nums;color:#854f0b;">${escapeHtml(formatProvvigioneCell(r.provvigione))}</td>
   <td style="padding:6px 8px;border-bottom:1px solid #e5e5e0;font-size:9px;">${escapeHtml(r.stato || '—')}</td>
 </tr>`;
     })
@@ -340,29 +336,38 @@ function generateProvvigioniSection(data, options = {}) {
     #provvigioni.fimass-provvigioni-pdf, #provvigioni.fimass-provvigioni-pdf * { box-sizing: border-box; }
     #provvigioni.fimass-provvigioni-pdf .pv-kpi-grid {
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-      gap: 16px;
-      margin-bottom: 8px;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 10px;
+      margin-bottom: 6px;
     }
     #provvigioni.fimass-provvigioni-pdf .pv-card {
-      border-radius: 8px;
-      padding: 18px 20px;
-      border-width: 2px;
+      border-radius: 6px;
+      padding: 8px 12px;
+      border-width: 1px;
       border-style: solid;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      min-height: 0;
     }
     #provvigioni.fimass-provvigioni-pdf .pv-card-title {
-      margin: 0 0 8px;
-      font-size: 12px;
+      margin: 0;
+      font-size: 10px;
       font-weight: 700;
       letter-spacing: 0.02em;
-      text-transform: uppercase;
+      line-height: 1.2;
+      flex: 1;
+      min-width: 0;
     }
     #provvigioni.fimass-provvigioni-pdf .pv-card-value {
       margin: 0;
-      font-size: 22px;
+      font-size: 14px;
       font-weight: 800;
       line-height: 1.2;
       font-variant-numeric: tabular-nums;
+      white-space: nowrap;
+      flex-shrink: 0;
     }
     #provvigioni.fimass-provvigioni-pdf .pv-ts {
       margin: 16px 0 20px;
@@ -378,15 +383,15 @@ function generateProvvigioniSection(data, options = {}) {
 
   <div class="pv-kpi-grid">
     <div class="pv-card" style="background:#e6f1fb;border-color:#85b7eb;">
-      <p class="pv-card-title" style="color:#185fa5;">Polizze</p>
+      <p class="pv-card-title" style="color:#185fa5;">Polizze Totali</p>
       <p class="pv-card-value" style="color:#185fa5;">${escapeHtml(String(polizzeN))}</p>
     </div>
     <div class="pv-card" style="background:#eaf3de;border-color:#97c459;">
-      <p class="pv-card-title" style="color:#3b6d11;">Premi totali</p>
+      <p class="pv-card-title" style="color:#3b6d11;">Premi Totali</p>
       <p class="pv-card-value" style="color:#3b6d11;">${escapeHtml(formatEuroIt(premiN))}</p>
     </div>
     <div class="pv-card" style="background:#faeeda;border-color:#ef9f27;">
-      <p class="pv-card-title" style="color:#854f0b;">Provvigioni</p>
+      <p class="pv-card-title" style="color:#854f0b;">Provvigioni Totali</p>
       <p class="pv-card-value" style="color:#854f0b;">${escapeHtml(formatEuroIt(provN))}</p>
     </div>
   </div>
@@ -396,11 +401,6 @@ function generateProvvigioniSection(data, options = {}) {
   ${adminMetaHtml}
 
   ${rowCount === 0 ? emptyMessage : variant === 'admin' ? tableAdmin : tableStruttura}
-
-
-  <footer style="margin-top:20px;padding-top:12px;border-top:1px solid #e2e8f0;font-size:10px;color:#94a3b8;">
-    FIMASS · Sezione provvigioni · ${rowCount} righe in elenco
-  </footer>
 </section>`;
 }
 

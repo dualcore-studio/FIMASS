@@ -1,6 +1,6 @@
 /**
- * Export PDF elenco provvigioni: layout “moderno energico” (KPI a card, tabella zebrata,
- * provvigioni in badge ambra) implementato con **PDFKit** — nessun browser/Chromium richiesto.
+ * Export PDF elenco provvigioni: KPI compatti in riga, tabella zebrata, implementato con
+ * **PDFKit** — nessun browser/Chromium richiesto.
  */
 
 const PDFDocument = require('pdfkit');
@@ -144,25 +144,25 @@ function pipeCommissionsListPdf(opts, res) {
   doc.rect(margin + seg * 2, barY, seg, segH).fill('#ef9f27');
   y += segH + 18;
 
-  /* KPI cards */
-  const gap = 16;
-  const cardH = 76;
+  /* KPI — una riga compatta (etichetta a sinistra, valore a destra) */
+  const gap = 12;
+  const cardH = 30;
   const cardW = (usableW - gap * 2) / 3;
   const cards = [
     {
-      label: 'POLIZZE',
+      label: 'Polizze Totali',
       value: String(summary.totale_polizze ?? 0),
       ...COLORS.blue,
       isMoney: false,
     },
     {
-      label: 'PREMI TOTALI',
+      label: 'Premi Totali',
       value: fmtEuro(summary.totale_premi),
       ...COLORS.green,
       isMoney: true,
     },
     {
-      label: 'PROVVIGIONI',
+      label: 'Provvigioni Totali',
       value: fmtEuro(summary.totale_provigioni_strutture),
       ...COLORS.amber,
       isMoney: true,
@@ -172,18 +172,23 @@ function pipeCommissionsListPdf(opts, res) {
   for (let i = 0; i < 3; i += 1) {
     const cx = margin + i * (cardW + gap);
     const c = cards[i];
-    fillRoundedRect(doc, cx, y, cardW, cardH, 8, c.fill);
-    strokeRoundedRect(doc, cx, y, cardW, cardH, 8, c.border, 2);
+    const pad = 10;
+    const labelW = cardW * 0.52;
+    fillRoundedRect(doc, cx, y, cardW, cardH, 6, c.fill);
+    strokeRoundedRect(doc, cx, y, cardW, cardH, 6, c.border, 1);
+    doc.fontSize(8).font('Helvetica-Bold').fillColor(c.text).text(c.label, cx + pad, y + 10, {
+      width: labelW - pad,
+      lineBreak: false,
+    });
     doc
-      .fontSize(9)
+      .fontSize(c.isMoney ? 11 : 12)
       .font('Helvetica-Bold')
       .fillColor(c.text)
-      .text(c.label, cx + 16, y + 16, { width: cardW - 32 });
-    doc
-      .fontSize(c.isMoney ? 16 : 20)
-      .font('Helvetica-Bold')
-      .fillColor(c.text)
-      .text(c.value, cx + 16, y + 36, { width: cardW - 32 });
+      .text(c.value, cx + labelW, y + 8, {
+        width: cardW - labelW - pad,
+        align: 'right',
+        lineBreak: false,
+      });
   }
   y += cardH + 14;
 
@@ -239,7 +244,6 @@ function pipeCommissionsListPdf(opts, res) {
           w: 0.075,
           cell: (r) => fmtCommissionAmountEuro(r.structure_commission_amount),
           align: 'right',
-          badge: true,
         },
         {
           header: 'Stato',
@@ -259,7 +263,6 @@ function pipeCommissionsListPdf(opts, res) {
           w: 0.135,
           cell: (r) => fmtCommissionAmountEuro(r.structure_commission_amount),
           align: 'right',
-          badge: true,
         },
         {
           header: 'Tipo',
@@ -281,7 +284,7 @@ function pipeCommissionsListPdf(opts, res) {
 
   const headerH = isAdmin ? 18 : 22;
   const rowH = isAdmin ? 16 : 22;
-  const bottomLimit = pageH - margin - 28;
+  const bottomLimit = pageH - margin - 16;
 
   function ensureSpace(need) {
     if (y + need <= bottomLimit) return false;
@@ -313,15 +316,6 @@ function pipeCommissionsListPdf(opts, res) {
       .stroke();
   }
 
-  function drawTableFooter() {
-    ensureSpace(20);
-    doc.fontSize(8).font('Helvetica').fillColor('#94a3b8');
-    doc.text(`FIMASS · Sezione provvigioni · ${rows.length} righe in elenco`, margin, y, {
-      width: usableW,
-    });
-    y += 12;
-  }
-
   if (!rows.length) {
     ensureSpace(100);
     const boxH = 48;
@@ -333,7 +327,6 @@ function pipeCommissionsListPdf(opts, res) {
       .fillColor('#64748b')
       .text('Nessuna provvigione con i filtri selezionati.', margin + 20, y + 16, { width: usableW - 40 });
     y += boxH;
-    drawTableFooter();
     doc.end();
     return;
   }
@@ -389,7 +382,6 @@ function pipeCommissionsListPdf(opts, res) {
     y += rowH;
   }
 
-  drawTableFooter();
   doc.end();
 }
 
