@@ -138,27 +138,38 @@ function pipeCommissionsListPdf(opts, res) {
 
   const titleText = isAdmin ? 'Provvigioni' : 'Le tue provvigioni';
   const stampParen = `(Generato il ${stamp})`;
-  const headerLineY = y;
+  const headerBaseline = y;
 
-  doc.fontSize(17).font('Helvetica-Bold').fillColor(COLORS.title);
+  const titleFs = 20;
+  const stampFs = 10;
+  const structFs = 17;
+
+  doc.fontSize(structFs).font('Helvetica-Bold').fillColor(COLORS.title);
   const structureDraw = structureNameRaw ? ellipsize(structureNameRaw, 54) : '';
   const structureW = structureDraw ? doc.widthOfString(structureDraw) : 0;
   const headerGutter = structureDraw ? 14 : 0;
   const leftBudget = usableW - structureW - headerGutter;
 
-  let xHead = margin;
-  doc.fontSize(20).font('Helvetica-Bold').fillColor(COLORS.title);
-  doc.text(titleText, xHead, headerLineY, { lineBreak: false });
-  xHead += doc.widthOfString(titleText);
-  doc.fontSize(10).font('Helvetica').fillColor(COLORS.muted);
-  doc.text(` ${stampParen}`, xHead, headerLineY, {
-    width: Math.max(40, leftBudget - (xHead - margin)),
-    lineBreak: false,
-  });
+  doc.fontSize(titleFs).font('Helvetica-Bold').fillColor(COLORS.title);
+  const wTitle = doc.widthOfString(titleText);
+  doc.fontSize(stampFs).font('Helvetica').fillColor(COLORS.muted);
+  let stampDraw = ` ${stampParen}`;
+  if (wTitle + doc.widthOfString(stampDraw) > leftBudget) {
+    const inner = `Generato il ${stamp}`;
+    stampDraw = ` (${ellipsize(inner, 40)})`;
+  }
+
+  doc.fontSize(titleFs).font('Helvetica-Bold').fillColor(COLORS.title);
+  doc.text(titleText, margin, headerBaseline, { lineBreak: false, continued: true });
+  doc.fontSize(stampFs).font('Helvetica').fillColor(COLORS.muted);
+  doc.text(stampDraw, { lineBreak: false, continued: false });
 
   if (structureDraw) {
-    doc.fontSize(17).font('Helvetica-Bold').fillColor(COLORS.title);
-    doc.text(structureDraw, margin + usableW - structureW, headerLineY - 1, { lineBreak: false });
+    doc.fontSize(structFs).font('Helvetica-Bold').fillColor(COLORS.title);
+    const structBaselineNudge = (titleFs - structFs) * 0.38;
+    doc.text(structureDraw, margin + usableW - structureW, headerBaseline + structBaselineNudge, {
+      lineBreak: false,
+    });
   }
 
   y += 26;

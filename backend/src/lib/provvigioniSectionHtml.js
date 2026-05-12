@@ -390,14 +390,13 @@ function generateProvvigioniSection(data, options = {}) {
       margin-bottom: 8px;
     }
     #provvigioni.fimass-provvigioni-pdf .pv-head-left {
-      display: flex;
-      align-items: baseline;
-      flex-wrap: wrap;
-      gap: 6px;
+      display: block;
       min-width: 0;
       flex: 1;
+      line-height: 1.15;
     }
     #provvigioni.fimass-provvigioni-pdf .pv-head-title {
+      display: inline;
       margin: 0;
       font-size: 24px;
       font-weight: 800;
@@ -406,11 +405,14 @@ function generateProvvigioniSection(data, options = {}) {
       color: ${dark ? '#e2e8f0' : '#0f172a'};
     }
     #provvigioni.fimass-provvigioni-pdf .pv-head-stamp {
+      display: inline;
       margin: 0;
+      padding-left: 6px;
       font-size: 11px;
       font-weight: 400;
       color: var(--fimass-pv-muted, #64748b);
       white-space: nowrap;
+      vertical-align: baseline;
     }
     #provvigioni.fimass-provvigioni-pdf .pv-head-structure {
       margin: 0;
@@ -431,8 +433,7 @@ function generateProvvigioniSection(data, options = {}) {
   <header style="margin-bottom:20px;">
     <div class="pv-head-row">
       <div class="pv-head-left">
-        <h1 class="pv-head-title">${escapeHtml(title)}</h1>
-        <span class="pv-head-stamp">(Generato il ${timestamp})</span>
+        <span class="pv-head-title">${escapeHtml(title)}</span><span class="pv-head-stamp">(Generato il ${timestamp})</span>
       </div>
       ${structureName ? `<p class="pv-head-structure">${structureName}</p>` : ''}
     </div>

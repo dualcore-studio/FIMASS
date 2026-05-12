@@ -417,8 +417,15 @@ router.get('/export-pdf', authenticateToken, assertCommissionReader, (req, res) 
     );
 
     const fullSummary = summarize(rows);
+
+    const structureIdNum =
+      structureId != null && String(structureId).trim() !== '' ? Number(structureId) : NaN;
+    const pdfStrutturaLayout =
+      req.user.role === 'struttura' ||
+      ((req.user.role === 'admin' || req.user.role === 'fornitore') && Number.isFinite(structureIdNum));
+
     const summary =
-      req.user.role === 'struttura'
+      req.user.role === 'struttura' || pdfStrutturaLayout
         ? {
             totale_polizze: fullSummary.totale_polizze,
             totale_premi: fullSummary.totale_premi,
@@ -435,7 +442,7 @@ router.get('/export-pdf', authenticateToken, assertCommissionReader, (req, res) 
       {
         rows,
         summary,
-        role: req.user.role === 'struttura' ? 'struttura' : 'admin',
+        role: pdfStrutturaLayout ? 'struttura' : 'admin',
         structureName: structureNameForCommissionPdf(req, rows),
       },
       res,
