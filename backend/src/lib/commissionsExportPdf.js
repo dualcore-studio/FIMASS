@@ -120,10 +120,6 @@ function pipeCommissionsListPdf(opts, res) {
     },
   });
 
-  const stamp =
-    typeof opts.timestamp === 'string' && opts.timestamp.trim() !== ''
-      ? opts.timestamp.trim()
-      : new Date().toLocaleString('it-IT');
   const filenameSlug = `provvigioni-${new Date().toISOString().slice(0, 10)}`;
 
   res.setHeader('Content-Type', 'application/pdf');
@@ -137,32 +133,17 @@ function pipeCommissionsListPdf(opts, res) {
   let y = margin;
 
   const titleText = isAdmin ? 'Provvigioni' : 'Le tue provvigioni';
-  const stampParen = `(Generato il ${stamp})`;
   const headerBaseline = y;
 
   const titleFs = 20;
-  const stampFs = 10;
   const structFs = 17;
 
   doc.fontSize(structFs).font('Helvetica-Bold').fillColor(COLORS.title);
   const structureDraw = structureNameRaw ? ellipsize(structureNameRaw, 54) : '';
   const structureW = structureDraw ? doc.widthOfString(structureDraw) : 0;
-  const headerGutter = structureDraw ? 14 : 0;
-  const leftBudget = usableW - structureW - headerGutter;
 
   doc.fontSize(titleFs).font('Helvetica-Bold').fillColor(COLORS.title);
-  const wTitle = doc.widthOfString(titleText);
-  doc.fontSize(stampFs).font('Helvetica').fillColor(COLORS.muted);
-  let stampDraw = ` ${stampParen}`;
-  if (wTitle + doc.widthOfString(stampDraw) > leftBudget) {
-    const inner = `Generato il ${stamp}`;
-    stampDraw = ` (${ellipsize(inner, 40)})`;
-  }
-
-  doc.fontSize(titleFs).font('Helvetica-Bold').fillColor(COLORS.title);
-  doc.text(titleText, margin, headerBaseline, { lineBreak: false, continued: true });
-  doc.fontSize(stampFs).font('Helvetica').fillColor(COLORS.muted);
-  doc.text(stampDraw, { lineBreak: false, continued: false });
+  doc.text(titleText, margin, headerBaseline, { lineBreak: false });
 
   if (structureDraw) {
     doc.fontSize(structFs).font('Helvetica-Bold').fillColor(COLORS.title);

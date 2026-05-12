@@ -19,7 +19,7 @@
  * {
  *   variant?: 'struttura' | 'admin',
  *   title?: string,
- *   timestamp?: string,          // es. "12/05/2026, 10:32:08"; se omesso → generato in it-IT
+ *   timestamp?: string,          // opzionale (non più mostrato nel PDF HTML); es. audit/export JSON
  *   structureName?: string,      // nome struttura (header a destra), opzionale
  *   totals: { polizze, premi, provvigioni },
  *   adminMeta?: { totaleProvvigioniBroker?, totaleSportelloAmico? },
@@ -225,10 +225,6 @@ function generateProvvigioniSection(data, options = {}) {
 
   const variant = data.variant === 'admin' ? 'admin' : 'struttura';
   const title = typeof data.title === 'string' && data.title ? data.title : variant === 'admin' ? 'Provvigioni' : 'Le tue provvigioni';
-  const timestamp =
-    typeof data.timestamp === 'string' && data.timestamp.trim() !== ''
-      ? escapeHtml(data.timestamp.trim())
-      : escapeHtml(new Date().toLocaleString('it-IT'));
   const structureName =
     typeof data.structureName === 'string' && data.structureName.trim() !== ''
       ? escapeHtml(data.structureName.trim())
@@ -404,16 +400,6 @@ function generateProvvigioniSection(data, options = {}) {
       line-height: 1.15;
       color: ${dark ? '#e2e8f0' : '#0f172a'};
     }
-    #provvigioni.fimass-provvigioni-pdf .pv-head-stamp {
-      display: inline;
-      margin: 0;
-      padding-left: 6px;
-      font-size: 11px;
-      font-weight: 400;
-      color: var(--fimass-pv-muted, #64748b);
-      white-space: nowrap;
-      vertical-align: baseline;
-    }
     #provvigioni.fimass-provvigioni-pdf .pv-head-structure {
       margin: 0;
       font-size: 18px;
@@ -433,7 +419,7 @@ function generateProvvigioniSection(data, options = {}) {
   <header style="margin-bottom:20px;">
     <div class="pv-head-row">
       <div class="pv-head-left">
-        <span class="pv-head-title">${escapeHtml(title)}</span><span class="pv-head-stamp">(Generato il ${timestamp})</span>
+        <span class="pv-head-title">${escapeHtml(title)}</span>
       </div>
       ${structureName ? `<p class="pv-head-structure">${structureName}</p>` : ''}
     </div>
