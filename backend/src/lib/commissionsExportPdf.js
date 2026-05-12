@@ -1,69 +1,22 @@
-const PDFDocument = require('pdfkit');
-const puppeteer = require('puppeteer');
-const {
-  buildProvvigioniSectionPayload,
-  generateProvvigioniSection,
-  generateProvvigioniPdfDocumentHtml,
-} = require('./provvigioniSectionHtml');
-
-/** Argomenti richiesti da molti ambienti (Docker, CI, macOS senza permessi sandbox). */
-const PUPPETEER_ARGS = ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage', '--disable-gpu'];
-
 /**
- * Avvia Puppeteer: prima Chrome/Edge di sistema (come nell’app umana sul Mac),
- * poi Chromium incluso nel pacchetto. Riduce errori “Failed to launch the browser process”.
+ * Export PDF elenco provvigioni: layout “moderno energico” (KPI a card, tabella zebrata,
+ * provvigioni in badge ambra) implementato con **PDFKit** — nessun browser/Chromium richiesto.
  */
-async function launchBrowserForPdf() {
-  const base = {
-    headless: true,
-    args: PUPPETEER_ARGS,
-  };
 
-  const fromEnv =
-    process.env.PUPPETEER_EXECUTABLE_PATH ||
-    process.env.CHROME_PATH ||
-    process.env.PUPPETEER_EXECUTABLE;
-  if (fromEnv) {
-    try {
-      return await puppeteer.launch({
-        ...base,
-        executablePath: fromEnv,
-      });
-    } catch (e) {
-      console.warn(
-        'Puppeteer: esecuzione con PATH personalizzato fallita, provo Chrome di sistema o Chromium incluso:',
-        e && e.message,
-      );
-    }
-  }
+const PDFDocument = require('pdfkit');
 
-  const attempts = [
-    () =>
-      puppeteer.launch({
-        ...base,
-        channel: 'chrome',
-      }),
-    () =>
-      puppeteer.launch({
-        ...base,
-        channel: 'msedge',
-      }),
-    () => puppeteer.launch(base),
-  ];
-
-  let lastErr;
-  for (const fn of attempts) {
-    try {
-      // eslint-disable-next-line no-await-in-loop
-      return await fn();
-    } catch (e) {
-      lastErr = e;
-    }
-  }
-  throw lastErr;
-}
-
-// --- Fallback PDFKit (tabella classica, sempre disponibile) ---
+const COLORS = {
+  blue: { fill: '#e6f1fb', border: '#85b7eb', text: '#185fa5' },
+  green: { fill: '#eaf3de', border: '#97c459', text: '#3b6d11' },
+  amber: { fill: '#faeeda', border: '#ef9f27', text: '#854f0b' },
+  headerBg: '#f1f5f9',
+  zebra: '#fafaf8',
+  white: '#ffffff',
+  border: '#e5e5e0',
+  muted: '#64748b',
+  ink: '#334155',
+  title: '#0f172a',
+};
 
 function fmtEuro(n) {
   const x = Number(n);
@@ -106,12 +59,49 @@ function commissionListStatusLabel(status) {
   return 'Da valorizzare';
 }
 
+/** Rettangolo con angoli arrotondati (path Bezier), compatibile PDFKit. */
+function fillRoundedRect(doc, x, y, w, h, r, fillColor) {
+  const rad = Math.min(r, w / 2, h / 2);
+  doc.save();
+  doc.moveTo(x + rad, y)
+    .lineTo(x + w - rad, y)
+    .quadraticCurveTo(x + w, y, x + w, y + rad)
+    .lineTo(x + w, y + h - rad)
+    .quadraticCurveTo(x + w, y + h, x + w - rad, y + h)
+    .lineTo(x + rad, y + h)
+    .quadraticCurveTo(x, y + h, x, y + h - rad)
+    .lineTo(x, y + rad)
+    .quadraticCurveTo(x, y, x + rad, y)
+    .closePath();
+  doc.fillColor(fillColor).fill();
+  doc.restore();
+}
+
+function strokeRoundedRect(doc, x, y, w, h, r, strokeColor, lineWidth = 2) {
+  const rad = Math.min(r, w / 2, h / 2);
+  doc.save();
+  doc.moveTo(x + rad, y)
+    .lineTo(x + w - rad, y)
+    .quadraticCurveTo(x + w, y, x + w, y + rad)
+    .lineTo(x + w, y + h - rad)
+    .quadraticCurveTo(x + w, y + h, x + w - rad, y + h)
+    .lineTo(x + rad, y + h)
+    .quadraticCurveTo(x, y + h, x, y + h - rad)
+    .lineTo(x, y + rad)
+    .quadraticCurveTo(x, y, x + rad, y)
+    .closePath();
+  doc.strokeColor(strokeColor).lineWidth(lineWidth).stroke();
+  doc.restore();
+}
+
 /**
- * Fallback sincrono PDFKit (streaming su `res`).
  * @param {object} opts
+ * @param {object[]} opts.rows
+ * @param {object} opts.summary
+ * @param {'admin'|'struttura'} opts.role
  * @param {import('http').ServerResponse} res
  */
-function pipeCommissionsListPdfPdfKit(opts, res) {
+function pipeCommissionsListPdf(opts, res) {
   const { rows, summary, role } = opts;
   const isAdmin = role === 'admin';
 
@@ -125,7 +115,10 @@ function pipeCommissionsListPdfPdfKit(opts, res) {
     },
   });
 
-  const stamp = new Date().toLocaleString('it-IT');
+  const stamp =
+    typeof opts.timestamp === 'string' && opts.timestamp.trim() !== ''
+      ? opts.timestamp.trim()
+      : new Date().toLocaleString('it-IT');
   const filenameSlug = `provvigioni-${new Date().toISOString().slice(0, 10)}`;
 
   res.setHeader('Content-Type', 'application/pdf');
@@ -138,57 +131,146 @@ function pipeCommissionsListPdfPdfKit(opts, res) {
   const usableW = pageW - margin * 2;
   let y = margin;
 
-  doc
-    .fontSize(16)
-    .font('Helvetica-Bold')
-    .fillColor('#0f172a')
-    .text(isAdmin ? 'Provvigioni' : 'Le tue provvigioni', margin, y);
-  y += 22;
-  doc.fontSize(9).font('Helvetica').fillColor('#64748b').text(`Generato il ${stamp}`, margin, y);
-  y += 28;
+  const titleText = isAdmin ? 'Provvigioni' : 'Le tue provvigioni';
 
-  doc.fontSize(9).font('Helvetica-Bold').fillColor('#334155');
-  const summParts = [
-    `Polizze: ${summary.totale_polizze}`,
-    `Totale premi: ${fmtEuro(summary.totale_premi)}`,
+  doc.fontSize(20).font('Helvetica-Bold').fillColor(COLORS.title).text(titleText, margin, y);
+  y += 24;
+
+  const barY = y;
+  const seg = 18;
+  const segH = 3;
+  doc.rect(margin, barY, seg, segH).fill('#185fa5');
+  doc.rect(margin + seg, barY, seg, segH).fill('#3b6d11');
+  doc.rect(margin + seg * 2, barY, seg, segH).fill('#ef9f27');
+  y += segH + 18;
+
+  /* KPI cards */
+  const gap = 16;
+  const cardH = 76;
+  const cardW = (usableW - gap * 2) / 3;
+  const cards = [
+    {
+      label: 'POLIZZE',
+      value: String(summary.totale_polizze ?? 0),
+      ...COLORS.blue,
+      isMoney: false,
+    },
+    {
+      label: 'PREMI TOTALI',
+      value: fmtEuro(summary.totale_premi),
+      ...COLORS.green,
+      isMoney: true,
+    },
+    {
+      label: 'PROVVIGIONI',
+      value: fmtEuro(summary.totale_provigioni_strutture),
+      ...COLORS.amber,
+      isMoney: true,
+    },
   ];
-  if (isAdmin && summary.totale_provigioni_broker != null) {
-    summParts.push(`Tot. provv. broker: ${fmtEuro(summary.totale_provigioni_broker)}`);
+
+  for (let i = 0; i < 3; i += 1) {
+    const cx = margin + i * (cardW + gap);
+    const c = cards[i];
+    fillRoundedRect(doc, cx, y, cardW, cardH, 8, c.fill);
+    strokeRoundedRect(doc, cx, y, cardW, cardH, 8, c.border, 2);
+    doc
+      .fontSize(9)
+      .font('Helvetica-Bold')
+      .fillColor(c.text)
+      .text(c.label, cx + 16, y + 16, { width: cardW - 32 });
+    doc
+      .fontSize(c.isMoney ? 16 : 20)
+      .font('Helvetica-Bold')
+      .fillColor(c.text)
+      .text(c.value, cx + 16, y + 36, { width: cardW - 32 });
   }
-  if (isAdmin && summary.totale_sportello_amico != null) {
-    summParts.push(`Quota S.A.: ${fmtEuro(summary.totale_sportello_amico)}`);
-  }
-  summParts.push(`Totale provvigioni strutture: ${fmtEuro(summary.totale_provigioni_strutture)}`);
-  doc.text(summParts.join('   ·   '), margin, y, { width: usableW });
+  y += cardH + 14;
+
+  doc
+    .fontSize(9)
+    .font('Helvetica')
+    .fillColor(COLORS.muted)
+    .text(`Generato il ${stamp}`, margin, y);
   y += 22;
 
-  /** @type {{ header: string; w: number; cell: (r: object) => string }[]} */
+  if (
+    isAdmin &&
+    (summary.totale_provigioni_broker != null || summary.totale_sportello_amico != null)
+  ) {
+    const parts = [
+      `Tot. provv. broker: ${fmtEuro(summary.totale_provigioni_broker)}`,
+      `Quota S.A.: ${fmtEuro(summary.totale_sportello_amico)}`,
+    ];
+    doc
+      .fontSize(8.5)
+      .font('Helvetica')
+      .fillColor('#64748b')
+      .text(parts.join('   ·   '), margin, y, { width: usableW });
+    y += 18;
+  }
+
+  /** @type {{ header: string; w: number; cell: (r: object) => string; align?: string; mono?: boolean; badge?: boolean }[]} */
   const cols = isAdmin
     ? [
         { header: 'Data', w: 0.065, cell: (r) => fmtDate(r.date) },
-        { header: 'Cliente', w: 0.11, cell: (r) => ellipsize(r.customer_name, 26) },
-        { header: 'N. polizza', w: 0.08, cell: (r) => ellipsize(r.policy_number, 16) },
-        { header: 'Struttura', w: 0.1, cell: (r) => ellipsize(r.structure_name || '—', 20) },
-        { header: 'Portale', w: 0.065, cell: (r) => ellipsize(r.portal || '—', 12) },
-        { header: 'Compagnia', w: 0.07, cell: (r) => ellipsize(r.company || '—', 14) },
-        { header: 'Premio', w: 0.08, cell: (r) => fmtEuro(r.policy_premium) },
-        { header: 'Fatt. cliente', w: 0.07, cell: (r) => fmtEuro(r.client_invoice) },
-        { header: 'Prov. broker', w: 0.07, cell: (r) => fmtCommissionAmountEuro(r.provvigioni_broker ?? r.broker_commission) },
-        { header: 'Quota S.A.', w: 0.065, cell: (r) => fmtCommissionAmountEuro(r.sportello_amico_commission) },
-        { header: 'Tipo', w: 0.09, cell: (r) => commissionTypeLabel(r.structure_commission_type) },
-        { header: 'Prov. struttura', w: 0.075, cell: (r) => fmtCommissionAmountEuro(r.structure_commission_amount) },
-        { header: 'Stato', w: 0.065, cell: (r) => commissionListStatusLabel(r.commission_status) },
+        { header: 'Cliente', w: 0.1, cell: (r) => ellipsize(r.customer_name, 22) },
+        { header: 'N. polizza', w: 0.075, cell: (r) => ellipsize(r.policy_number, 14), mono: true },
+        { header: 'Struttura', w: 0.09, cell: (r) => ellipsize(r.structure_name || '—', 18) },
+        { header: 'Portale', w: 0.055, cell: (r) => ellipsize(r.portal || '—', 10) },
+        { header: 'Compagnia', w: 0.065, cell: (r) => ellipsize(r.company || '—', 12) },
+        { header: 'Premio', w: 0.075, cell: (r) => fmtEuro(r.policy_premium), align: 'right' },
+        { header: 'Fatt.', w: 0.06, cell: (r) => fmtEuro(r.client_invoice), align: 'right' },
+        {
+          header: 'Pr.bro',
+          w: 0.065,
+          cell: (r) => fmtCommissionAmountEuro(r.provvigioni_broker ?? r.broker_commission),
+          align: 'right',
+        },
+        {
+          header: 'S.A.',
+          w: 0.055,
+          cell: (r) => fmtCommissionAmountEuro(r.sportello_amico_commission),
+          align: 'right',
+        },
+        { header: 'Tipo', w: 0.085, cell: (r) => ellipsize(commissionTypeLabel(r.structure_commission_type), 16) },
+        {
+          header: 'Pr.str',
+          w: 0.075,
+          cell: (r) => fmtCommissionAmountEuro(r.structure_commission_amount),
+          align: 'right',
+          badge: true,
+        },
+        {
+          header: 'Stato',
+          w: 0.058,
+          cell: (r) => commissionListStatusLabel(r.commission_status),
+        },
       ]
     : [
-        { header: 'Data', w: 0.1, cell: (r) => fmtDate(r.date) },
-        { header: 'Cliente', w: 0.2, cell: (r) => ellipsize(r.customer_name, 36) },
-        { header: 'N. polizza', w: 0.12, cell: (r) => ellipsize(r.policy_number, 18) },
-        { header: 'Portale', w: 0.1, cell: (r) => ellipsize(r.portal || '—', 14) },
-        { header: 'Compagnia', w: 0.12, cell: (r) => ellipsize(r.company || '—', 18) },
-        { header: 'Premio', w: 0.12, cell: (r) => fmtEuro(r.policy_premium) },
-        { header: 'Tipo', w: 0.08, cell: (r) => commissionTypeLabel(r.structure_commission_type) },
-        { header: 'La tua provvigione', w: 0.14, cell: (r) => fmtCommissionAmountEuro(r.structure_commission_amount) },
-        { header: 'Stato', w: 0.07, cell: (r) => commissionListStatusLabel(r.commission_status) },
+        { header: 'Data', w: 0.065, cell: (r) => fmtDate(r.date) },
+        { header: 'Cliente', w: 0.13, cell: (r) => ellipsize(r.customer_name, 28) },
+        { header: 'N. polizza', w: 0.1, cell: (r) => ellipsize(r.policy_number, 16), mono: true },
+        { header: 'Portale', w: 0.08, cell: (r) => ellipsize(r.portal || '—', 12) },
+        { header: 'Compagnia', w: 0.095, cell: (r) => ellipsize(r.company || '—', 14) },
+        { header: 'Premio', w: 0.085, cell: (r) => fmtEuro(r.policy_premium), align: 'right' },
+        {
+          header: 'Provvigione',
+          w: 0.135,
+          cell: (r) => fmtCommissionAmountEuro(r.structure_commission_amount),
+          align: 'right',
+          badge: true,
+        },
+        {
+          header: 'Tipo',
+          w: 0.11,
+          cell: (r) => ellipsize(commissionTypeLabel(r.structure_commission_type), 22),
+        },
+        {
+          header: 'Stato',
+          w: 0.072,
+          cell: (r) => commissionListStatusLabel(r.commission_status),
+        },
       ];
 
   const rawWs = cols.map((c) => c.w);
@@ -196,9 +278,10 @@ function pipeCommissionsListPdfPdfKit(opts, res) {
   const widths = rawWs.map((w) => Math.floor((usableW * w) / wSum));
   const widthSlack = usableW - widths.reduce((a, b) => a + b, 0);
   if (widths.length) widths[widths.length - 1] += widthSlack;
-  const rowH = 14;
-  const headerH = 16;
-  const bottomLimit = pageH - margin;
+
+  const headerH = isAdmin ? 18 : 22;
+  const rowH = isAdmin ? 16 : 22;
+  const bottomLimit = pageH - margin - 28;
 
   function ensureSpace(need) {
     if (y + need <= bottomLimit) return false;
@@ -208,101 +291,106 @@ function pipeCommissionsListPdfPdfKit(opts, res) {
   }
 
   function drawHeaderRow() {
+    doc.save();
+    doc.rect(margin, y, usableW, headerH).fill(COLORS.headerBg);
     let x = margin;
-    doc.fontSize(7).font('Helvetica-Bold').fillColor('#1e293b');
+    doc.fontSize(isAdmin ? 6.5 : 8).font('Helvetica-Bold').fillColor('#0f172a');
     for (let i = 0; i < cols.length; i += 1) {
-      doc.text(cols[i].header, x, y, { width: widths[i], lineBreak: false });
+      const align = cols[i].align === 'right' ? 'right' : 'left';
+      doc.text(cols[i].header, x + (align === 'right' ? 0 : 4), y + 5, {
+        width: widths[i] - 8,
+        align,
+      });
       x += widths[i];
     }
+    doc.restore();
     y += headerH;
     doc
-      .strokeColor('#cbd5e1')
+      .strokeColor(COLORS.border)
       .lineWidth(0.5)
-      .moveTo(margin, y - 4)
-      .lineTo(margin + usableW, y - 4)
+      .moveTo(margin, y)
+      .lineTo(margin + usableW, y)
       .stroke();
   }
 
+  function drawTableFooter() {
+    ensureSpace(20);
+    doc.fontSize(8).font('Helvetica').fillColor('#94a3b8');
+    doc.text(`FIMASS · Sezione provvigioni · ${rows.length} righe in elenco`, margin, y, {
+      width: usableW,
+    });
+    y += 12;
+  }
+
   if (!rows.length) {
-    doc.fontSize(9).font('Helvetica').fillColor('#64748b').text('Nessuna provvigione con i filtri selezionati.', margin, y);
+    ensureSpace(100);
+    const boxH = 48;
+    fillRoundedRect(doc, margin, y, usableW, boxH, 8, '#f8fafc');
+    strokeRoundedRect(doc, margin, y, usableW, boxH, 8, '#e2e8f0', 1);
+    doc
+      .fontSize(10)
+      .font('Helvetica')
+      .fillColor('#64748b')
+      .text('Nessuna provvigione con i filtri selezionati.', margin + 20, y + 16, { width: usableW - 40 });
+    y += boxH;
+    drawTableFooter();
     doc.end();
     return;
   }
 
-  ensureSpace(headerH + 6);
+  ensureSpace(headerH + rowH * 3);
   drawHeaderRow();
 
-  doc.font('Helvetica').fillColor('#334155');
-  for (const r of rows) {
-    if (ensureSpace(rowH + 2)) drawHeaderRow();
+  for (let ri = 0; ri < rows.length; ri += 1) {
+    const r = rows[ri];
+    if (ensureSpace(rowH + 4)) drawHeaderRow();
+
+    const zebra = ri % 2 === 1 ? COLORS.zebra : COLORS.white;
+    doc.rect(margin, y, usableW, rowH).fill(zebra);
+
     let x = margin;
-    doc.fontSize(6.5);
+    const fs = isAdmin ? 7 : 9;
+    const textMid = y + (rowH - fs) * 0.35 + fs * 0.85;
+
     for (let i = 0; i < cols.length; i += 1) {
+      const col = cols[i];
+      let txt;
       try {
-        doc.text(String(cols[i].cell(r) ?? '—'), x, y, { width: widths[i], lineBreak: false });
+        txt = String(col.cell(r) ?? '—');
       } catch {
-        doc.text('—', x, y, { width: widths[i], lineBreak: false });
+        txt = '—';
+      }
+
+      doc.font(col.mono ? 'Courier' : 'Helvetica');
+      if (col.badge) {
+        doc.fontSize(fs).font('Helvetica-Bold');
+        const tw = Math.min(doc.widthOfString(txt) + 14, widths[i] - 6);
+        const bh = rowH - 6;
+        const bx = x + Math.max(0, widths[i] - tw - 4);
+        const by = y + 3;
+        fillRoundedRect(doc, bx, by, tw, bh, 6, COLORS.amber.fill);
+        strokeRoundedRect(doc, bx, by, tw, bh, 6, COLORS.amber.border, 1);
+        const badgeBaseline = by + bh / 2 + fs * 0.28;
+        doc
+          .fillColor(COLORS.amber.text)
+          .fontSize(fs)
+          .font('Helvetica-Bold')
+          .text(txt, bx + 7, badgeBaseline, { width: tw - 14, align: 'center', lineBreak: false });
+      } else {
+        doc.fontSize(fs).font(col.mono ? 'Courier' : 'Helvetica').fillColor(COLORS.ink);
+        const align = col.align === 'right' ? 'right' : 'left';
+        doc.text(txt, x + (align === 'right' ? 0 : 4), textMid, {
+          width: widths[i] - 8,
+          align,
+        });
       }
       x += widths[i];
     }
     y += rowH;
   }
 
+  drawTableFooter();
   doc.end();
 }
 
-/**
- * Esporta il PDF elenco provvigioni: prima HTML+Puppeteer (layout “energetico”),
- * in caso di errore (Chromium non avviabile, permessi, Docker senza Chrome) usa PDFKit.
- *
- * @param {object} opts
- * @param {object[]} opts.rows
- * @param {object} opts.summary
- * @param {'admin'|'struttura'} opts.role
- * @param {import('http').ServerResponse} res
- * @returns {Promise<void>}
- */
-async function pipeCommissionsListPdf(opts, res) {
-  const { rows, summary, role } = opts;
-  const filenameSlug = `provvigioni-${new Date().toISOString().slice(0, 10)}`;
-
-  const payload = buildProvvigioniSectionPayload({
-    rows,
-    summary,
-    role,
-    timestamp: typeof opts.timestamp === 'string' ? opts.timestamp : undefined,
-  });
-
-  const sectionHtml = generateProvvigioniSection(payload);
-  const fullHtml = generateProvvigioniPdfDocumentHtml(sectionHtml);
-
-  let browser;
-  try {
-    browser = await launchBrowserForPdf();
-    const page = await browser.newPage();
-    await page.setContent(fullHtml, { waitUntil: 'load' });
-    const pdfBuffer = await page.pdf({
-      format: 'A4',
-      landscape: true,
-      printBackground: true,
-      margin: { top: '12mm', right: '10mm', bottom: '12mm', left: '10mm' },
-    });
-
-    res.setHeader('Content-Type', 'application/pdf');
-    res.setHeader('Content-Disposition', `attachment; filename="${filenameSlug}.pdf"`);
-    res.end(pdfBuffer);
-    return;
-  } catch (err) {
-    console.warn(
-      'commissions PDF: motore HTML non disponibile, uso PDFKit. Dettaglio:',
-      err && err.message ? err.message : err,
-    );
-    pipeCommissionsListPdfPdfKit(opts, res);
-  } finally {
-    if (browser) {
-      await browser.close().catch(() => {});
-    }
-  }
-}
-
-module.exports = { pipeCommissionsListPdf, pipeCommissionsListPdfPdfKit };
+module.exports = { pipeCommissionsListPdf };
