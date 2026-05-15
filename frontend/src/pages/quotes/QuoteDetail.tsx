@@ -59,6 +59,23 @@ import {
 
 type Tab = 'dati' | 'allegati' | 'note' | 'storico' | 'preventivo';
 
+type StrutturaDiagUser = {
+  id: number;
+  username: string | null;
+  denominazione: string | null;
+  email: string | null;
+  role?: string | null;
+  stato: string | null;
+};
+
+type StrutturaDiagnose = {
+  quote: { id: number; numero: string; stato: string };
+  stored_struttura_id: number | null;
+  stored_struttura_user: StrutturaDiagUser | null;
+  candidate_strutture_with_same_identity: StrutturaDiagUser[];
+  hint: string;
+};
+
 const TABS: { key: Tab; label: string; icon: typeof LayoutDashboard }[] = [
   { key: 'dati', label: 'Dati', icon: LayoutDashboard },
   { key: 'allegati', label: 'Allegati', icon: Paperclip },
@@ -105,6 +122,15 @@ export default function QuoteDetail() {
 
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [deleteSubmitting, setDeleteSubmitting] = useState(false);
+
+  const [showStrutturaRemapModal, setShowStrutturaRemapModal] = useState(false);
+  const [strutturaDiag, setStrutturaDiag] = useState<StrutturaDiagnose | null>(null);
+  const [strutturaDiagLoading, setStrutturaDiagLoading] = useState(false);
+  const [strutturaDiagError, setStrutturaDiagError] = useState<string | null>(null);
+  const [strutturaRemapTargetId, setStrutturaRemapTargetId] = useState('');
+  const [strutturaRemapMotivo, setStrutturaRemapMotivo] = useState('');
+  const [strutturaRemapSubmitting, setStrutturaRemapSubmitting] = useState(false);
+  const [strutturaRemapError, setStrutturaRemapError] = useState<string | null>(null);
 
   // Attachments
   const [uploadFile, setUploadFile] = useState<File | null>(null);
@@ -203,6 +229,55 @@ export default function QuoteDetail() {
     } finally {
       setDeleteSubmitting(false);
       setShowDeleteModal(false);
+    }
+  };
+
+  const openStrutturaRemapModal = async () => {
+    if (!id) return;
+    setShowStrutturaRemapModal(true);
+    setStrutturaDiag(null);
+    setStrutturaDiagError(null);
+    setStrutturaRemapError(null);
+    setStrutturaRemapTargetId('');
+    setStrutturaRemapMotivo('');
+    setStrutturaDiagLoading(true);
+    try {
+      const data = await api.get<StrutturaDiagnose>(`/quotes/${id}/struttura-diagnose`);
+      setStrutturaDiag(data);
+      if (data.candidate_strutture_with_same_identity.length === 1) {
+        setStrutturaRemapTargetId(String(data.candidate_strutture_with_same_identity[0].id));
+      }
+    } catch (e) {
+      setStrutturaDiagError(e instanceof ApiError ? e.message : 'Impossibile caricare la diagnostica.');
+    } finally {
+      setStrutturaDiagLoading(false);
+    }
+  };
+
+  const handleStrutturaRemap = async () => {
+    if (!id) return;
+    const targetId = Number(strutturaRemapTargetId);
+    if (!Number.isFinite(targetId) || targetId <= 0) {
+      setStrutturaRemapError('Seleziona o inserisci un id struttura di destinazione valido.');
+      return;
+    }
+    if (strutturaDiag?.stored_struttura_id === targetId) {
+      setStrutturaRemapError('Il nuovo id coincide con quello attuale.');
+      return;
+    }
+    setStrutturaRemapError(null);
+    setStrutturaRemapSubmitting(true);
+    try {
+      await api.patch(`/quotes/${id}/struttura`, {
+        struttura_id: targetId,
+        ...(strutturaRemapMotivo.trim() ? { motivo: strutturaRemapMotivo.trim() } : {}),
+      });
+      setShowStrutturaRemapModal(false);
+      await fetchQuote();
+    } catch (e) {
+      setStrutturaRemapError(e instanceof ApiError ? e.message : 'Rimappatura non riuscita.');
+    } finally {
+      setStrutturaRemapSubmitting(false);
     }
   };
 
@@ -383,6 +458,18 @@ export default function QuoteDetail() {
           {role === 'admin' && (
             <button
               type="button"
+              onClick={() => void openStrutturaRemapModal()}
+              className="inline-flex items-center gap-2 rounded-lg border border-amber-200 bg-white px-3 py-2 text-sm font-medium text-amber-800 transition hover:bg-amber-50"
+              title="Verifica/ripara la struttura proprietaria del preventivo (utile se la struttura non lo vede in elenco)"
+            >
+              <UserCheck className="h-4 w-4" />
+              Rimappa struttura
+            </button>
+          )}
+
+          {role === 'admin' && (
+            <button
+              type="button"
               onClick={() => setShowDeleteModal(true)}
               className="inline-flex items-center gap-2 rounded-lg border border-red-200 bg-white px-3 py-2 text-sm font-medium text-red-700 transition hover:bg-red-50"
             >
@@ -513,6 +600,137 @@ export default function QuoteDetail() {
             <button type="button" onClick={() => setShowAssignModal(false)} className="btn-secondary">Annulla</button>
             <button type="button" onClick={handleAssign} disabled={assignSubmitting} className="btn-primary">
               {assignSubmitting ? 'Assegnazione…' : 'Conferma'}
+            </button>
+          </div>
+        </div>
+      </Modal>
+
+      <Modal
+        isOpen={showStrutturaRemapModal}
+        onClose={() => !strutturaRemapSubmitting && setShowStrutturaRemapModal(false)}
+        title="Rimappa struttura del preventivo"
+        size="md"
+      >
+        <div className="space-y-4 text-sm">
+          <p className="text-gray-600">
+            Usa questa funzione quando una struttura segnala di non vedere il preventivo
+            in elenco, mentre tu come admin lo vedi. L'elenco è filtrato per
+            <span className="mx-1 rounded bg-slate-100 px-1.5 py-0.5 font-mono text-xs text-slate-700">struttura_id</span>
+            uguale all'id dell'utente loggato: se il valore salvato punta ad un utente
+            diverso (es. duplicato/legacy) con la stessa denominazione, l'elenco lo nasconde.
+          </p>
+
+          {strutturaDiagLoading ? (
+            <p className="text-gray-500">Lettura dati in corso…</p>
+          ) : strutturaDiagError ? (
+            <div className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-red-800">{strutturaDiagError}</div>
+          ) : strutturaDiag ? (
+            <>
+              <div className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2">
+                <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">struttura_id attuale salvato sul preventivo</p>
+                <p className="mt-1 font-mono text-base text-slate-900">
+                  {strutturaDiag.stored_struttura_id ?? '— (mancante)'}
+                </p>
+                {strutturaDiag.stored_struttura_user ? (
+                  <p className="text-xs text-slate-600">
+                    Utente puntato: <span className="font-medium">{strutturaDiag.stored_struttura_user.denominazione || strutturaDiag.stored_struttura_user.username || '—'}</span>
+                    {' · '}
+                    {strutturaDiag.stored_struttura_user.email || 'senza email'}
+                    {' · '}
+                    stato: {strutturaDiag.stored_struttura_user.stato || '—'}
+                  </p>
+                ) : (
+                  <p className="text-xs text-amber-700">Nessun utente trovato con questo id.</p>
+                )}
+              </div>
+
+              <div className="text-xs text-gray-600">{strutturaDiag.hint}</div>
+
+              <div className="space-y-2">
+                <label className="block text-sm font-medium text-gray-700">Nuovo struttura_id</label>
+                {strutturaDiag.candidate_strutture_with_same_identity.length > 0 ? (
+                  <div className="space-y-1.5">
+                    {strutturaDiag.candidate_strutture_with_same_identity.map((c) => (
+                      <label
+                        key={c.id}
+                        className="flex cursor-pointer items-start gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 hover:border-blue-400"
+                      >
+                        <input
+                          type="radio"
+                          name="strutturaRemapTarget"
+                          value={String(c.id)}
+                          checked={strutturaRemapTargetId === String(c.id)}
+                          onChange={(e) => setStrutturaRemapTargetId(e.target.value)}
+                          className="mt-0.5"
+                        />
+                        <span className="flex-1 text-sm">
+                          <span className="font-medium">
+                            #{c.id} — {c.denominazione || c.username || '—'}
+                          </span>
+                          <span className="block text-xs text-gray-500">
+                            {c.email || 'senza email'} · stato: {c.stato || '—'}
+                          </span>
+                        </span>
+                      </label>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-xs text-gray-500">
+                    Nessun candidato automatico (nessun altro utente struttura ha denominazione/email coincidenti).
+                  </p>
+                )}
+                <div>
+                  <label htmlFor="struttura-remap-id-manual" className="text-xs text-gray-600">
+                    Oppure inserisci manualmente un id (avanzato):
+                  </label>
+                  <input
+                    id="struttura-remap-id-manual"
+                    type="number"
+                    inputMode="numeric"
+                    value={strutturaRemapTargetId}
+                    onChange={(e) => setStrutturaRemapTargetId(e.target.value)}
+                    placeholder="es. 42"
+                    className="input-field mt-1 w-full"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label htmlFor="struttura-remap-motivo" className="block text-sm font-medium text-gray-700">
+                  Motivo (opzionale, viene loggato)
+                </label>
+                <input
+                  id="struttura-remap-motivo"
+                  type="text"
+                  value={strutturaRemapMotivo}
+                  onChange={(e) => setStrutturaRemapMotivo(e.target.value)}
+                  placeholder="es. duplicato utente struttura, ripristino visibilità"
+                  className="input-field mt-1 w-full"
+                />
+              </div>
+
+              {strutturaRemapError && (
+                <div className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-red-800">{strutturaRemapError}</div>
+              )}
+            </>
+          ) : null}
+
+          <div className="flex justify-end gap-2 pt-2">
+            <button
+              type="button"
+              onClick={() => setShowStrutturaRemapModal(false)}
+              className="btn-secondary"
+              disabled={strutturaRemapSubmitting}
+            >
+              Annulla
+            </button>
+            <button
+              type="button"
+              onClick={() => void handleStrutturaRemap()}
+              className="btn-primary"
+              disabled={strutturaRemapSubmitting || !strutturaDiag || !strutturaRemapTargetId}
+            >
+              {strutturaRemapSubmitting ? 'Aggiornamento…' : 'Conferma rimappatura'}
             </button>
           </div>
         </div>

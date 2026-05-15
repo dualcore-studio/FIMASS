@@ -1675,4 +1675,151 @@ router.delete('/:id', authenticateToken, authorizeRoles('admin'), (req, res) => 
   });
 });
 
+/**
+ * Diagnostica visibilità struttura su un preventivo (solo admin/supervisore).
+ *
+ * Caso d'uso: un admin vede il preventivo (con il "nome struttura" corretto) ma la
+ * struttura loggata non lo vede in elenco. Questo accade quando `quote.struttura_id`
+ * punta ad un utente diverso (es. duplicato/legacy) rispetto a quello con cui
+ * la struttura fa login, ma con la stessa `denominazione`.
+ *
+ * Risposta: id salvato, utente puntato, eventuali utenti struttura con stessa
+ * denominazione/email/username (candidati di rimappatura).
+ */
+router.get('/:id/struttura-diagnose', authenticateToken, authorizeRoles('admin', 'supervisore'), (req, res) => {
+  (async () => {
+    const quoteId = Number(req.params.id);
+    if (!Number.isFinite(quoteId)) {
+      return res.status(400).json({ error: 'ID preventivo non valido' });
+    }
+    const quote = await getById('quotes', quoteId);
+    if (!quote) return res.status(404).json({ error: 'Preventivo non trovato' });
+
+    const storedStrutturaId = quote.struttura_id == null ? null : Number(quote.struttura_id);
+    const storedUser = storedStrutturaId != null ? await getById('users', storedStrutturaId) : null;
+    const projectedUser = storedUser
+      ? {
+          id: Number(storedUser.id),
+          username: storedUser.username || null,
+          denominazione: storedUser.denominazione || null,
+          email: storedUser.email || null,
+          role: storedUser.role || null,
+          stato: storedUser.stato || null,
+        }
+      : null;
+
+    const allUsers = await list('users');
+    const strutturaUsers = allUsers.filter((u) => u.role === 'struttura');
+    const normalize = (v) => (v == null ? '' : String(v).trim().toLowerCase());
+    const matchKeys = projectedUser
+      ? {
+          denominazione: normalize(projectedUser.denominazione),
+          username: normalize(projectedUser.username),
+          email: normalize(projectedUser.email),
+        }
+      : null;
+    const candidates = strutturaUsers
+      .filter((u) => Number(u.id) !== Number(storedStrutturaId))
+      .filter((u) => {
+        if (!matchKeys) return false;
+        return (
+          (matchKeys.denominazione && normalize(u.denominazione) === matchKeys.denominazione) ||
+          (matchKeys.username && normalize(u.username) === matchKeys.username) ||
+          (matchKeys.email && normalize(u.email) === matchKeys.email)
+        );
+      })
+      .map((u) => ({
+        id: Number(u.id),
+        username: u.username || null,
+        denominazione: u.denominazione || null,
+        email: u.email || null,
+        stato: u.stato || null,
+      }));
+
+    res.json({
+      quote: { id: Number(quote.id), numero: quote.numero, stato: quote.stato },
+      stored_struttura_id: storedStrutturaId,
+      stored_struttura_user: projectedUser,
+      candidate_strutture_with_same_identity: candidates,
+      hint:
+        candidates.length > 0
+          ? 'Esiste almeno un altro utente struttura con denominazione/username/email coincidenti. Se il login della struttura corrisponde ad uno di questi id (diverso da stored_struttura_id), il preventivo non gli viene mostrato: usa PATCH /quotes/:id/struttura per rimappare.'
+          : 'Nessun candidato alternativo trovato: lo struttura_id salvato è l\'unico utente con quella identità.',
+    });
+  })().catch((err) => {
+    console.error('Error diagnosing quote struttura:', err);
+    res.status(500).json({ error: 'Errore nella diagnostica visibilità' });
+  });
+});
+
+/**
+ * Rimappa `struttura_id` di un preventivo (e dell'eventuale polizza collegata)
+ * verso un altro utente struttura. Solo admin.
+ *
+ * Body: { struttura_id: number, motivo?: string }
+ *
+ * Note:
+ * - Il nuovo id deve corrispondere ad un utente attivo con ruolo `struttura`.
+ * - Operazione tracciata su `activity_logs` e audit log.
+ */
+router.patch('/:id/struttura', authenticateToken, authorizeRoles('admin'), (req, res) => {
+  (async () => {
+    const quoteId = Number(req.params.id);
+    if (!Number.isFinite(quoteId)) {
+      return res.status(400).json({ error: 'ID preventivo non valido' });
+    }
+    const nuovoId = Number(req.body?.struttura_id);
+    if (!Number.isFinite(nuovoId)) {
+      return res.status(400).json({ error: 'struttura_id (numero) richiesto' });
+    }
+    const quote = await getById('quotes', quoteId);
+    if (!quote) return res.status(404).json({ error: 'Preventivo non trovato' });
+    const target = await getById('users', nuovoId);
+    if (!target || target.role !== 'struttura' || target.stato !== 'attivo') {
+      return res.status(400).json({ error: 'Utente struttura di destinazione non valido o non attivo' });
+    }
+    const oldId = quote.struttura_id == null ? null : Number(quote.struttura_id);
+    if (oldId === nuovoId) {
+      return res.json({ message: 'Struttura del preventivo invariata', struttura_id: nuovoId });
+    }
+
+    await upsertById('quotes', quoteId, { struttura_id: nuovoId });
+    const linkedPolicies = await list('policies', (p) => Number(p.quote_id) === quoteId);
+    for (const pol of linkedPolicies) {
+      await upsertById('policies', pol.id, { struttura_id: nuovoId });
+    }
+
+    const motivo = req.body?.motivo != null ? String(req.body.motivo).trim() : '';
+    const dettaglio = `Preventivo ${quote.numero}: struttura_id ${oldId ?? 'null'} → ${nuovoId}${motivo ? ` (Motivo: ${motivo})` : ''}`;
+    await logActivity({
+      utente_id: req.user.id,
+      utente_nome: getUserDisplayName(req.user),
+      ruolo: req.user.role,
+      azione: 'RIMAPPA_STRUTTURA_PREVENTIVO',
+      modulo: 'preventivi',
+      riferimento_id: quoteId,
+      riferimento_tipo: 'quote',
+      dettaglio,
+    });
+    await writeAuditLog({
+      userId: req.user.id,
+      action: AUDIT_ACTIONS.QUOTE_STATUS_UPDATE,
+      entityType: 'quote',
+      entityId: quoteId,
+      metadata: { numero: quote.numero, struttura_id_da: oldId, struttura_id_a: nuovoId, polizze_aggiornate: linkedPolicies.length },
+      ipAddress: getClientIp(req),
+    });
+
+    res.json({
+      message: 'struttura_id del preventivo aggiornato',
+      quote_id: quoteId,
+      struttura_id: nuovoId,
+      polizze_collegate_aggiornate: linkedPolicies.length,
+    });
+  })().catch((err) => {
+    console.error('Error remapping quote struttura_id:', err);
+    res.status(500).json({ error: 'Errore nella rimappatura della struttura' });
+  });
+});
+
 module.exports = router;
