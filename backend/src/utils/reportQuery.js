@@ -1,5 +1,6 @@
 'use strict';
 
+const { rowCreatedInOpenRange } = require('./createdAtDayKey');
 const { normalizeQuoteStato } = require('./quoteStato');
 const { normalizePolicyStato } = require('./policyStato');
 
@@ -35,11 +36,9 @@ function parseReportFilters(query, user) {
 
 function filterByCreatedRange(rows, dataDa, dataA) {
   if (!dataDa || !dataA) return [...rows];
-  const end = `${dataA} 23:59:59`;
-  return rows.filter((r) => {
-    const t = String(r.created_at || '');
-    return t >= dataDa && t <= end;
-  });
+  const da = String(dataDa).trim().slice(0, 10);
+  const a = String(dataA).trim().slice(0, 10);
+  return rows.filter((r) => rowCreatedInOpenRange(r, da, a));
 }
 
 function filterQuotesByStructureOperator(quotes, strutturaId, operatoreId, fornitoreId) {

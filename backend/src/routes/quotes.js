@@ -22,6 +22,7 @@ const { isInsuranceTypeActive, strutturaCanUseInsuranceType } = require('../lib/
 const { quoteAssigneeUserId, userIsAssignedToQuote, practiceHasAssignee } = require('../utils/practiceAssignee');
 const { canBeAssigneePreventivi } = require('../utils/rolePermissions');
 const { syncConversationsForQuoteAssignment, syncConversationsForPolicyAssignment } = require('../services/messagingSync');
+const { rowCreatedInOpenRange } = require('../utils/createdAtDayKey');
 const {
   getRcGaranzieSelezionate,
   isRcAutoTipoCodice,
@@ -357,8 +358,11 @@ router.get('/', authenticateToken, (req, res) => {
       if (Number.isFinite(assegnatarioIdNum) && req.user.role !== 'struttura') {
         quotes = quotes.filter((q) => quoteAssigneeUserId(q) === assegnatarioIdNum);
       }
-      if (data_da) quotes = quotes.filter((q) => String(q.created_at || '') >= String(data_da));
-      if (data_a) quotes = quotes.filter((q) => String(q.created_at || '') <= `${data_a} 23:59:59`);
+      if (data_da || data_a) {
+        const da = data_da != null && String(data_da).trim() !== '' ? String(data_da).trim() : '';
+        const a = data_a != null && String(data_a).trim() !== '' ? String(data_a).trim() : '';
+        quotes = quotes.filter((q) => rowCreatedInOpenRange(q, da, a));
+      }
       if (assegnata === 'si') quotes = quotes.filter((q) => practiceHasAssignee(q));
       if (assegnata === 'no') quotes = quotes.filter((q) => !practiceHasAssignee(q));
       const daysAgo = (d) => new Date(Date.now() - d * 86400000).toISOString().slice(0, 19).replace('T', ' ');

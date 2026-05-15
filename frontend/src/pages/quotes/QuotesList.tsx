@@ -149,8 +149,8 @@ export default function QuotesList() {
   const [tipoFilter, setTipoFilter] = useState('');
   const [strutturaFilter, setStrutturaFilter] = useState('');
   const [operatoreFilter, setOperatoreFilter] = useState('');
-  const [dataDal, setDataDal] = useState('');
-  const [dataAl, setDataAl] = useState('');
+  const [dataDal, setDataDal] = useState(() => searchParams.get('data_da') ?? '');
+  const [dataAl, setDataAl] = useState(() => searchParams.get('data_a') ?? '');
   const [numeroInput, setNumeroInput] = useState('');
   const [assistitoInput, setAssistitoInput] = useState('');
   const [debouncedNumero, setDebouncedNumero] = useState('');

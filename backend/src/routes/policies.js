@@ -22,6 +22,7 @@ const {
   isTruthyInt,
   RENEWAL_STATUS,
 } = require('../lib/policyRenewal');
+const { rowCreatedInOpenRange } = require('../utils/createdAtDayKey');
 
 const router = express.Router();
 
@@ -93,14 +94,21 @@ router.get('/', authenticateToken, (req, res) => {
       else if (req.user.role === 'fornitore') policies = policies.filter((p) => Number(p.fornitore_id) === Number(req.user.id));
       if (stato) policies = policies.filter((p) => p.stato === stato);
       if (tipo_assicurazione_id) policies = policies.filter((p) => Number(p.tipo_assicurazione_id) === Number(tipo_assicurazione_id));
-      if (struttura_id) policies = policies.filter((p) => Number(p.struttura_id) === Number(struttura_id));
-      if (operatore_id) policies = policies.filter((p) => Number(p.operatore_id) === Number(operatore_id));
+      if (req.user.role !== 'struttura' && struttura_id) {
+        policies = policies.filter((p) => Number(p.struttura_id) === Number(struttura_id));
+      }
+      if (req.user.role !== 'operatore' && operatore_id) {
+        policies = policies.filter((p) => Number(p.operatore_id) === Number(operatore_id));
+      }
       const assegnatarioIdNum = assegnatario_id != null && assegnatario_id !== '' ? Number(assegnatario_id) : null;
-      if (Number.isFinite(assegnatarioIdNum)) {
+      if (Number.isFinite(assegnatarioIdNum) && req.user.role !== 'struttura') {
         policies = policies.filter((p) => quoteAssigneeUserId(p) === assegnatarioIdNum);
       }
-      if (data_da) policies = policies.filter((p) => String(p.created_at || '') >= String(data_da));
-      if (data_a) policies = policies.filter((p) => String(p.created_at || '') <= `${data_a} 23:59:59`);
+      if (data_da || data_a) {
+        const da = data_da != null && String(data_da).trim() !== '' ? String(data_da).trim() : '';
+        const a = data_a != null && String(data_a).trim() !== '' ? String(data_a).trim() : '';
+        policies = policies.filter((p) => rowCreatedInOpenRange(p, da, a));
+      }
       if (numero) policies = policies.filter((p) => like(p.numero, numero));
       if (assistito) {
         policies = policies.filter(
