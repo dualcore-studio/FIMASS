@@ -337,12 +337,24 @@ router.get('/', authenticateToken, (req, res) => {
       if (req.user.role === 'struttura') quotes = quotes.filter((q) => Number(q.struttura_id) === Number(req.user.id));
       else if (req.user.role === 'operatore') quotes = quotes.filter((q) => Number(q.operatore_id) === Number(req.user.id));
       else if (req.user.role === 'fornitore') quotes = quotes.filter((q) => Number(q.fornitore_id) === Number(req.user.id));
-      if (stato) quotes = quotes.filter((q) => q.stato === stato);
+      if (stato) {
+        const statoWant = normalizeQuoteStato(stato);
+        quotes = quotes.filter((q) => normalizeQuoteStato(q.stato) === statoWant);
+      }
       if (tipo_assicurazione_id) quotes = quotes.filter((q) => Number(q.tipo_assicurazione_id) === Number(tipo_assicurazione_id));
-      if (struttura_id) quotes = quotes.filter((q) => Number(q.struttura_id) === Number(struttura_id));
-      if (operatore_id) quotes = quotes.filter((q) => Number(q.operatore_id) === Number(operatore_id));
+      /**
+       * Struttura: l’elenco è già ristretto alla propria `struttura_id`. Ignorare filtri di query
+       * pensati per admin (struttura / operatore / incaricato) evita elenchi vuoti se l’URL contiene
+       * parametri residui (es. `assegnatario_id` su pratica ancora «Non assegnata» → nessun match).
+       */
+      if (req.user.role !== 'struttura' && struttura_id) {
+        quotes = quotes.filter((q) => Number(q.struttura_id) === Number(struttura_id));
+      }
+      if (req.user.role !== 'operatore' && operatore_id) {
+        quotes = quotes.filter((q) => Number(q.operatore_id) === Number(operatore_id));
+      }
       const assegnatarioIdNum = assegnatario_id != null && assegnatario_id !== '' ? Number(assegnatario_id) : null;
-      if (Number.isFinite(assegnatarioIdNum)) {
+      if (Number.isFinite(assegnatarioIdNum) && req.user.role !== 'struttura') {
         quotes = quotes.filter((q) => quoteAssigneeUserId(q) === assegnatarioIdNum);
       }
       if (data_da) quotes = quotes.filter((q) => String(q.created_at || '') >= String(data_da));
@@ -351,10 +363,18 @@ router.get('/', authenticateToken, (req, res) => {
       if (assegnata === 'no') quotes = quotes.filter((q) => !practiceHasAssignee(q));
       const daysAgo = (d) => new Date(Date.now() - d * 86400000).toISOString().slice(0, 19).replace('T', ' ');
       if (alert === 'unassigned') {
-        quotes = quotes.filter((q) => q.stato === 'PRESENTATA' && !practiceHasAssignee(q));
+        quotes = quotes.filter((q) => normalizeQuoteStato(q.stato) === 'PRESENTATA' && !practiceHasAssignee(q));
       }
-      if (alert === 'standby_long') quotes = quotes.filter((q) => q.stato === 'STANDBY' && String(q.updated_at || '') <= daysAgo(7));
-      if (alert === 'stale_quotes') quotes = quotes.filter((q) => ['ASSEGNATA', 'IN LAVORAZIONE'].includes(q.stato) && String(q.updated_at || '') <= daysAgo(7));
+      if (alert === 'standby_long') {
+        quotes = quotes.filter((q) => normalizeQuoteStato(q.stato) === 'STANDBY' && String(q.updated_at || '') <= daysAgo(7));
+      }
+      if (alert === 'stale_quotes') {
+        quotes = quotes.filter(
+          (q) =>
+            ['ASSEGNATA', 'IN LAVORAZIONE'].includes(normalizeQuoteStato(q.stato)) &&
+            String(q.updated_at || '') <= daysAgo(7),
+        );
+      }
       if (numero) quotes = quotes.filter((q) => like(q.numero, numero));
       if (assistito) {
         quotes = quotes.filter(
@@ -404,8 +424,10 @@ router.get('/stats', authenticateToken, (req, res) => {
       else if (req.user.role === 'fornitore') quotes = quotes.filter((q) => Number(q.fornitore_id) === Number(req.user.id));
       const stats = {};
       const stati = ['PRESENTATA', 'ASSEGNATA', 'IN LAVORAZIONE', 'STANDBY', 'ELABORATA'];
-      stati.forEach((s) => { stats[s] = quotes.filter((q) => q.stato === s).length; });
-      stats.totale = Object.values(stats).reduce((a, b) => a + b, 0);
+      stati.forEach((s) => {
+        stats[s] = quotes.filter((q) => normalizeQuoteStato(q.stato) === s).length;
+      });
+      stats.totale = quotes.length;
       res.json(stats);
     } catch (err) {
       console.error('Error fetching quote stats:', err);
