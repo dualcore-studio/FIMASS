@@ -35,7 +35,13 @@ async function authenticateToken(req, res, next) {
     req.user = user;
     next();
   } catch (err) {
-    return res.status(403).json({ error: 'Token non valido o scaduto' });
+    // 401 così il client (`api.ts`) invalida la sessione e reindirizza al login.
+    // Prima era 403: l’utente restava “loggato” in UI ma ogni chiamata falliva (es. dopo deploy senza JWT_SECRET fisso).
+    const name = err && err.name;
+    if (name === 'TokenExpiredError') {
+      return res.status(401).json({ error: 'Sessione scaduta. Effettua di nuovo l’accesso.', code: 'TOKEN_EXPIRED' });
+    }
+    return res.status(401).json({ error: 'Token non valido o scaduto', code: 'TOKEN_INVALID' });
   }
 }
 

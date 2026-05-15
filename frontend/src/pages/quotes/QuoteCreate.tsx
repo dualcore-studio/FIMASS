@@ -457,16 +457,31 @@ export default function QuoteCreate() {
       const result = await api.post<{ id: number }>('/quotes', body);
       const newId = result.id;
 
-      // Upload attachments
       const filesToUpload = Object.entries(attachmentFiles).filter(([, f]) => f != null);
+      const uploadFailures: string[] = [];
       for (const [tipo, file] of filesToUpload) {
         if (!file) continue;
-        const formData = new FormData();
-        formData.append('file', file);
-        formData.append('entity_type', 'quote');
-        formData.append('entity_id', String(newId));
-        formData.append('tipo', tipo);
-        await api.upload('/attachments/upload', formData);
+        try {
+          const formData = new FormData();
+          formData.append('file', file);
+          formData.append('entity_type', 'quote');
+          formData.append('entity_id', String(newId));
+          formData.append('tipo', tipo);
+          await api.upload('/attachments/upload', formData);
+        } catch (err) {
+          if (err instanceof ApiError && err.status === 401) throw err;
+          const msg = err instanceof ApiError ? err.message : 'Errore di caricamento';
+          uploadFailures.push(`${file.name}: ${msg}`);
+        }
+      }
+      if (uploadFailures.length) {
+        sessionStorage.setItem(
+          `fimass_quote_${newId}_upload_warn`,
+          [
+            'La pratica è stata registrata ma alcuni allegati non sono stati caricati. Puoi caricarli dalla scheda Allegati.',
+            ...uploadFailures,
+          ].join('\n'),
+        );
       }
 
       navigate(`/preventivi/${newId}`);

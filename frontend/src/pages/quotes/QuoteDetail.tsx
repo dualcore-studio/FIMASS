@@ -137,6 +137,16 @@ export default function QuoteDetail() {
   }, [fetchQuote]);
 
   useEffect(() => {
+    if (!id || !quote) return;
+    const key = `fimass_quote_${id}_upload_warn`;
+    const raw = sessionStorage.getItem(key);
+    if (raw) {
+      sessionStorage.removeItem(key);
+      setActionError(raw);
+    }
+  }, [id, quote]);
+
+  useEffect(() => {
     if (quote && isQuoteClosedForAssignment(quote.stato)) {
       setShowAssignModal(false);
     }
@@ -384,7 +394,9 @@ export default function QuoteDetail() {
       </div>
 
       {actionError && (
-        <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">{actionError}</div>
+        <div className="whitespace-pre-wrap rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">
+          {actionError}
+        </div>
       )}
 
       {/* Tabs */}
