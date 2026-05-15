@@ -227,6 +227,7 @@ export default function QuotesList() {
     setListError(null);
     setLoading(true);
     try {
+      const alertForApi = role === 'struttura' ? '' : alertFilter;
       const data = await api.get<PaginatedResponse<Quote>>(
         buildQuery({
           page,
@@ -238,7 +239,7 @@ export default function QuotesList() {
           assistito: debouncedAssistito,
           dataDa: dataDal,
           dataAl: dataAl,
-          alert: alertFilter,
+          alert: alertForApi,
           sortBy: tableSort.sortBy,
           sortDir: tableSort.sortDir,
         }),
@@ -259,6 +260,7 @@ export default function QuotesList() {
     dataDal,
     dataAl,
     alertFilter,
+    role,
     debouncedNumero,
     debouncedAssistito,
     tableSort.sortBy,

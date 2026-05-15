@@ -97,7 +97,7 @@ router.get('/', authenticateToken, (req, res) => {
       if (req.user.role !== 'struttura' && struttura_id) {
         policies = policies.filter((p) => Number(p.struttura_id) === Number(struttura_id));
       }
-      if (req.user.role !== 'operatore' && operatore_id) {
+      if (req.user.role !== 'operatore' && operatore_id && req.user.role !== 'struttura') {
         policies = policies.filter((p) => Number(p.operatore_id) === Number(operatore_id));
       }
       const assegnatarioIdNum = assegnatario_id != null && assegnatario_id !== '' ? Number(assegnatario_id) : null;
@@ -118,7 +118,7 @@ router.get('/', authenticateToken, (req, res) => {
             like(p.assistito_cf, assistito),
         );
       }
-      if (alert === 'stale_policies') {
+      if (alert === 'stale_policies' && req.user.role !== 'struttura') {
         const threshold = new Date(Date.now() - 5 * 86400000).toISOString().slice(0, 19).replace('T', ' ');
         policies = policies.filter(
           (p) =>

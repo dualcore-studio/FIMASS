@@ -334,8 +334,9 @@ router.get('/', authenticateToken, (req, res) => {
     } = req.query;
     try {
       const ctx = await loadContext();
+      const strutturaLista = req.user.role === 'struttura';
       let quotes = ctx.quotes.map((q) => enrichQuote(q, ctx));
-      if (req.user.role === 'struttura') quotes = quotes.filter((q) => Number(q.struttura_id) === Number(req.user.id));
+      if (strutturaLista) quotes = quotes.filter((q) => Number(q.struttura_id) === Number(req.user.id));
       else if (req.user.role === 'operatore') quotes = quotes.filter((q) => Number(q.operatore_id) === Number(req.user.id));
       else if (req.user.role === 'fornitore') quotes = quotes.filter((q) => Number(q.fornitore_id) === Number(req.user.id));
       if (stato) {
@@ -347,11 +348,12 @@ router.get('/', authenticateToken, (req, res) => {
        * Struttura: l’elenco è già ristretto alla propria `struttura_id`. Ignorare filtri di query
        * pensati per admin (struttura / operatore / incaricato) evita elenchi vuoti se l’URL contiene
        * parametri residui (es. `assegnatario_id` su pratica ancora «Non assegnata» → nessun match).
+       * Stesso motivo per cui non si applicano `alert`, `assegnata`, `operatore_id` (code admin/dashboard).
        */
       if (req.user.role !== 'struttura' && struttura_id) {
         quotes = quotes.filter((q) => Number(q.struttura_id) === Number(struttura_id));
       }
-      if (req.user.role !== 'operatore' && operatore_id) {
+      if (req.user.role !== 'operatore' && operatore_id && !strutturaLista) {
         quotes = quotes.filter((q) => Number(q.operatore_id) === Number(operatore_id));
       }
       const assegnatarioIdNum = assegnatario_id != null && assegnatario_id !== '' ? Number(assegnatario_id) : null;
@@ -363,21 +365,23 @@ router.get('/', authenticateToken, (req, res) => {
         const a = data_a != null && String(data_a).trim() !== '' ? String(data_a).trim() : '';
         quotes = quotes.filter((q) => rowCreatedInOpenRange(q, da, a));
       }
-      if (assegnata === 'si') quotes = quotes.filter((q) => practiceHasAssignee(q));
-      if (assegnata === 'no') quotes = quotes.filter((q) => !practiceHasAssignee(q));
-      const daysAgo = (d) => new Date(Date.now() - d * 86400000).toISOString().slice(0, 19).replace('T', ' ');
-      if (alert === 'unassigned') {
-        quotes = quotes.filter((q) => normalizeQuoteStato(q.stato) === 'PRESENTATA' && !practiceHasAssignee(q));
-      }
-      if (alert === 'standby_long') {
-        quotes = quotes.filter((q) => normalizeQuoteStato(q.stato) === 'STANDBY' && String(q.updated_at || '') <= daysAgo(7));
-      }
-      if (alert === 'stale_quotes') {
-        quotes = quotes.filter(
-          (q) =>
-            ['ASSEGNATA', 'IN LAVORAZIONE'].includes(normalizeQuoteStato(q.stato)) &&
-            String(q.updated_at || '') <= daysAgo(7),
-        );
+      if (!strutturaLista) {
+        if (assegnata === 'si') quotes = quotes.filter((q) => practiceHasAssignee(q));
+        if (assegnata === 'no') quotes = quotes.filter((q) => !practiceHasAssignee(q));
+        const daysAgo = (d) => new Date(Date.now() - d * 86400000).toISOString().slice(0, 19).replace('T', ' ');
+        if (alert === 'unassigned') {
+          quotes = quotes.filter((q) => normalizeQuoteStato(q.stato) === 'PRESENTATA' && !practiceHasAssignee(q));
+        }
+        if (alert === 'standby_long') {
+          quotes = quotes.filter((q) => normalizeQuoteStato(q.stato) === 'STANDBY' && String(q.updated_at || '') <= daysAgo(7));
+        }
+        if (alert === 'stale_quotes') {
+          quotes = quotes.filter(
+            (q) =>
+              ['ASSEGNATA', 'IN LAVORAZIONE'].includes(normalizeQuoteStato(q.stato)) &&
+              String(q.updated_at || '') <= daysAgo(7),
+          );
+        }
       }
       if (numero) quotes = quotes.filter((q) => like(q.numero, numero));
       if (assistito) {
