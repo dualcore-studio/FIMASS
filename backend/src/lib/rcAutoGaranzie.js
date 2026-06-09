@@ -173,6 +173,42 @@ function totalFromBreakdown(pricingBreakdown) {
   return pricingBreakdown.reduce((acc, row) => acc + (Number(row?.prezzo) || 0), 0);
 }
 
+/**
+ * Normalizza l'importo Intermediazione lato server.
+ * Accetta numero/stringa con virgola o punto decimale; richiede valore ≥ 0 finito.
+ * @param {unknown} raw
+ * @returns {{ ok: true, value: number } | { ok: false, error: string }}
+ */
+function parseIntermediazioneValue(raw) {
+  if (raw === null || raw === undefined || raw === '') {
+    return { ok: false, error: 'Importo intermediazione mancante' };
+  }
+  let n;
+  if (typeof raw === 'number') {
+    n = raw;
+  } else {
+    const s = String(raw).trim().replace(/\s/g, '').replace(',', '.');
+    if (s === '') return { ok: false, error: 'Importo intermediazione mancante' };
+    n = Number(s);
+  }
+  if (!Number.isFinite(n) || n < 0) {
+    return { ok: false, error: 'Importo intermediazione non valido' };
+  }
+  return { ok: true, value: Math.round(n * 100) / 100 };
+}
+
+/**
+ * Totale complessivo: somma garanzie + intermediazione (se presente).
+ * @param {{ nome: string; prezzo: number }[]} pricingBreakdown
+ * @param {number | null | undefined} intermediazione
+ */
+function totalWithIntermediazione(pricingBreakdown, intermediazione) {
+  const sumGaranzie = totalFromBreakdown(pricingBreakdown);
+  const inter = Number(intermediazione);
+  const interSafe = Number.isFinite(inter) && inter >= 0 ? inter : 0;
+  return Math.round((sumGaranzie + interSafe) * 100) / 100;
+}
+
 module.exports = {
   RC_AUTO_GUARANTEE_FIELDS,
   resolveRcAutoGuaranteeSource,
@@ -181,5 +217,7 @@ module.exports = {
   isRcAutoTipoCodice,
   validateRcPricingForGaranzie,
   totalFromBreakdown,
+  totalWithIntermediazione,
+  parseIntermediazioneValue,
   normalizeNome,
 };

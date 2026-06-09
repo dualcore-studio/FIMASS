@@ -1,6 +1,11 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { getRcGaranzieSelezionate, resolveRcAutoGuaranteeSource } = require('./rcAutoGaranzie');
+const {
+  getRcGaranzieSelezionate,
+  resolveRcAutoGuaranteeSource,
+  parseIntermediazioneValue,
+  totalWithIntermediazione,
+} = require('./rcAutoGaranzie');
 
 test('RC Auto: rc true in root → etichetta RC', () => {
   assert.deepEqual(getRcGaranzieSelezionate({ rc: true, furto: false, ass: false }), ['RC']);
@@ -44,4 +49,28 @@ test('RC Auto: booleani vincono su multiselect', () => {
     garanzie_selezionate: ['Furto e Incendio', 'Cristalli'],
   };
   assert.deepEqual(getRcGaranzieSelezionate(ds), ['RC']);
+});
+
+test('parseIntermediazioneValue: numero valido (string con virgola)', () => {
+  assert.deepEqual(parseIntermediazioneValue('12,50'), { ok: true, value: 12.5 });
+  assert.deepEqual(parseIntermediazioneValue('100'), { ok: true, value: 100 });
+  assert.deepEqual(parseIntermediazioneValue(0), { ok: true, value: 0 });
+});
+
+test('parseIntermediazioneValue: rifiuta valori mancanti o negativi', () => {
+  assert.equal(parseIntermediazioneValue('').ok, false);
+  assert.equal(parseIntermediazioneValue(null).ok, false);
+  assert.equal(parseIntermediazioneValue(undefined).ok, false);
+  assert.equal(parseIntermediazioneValue(-3).ok, false);
+  assert.equal(parseIntermediazioneValue('abc').ok, false);
+});
+
+test('totalWithIntermediazione: somma garanzie + intermediazione', () => {
+  const breakdown = [
+    { nome: 'RC', prezzo: 200 },
+    { nome: 'Furto e Incendio', prezzo: 50.5 },
+  ];
+  assert.equal(totalWithIntermediazione(breakdown, 25), 275.5);
+  assert.equal(totalWithIntermediazione(breakdown, 0), 250.5);
+  assert.equal(totalWithIntermediazione(breakdown, null), 250.5);
 });

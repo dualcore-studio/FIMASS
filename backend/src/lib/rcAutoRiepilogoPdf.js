@@ -6,7 +6,7 @@ const RC_AUTO_GUARANTEE_FIELDS = require(path.join(__dirname, '..', '..', '..', 
 const RC_AUTO_GUARANTEE_KEY_SET = new Set(Object.keys(RC_AUTO_GUARANTEE_FIELDS));
 
 /** Incrementare quando cambia il layout del PDF: consente rigenerazione automatica su download. */
-const RC_AUTO_RIEPILOGO_PDF_TEMPLATE_VERSION = 6;
+const RC_AUTO_RIEPILOGO_PDF_TEMPLATE_VERSION = 7;
 
 /**
  * Spazio verticale aggiuntivo uniforme tra i blocchi principali del preventivo (obiettivo ~1 cm).
@@ -516,6 +516,54 @@ function drawGuaranteeTable(doc, rows, contentW) {
 }
 
 /**
+ * Riga "Intermediazione" su una linea dedicata, separata dalla tabella garanzie ma con lo stesso stile,
+ * così da farla risaltare come voce economica autonoma all'interno del preventivo.
+ */
+function drawIntermediazioneRow(doc, contentW, intermediazione) {
+  const left = doc.page.margins.left;
+  const wName = contentW * 0.68;
+  const wPrice = contentW - wName;
+  const rowPadX = 8;
+  const rowPadY = 6;
+  const minRowH = 22;
+  const bodyFs = 9;
+  const labelFs = 9.5;
+  const marginTop = 6;
+
+  const label = 'Intermediazione';
+
+  doc.save();
+  doc.font('Helvetica-Bold').fontSize(labelFs);
+  const nameH = doc.heightOfString(label, { width: wName - rowPadX, lineGap: 1 });
+  doc.restore();
+  const rowH = Math.max(nameH + rowPadY * 2, minRowH);
+
+  if (doc.y + marginTop + rowH > pageBottomY(doc)) {
+    doc.addPage();
+  }
+
+  const y = doc.y + marginTop;
+
+  doc.save();
+  doc.rect(left, y, contentW, rowH).fill(COL.tableRowAlt);
+  doc.restore();
+
+  doc.font('Helvetica-Bold').fontSize(labelFs).fillColor(COL.ink);
+  doc.text(label, left + rowPadX, y + rowPadY, { width: wName - rowPadX, lineGap: 1 });
+  doc.font('Helvetica').fontSize(bodyFs).fillColor(COL.body);
+  doc.text(formatEuro(intermediazione), left + wName, y + rowPadY, {
+    width: wPrice - rowPadX,
+    align: 'right',
+  });
+
+  doc.save();
+  doc.strokeColor('#e5e7eb').lineWidth(0.35).moveTo(left, y + rowH).lineTo(left + contentW, y + rowH).stroke();
+  doc.restore();
+
+  doc.y = y + rowH + 4;
+}
+
+/**
  * Totale in box dedicato, più visibile della tabella.
  */
 function drawTotalBox(doc, contentW, totalPrice) {
@@ -547,7 +595,7 @@ function drawTotalBox(doc, contentW, totalPrice) {
  * @param {object} params
  * @param {object} params.quote — enrichQuote
  * @param {object} params.typeRow — riga insurance_types da ctx
- * @param {{ pricingBreakdown: { nome: string; prezzo: number }[]; totalPrice: number; notes: string | null; elaboratedAt: string }} params.elaborazione
+ * @param {{ pricingBreakdown: { nome: string; prezzo: number }[]; intermediazione?: number; totalPrice: number; notes: string | null; elaboratedAt: string }} params.elaborazione
  * @param {import('stream').Writable | null} params.dest — se null, raccoglie in Buffer
  * @returns {Promise<Buffer | void>}
  */
@@ -618,6 +666,15 @@ function pipeRcAutoRiepilogoPdf({ quote, typeRow, elaborazione, dest }) {
       doc.fillColor(COL.body).font('Helvetica');
     } else {
       drawGuaranteeTable(doc, rows, contentW);
+    }
+
+    /**
+     * Voce intermediazione: viene mostrata come riga dedicata sotto la tabella garanzie e
+     * concorre al totale complessivo. Compatibilità con vecchi documenti: se assente, omessa.
+     */
+    const intermediazioneNum = Number(elaborazione.intermediazione);
+    if (Number.isFinite(intermediazioneNum) && intermediazioneNum >= 0) {
+      drawIntermediazioneRow(doc, contentW, intermediazioneNum);
     }
 
     drawTotalBox(doc, contentW, elaborazione.totalPrice);

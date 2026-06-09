@@ -28,6 +28,8 @@ const {
   isRcAutoTipoCodice,
   validateRcPricingForGaranzie,
   totalFromBreakdown,
+  totalWithIntermediazione,
+  parseIntermediazioneValue,
 } = require('../lib/rcAutoGaranzie');
 const { pipeRcAutoRiepilogoPdf, RC_AUTO_RIEPILOGO_PDF_TEMPLATE_VERSION } = require('../lib/rcAutoRiepilogoPdf');
 const { persistQuoteAttachmentFromDisk, tempPdfPath } = require('../lib/persistQuoteAttachmentFromDisk');
@@ -179,7 +181,19 @@ async function regenerateRcAutoRiepilogoStoredData(quoteId, actingUser) {
   if (!valid.ok) {
     return { ok: false, error: valid.error };
   }
-  const recomputed = Math.round(totalFromBreakdown(pricingBreakdown) * 100) / 100;
+  /**
+   * Retrocompatibilità: i preventivi elaborati prima dell'introduzione del campo
+   * Intermediazione non lo hanno persistito; in quel caso lo trattiamo come 0.
+   */
+  let intermediazione = 0;
+  if (elab.intermediazione !== undefined && elab.intermediazione !== null) {
+    const parsed = parseIntermediazioneValue(elab.intermediazione);
+    if (!parsed.ok) {
+      return { ok: false, error: parsed.error };
+    }
+    intermediazione = parsed.value;
+  }
+  const recomputed = totalWithIntermediazione(pricingBreakdown, intermediazione);
   let totalPrice =
     typeof elab.totalPrice === 'number' ? Math.round(elab.totalPrice * 100) / 100 : recomputed;
   if (Math.abs(totalPrice - recomputed) > 0.02) {
@@ -199,6 +213,7 @@ async function regenerateRcAutoRiepilogoStoredData(quoteId, actingUser) {
     typeRow,
     elaborazione: {
       pricingBreakdown,
+      intermediazione,
       totalPrice,
       notes: notesTrim,
       elaboratedAt,
@@ -221,6 +236,7 @@ async function regenerateRcAutoRiepilogoStoredData(quoteId, actingUser) {
   const prevDp = normalizeDatiPreventivoForMerge(row.dati_preventivo);
   const elaborazioneBlock = {
     pricingBreakdown,
+    intermediazione,
     totalPrice,
     notes: notesTrim,
     elaboratedAt,
@@ -783,11 +799,17 @@ router.post(
           return res.status(400).json({ error: valid.error, code: 'VALIDATION_PRICING' });
         }
 
+        const intermediazioneParsed = parseIntermediazioneValue(payload.intermediazione);
+        if (!intermediazioneParsed.ok) {
+          return res.status(400).json({ error: intermediazioneParsed.error, code: 'VALIDATION_INTERMEDIAZIONE' });
+        }
+        const intermediazione = intermediazioneParsed.value;
+
         let notes = payload.notes != null ? String(payload.notes) : '';
         if (notes.length > 1000) notes = notes.slice(0, 1000);
         const notesTrim = notes.trim() || null;
 
-        const totalPrice = Math.round(totalFromBreakdown(pricingBreakdown) * 100) / 100;
+        const totalPrice = totalWithIntermediazione(pricingBreakdown, intermediazione);
         const elaboratedAt = new Date().toISOString().slice(0, 19).replace('T', ' ');
         const typeRow = ctx.typesById.get(Number(quote.tipo_assicurazione_id)) || {};
 
@@ -843,6 +865,7 @@ router.post(
             typeRow,
             elaborazione: {
               pricingBreakdown,
+              intermediazione,
               totalPrice,
               notes: notesTrim,
               elaboratedAt,
@@ -886,6 +909,7 @@ router.post(
         const prevDp = normalizeDatiPreventivoForMerge(row.dati_preventivo);
         const elaborazioneBlock = {
           pricingBreakdown,
+          intermediazione,
           totalPrice,
           notes: notesTrim,
           elaboratedAt,

@@ -1701,6 +1701,14 @@ function TabPreventivo({
                   ) : (
                     <p className="text-gray-500">Nessuna garanzia tariffata.</p>
                   )}
+                  {typeof (elabora as { intermediazione?: number }).intermediazione === 'number' ? (
+                    <div className="flex justify-between rounded-lg border border-gray-200 px-3 py-2">
+                      <span className="font-medium text-gray-800">Intermediazione</span>
+                      <span className="tabular-nums text-gray-900">
+                        {fmtEuro((elabora as { intermediazione: number }).intermediazione)}
+                      </span>
+                    </div>
+                  ) : null}
                   <div className="flex justify-between rounded-lg bg-slate-50 px-3 py-2 font-semibold">
                     <span>Totale</span>
                     <span className="tabular-nums">

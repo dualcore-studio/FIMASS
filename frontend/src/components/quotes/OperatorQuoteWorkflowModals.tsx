@@ -106,6 +106,7 @@ function OperatorRcAutoElaborataModal({
 }: ElaborataProps & { quote: Quote }) {
   const garanzie = useMemo(() => getRcGaranzieSelezionate(quote.dati_specifici), [quote.dati_specifici]);
   const [prices, setPrices] = useState<Record<string, string>>({});
+  const [intermediazione, setIntermediazione] = useState('');
   const [notes, setNotes] = useState('');
   const [file, setFile] = useState<File | null>(null);
   const [localError, setLocalError] = useState<string | null>(null);
@@ -118,6 +119,7 @@ function OperatorRcAutoElaborataModal({
         init[g] = '';
       }
       setPrices(init);
+      setIntermediazione('');
       setNotes('');
       setFile(null);
       setLocalError(null);
@@ -130,8 +132,10 @@ function OperatorRcAutoElaborataModal({
       const n = parsePriceInput(prices[g] ?? '');
       if (n != null) s += n;
     }
+    const inter = parsePriceInput(intermediazione);
+    if (inter != null) s += inter;
     return Math.round(s * 100) / 100;
-  }, [garanzie, prices]);
+  }, [garanzie, prices, intermediazione]);
 
   const handleConfirm = async () => {
     for (const g of garanzie) {
@@ -140,6 +144,11 @@ function OperatorRcAutoElaborataModal({
         setLocalError(`Indica un prezzo valido (≥ 0) per: ${g}`);
         return;
       }
+    }
+    const intermediazioneValue = parsePriceInput(intermediazione);
+    if (intermediazioneValue == null) {
+      setLocalError('Indica un importo valido (≥ 0) per: Intermediazione');
+      return;
     }
     setLocalError(null);
     setSubmitting(true);
@@ -150,6 +159,7 @@ function OperatorRcAutoElaborataModal({
       }));
       const payloadObj = {
         pricingBreakdown,
+        intermediazione: intermediazioneValue,
         notes: notes.trim() || null,
         totalPrice: totale,
       };
@@ -223,6 +233,29 @@ function OperatorRcAutoElaborataModal({
               ))}
             </ul>
           )}
+        </div>
+
+        <div>
+          <h4 className="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-500">Intermediazione</h4>
+          <div className="flex flex-col gap-1 rounded-lg border border-gray-200 bg-white px-3 py-3 sm:flex-row sm:items-center sm:justify-between">
+            <span className="text-sm font-medium text-gray-900">Intermediazione</span>
+            <div className="relative max-w-[200px]">
+              <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-sm text-gray-500">
+                €
+              </span>
+              <input
+                id="rc-elab-intermediazione"
+                type="text"
+                inputMode="decimal"
+                autoComplete="off"
+                placeholder="0,00"
+                disabled={submitting}
+                value={intermediazione}
+                onChange={(e) => setIntermediazione(e.target.value)}
+                className="input-field w-full pl-8 text-sm tabular-nums"
+              />
+            </div>
+          </div>
         </div>
 
         <div>
