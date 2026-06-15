@@ -22,17 +22,15 @@ const COMMISSION_STATUS_VALUES = new Set(['DA_VALORIZZARE', 'VALORIZZATA', 'LIQU
 /** Provv. struttura nei totali da liquidare/liquidate/strutture: solo Segnalatore e Collaboratore IVASS. Sportello Amico resta in Quota S.A.; lo stato Liquidata su riga SA è solo anagrafico e non incrementa quei totali. */
 const STRUCTURE_COMMISSION_LIQUIDABLE_TYPES = new Set(['SEGNALATORE', 'PARTNER']);
 
-/** Quota S.A. (% sulla provvigione broker). Sportello Amico: stesso importo anche in provv. struttura (50%). */
+/** Quota S.A. (% sulla provvigione broker). */
 function quotaSaPctForType(t) {
   if (t === 'PARTNER') return 15;
-  if (t === 'SPORTELLO_AMICO') return 50;
   return 35;
 }
 
 /** Provvigione struttura (% sulla provvigione broker); coincide col campo Tipo / %. */
 function structurePctForType(t) {
   if (t === 'PARTNER') return 50;
-  if (t === 'SPORTELLO_AMICO') return 50;
   return 30;
 }
 

@@ -361,8 +361,8 @@ export default function CommissionForm() {
               placeholder="Lascia vuoto se gli importi arriveranno più avanti"
             />
             <p className="mt-1 text-xs text-gray-500">
-              Percentuali calcolate sulla provv. broker (anche se negativa): Segnalatore quota S.A. 35% / struttura 30%;
-              Collaboratore IVASS 15% / 50%; Sportello Amico 50% / 50% (stesso importo nelle due colonne).
+              Percentuali calcolate sulla provv. broker (anche se negativa): Segnalatore e Sportello Amico quota S.A. 35% /
+              struttura 30%; Collaboratore IVASS 15% / 50%.
             </p>
             {fieldErrors.provvigioniBroker ? (
               <p className="mt-1 text-xs text-red-600">{fieldErrors.provvigioniBroker}</p>

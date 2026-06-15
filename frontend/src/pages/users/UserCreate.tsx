@@ -392,9 +392,8 @@ export default function UserCreate() {
                   Tipo provvigione struttura <span className="text-red-500">*</span>
                 </label>
                 <p className="mb-2 text-xs text-gray-500">
-                  Su provvigione broker: Segnalatore quota S.A. 35% / struttura 30%; Collaboratore IVASS 15% / 50%;
-                  Sportello Amico 50% / 50% (stesso importo Quota S.A. e provv. struttura). Il resto resta al broker e non
-                  è mostrato.
+                  Su provvigione broker: Segnalatore e Sportello Amico quota S.A. 35% / struttura 30%; Collaboratore IVASS
+                  15% / 50%. Il resto resta al broker e non è mostrato.
                 </p>
                 <select
                   value={commissionType}
@@ -403,7 +402,7 @@ export default function UserCreate() {
                 >
                   <option value="SEGNALATORE">Segnalatore (quota S.A. 35%, struttura 30%)</option>
                   <option value="PARTNER">Collaboratore IVASS (quota S.A. 15%, struttura 50%)</option>
-                  <option value="SPORTELLO_AMICO">Sportello Amico (quota S.A. 50%, struttura 50%)</option>
+                  <option value="SPORTELLO_AMICO">Sportello Amico (quota S.A. 35%, struttura 30%)</option>
                 </select>
               </div>
 
