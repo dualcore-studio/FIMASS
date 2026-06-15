@@ -40,6 +40,24 @@ function roundMoney(n) {
   return Math.round(x * 100) / 100;
 }
 
+/** Importo provvigione in vista struttura/PDF: quota S.A. per Sportello Amico, altrimenti provv. struttura. */
+function strutturaVisibleCommissionAmount(enrichedRow) {
+  if (!enrichedRow || typeof enrichedRow !== 'object') return 0;
+  if (enrichedRow.structure_commission_type === 'SPORTELLO_AMICO') {
+    return Number(enrichedRow.sportello_amico_commission) || 0;
+  }
+  return Number(enrichedRow.structure_commission_amount) || 0;
+}
+
+/** Totale KPI PDF vista struttura (include Sportello Amico, escluso dal riepilogo liquidazioni). */
+function totaleProvvigioniStrutturaPdf(rows) {
+  let total = 0;
+  for (const r of rows) {
+    total += strutturaVisibleCommissionAmount(enrichCommissionRow(r));
+  }
+  return roundMoney(total);
+}
+
 function isRowLiquidated(r) {
   if (!r || typeof r !== 'object') return false;
   const v = r.liquidated;
@@ -427,7 +445,7 @@ router.get('/export-pdf', authenticateToken, assertCommissionReader, (req, res) 
         ? {
             totale_polizze: fullSummary.totale_polizze,
             totale_premi: fullSummary.totale_premi,
-            totale_provigioni_strutture: fullSummary.totale_provigioni_strutture,
+            totale_provigioni_strutture: totaleProvvigioniStrutturaPdf(rows),
           }
         : fullSummary;
 
