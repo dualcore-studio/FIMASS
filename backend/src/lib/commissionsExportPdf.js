@@ -53,14 +53,6 @@ function commissionTypeLabel(t) {
   return 'Segnalatore';
 }
 
-/** Importo provvigione in vista struttura: quota S.A. per Sportello Amico, altrimenti provv. struttura. */
-function strutturaCommissionAmount(r) {
-  if (r && r.structure_commission_type === 'SPORTELLO_AMICO') {
-    return r.sportello_amico_commission;
-  }
-  return r?.structure_commission_amount;
-}
-
 function commissionListStatusLabel(status) {
   if (status === 'LIQUIDATA') return 'Liquidata';
   if (status === 'VALORIZZATA') return 'Valorizzata';
@@ -281,7 +273,7 @@ function pipeCommissionsListPdf(opts, res) {
         {
           header: 'Provvigione',
           w: 0.135,
-          cell: (r) => fmtCommissionAmountEuro(strutturaCommissionAmount(r)),
+          cell: (r) => fmtCommissionAmountEuro(r.structure_commission_amount),
           align: 'right',
         },
         {

@@ -90,14 +90,6 @@ function commissionListStatusLabel(status) {
   return 'Da valorizzare';
 }
 
-/** Importo provvigione in vista struttura: quota S.A. per Sportello Amico, altrimenti provv. struttura. */
-function strutturaCommissionAmountFromRow(r) {
-  if (r && r.structure_commission_type === 'SPORTELLO_AMICO') {
-    return r.sportello_amico_commission;
-  }
-  return r?.structure_commission_amount;
-}
-
 /**
  * Validazione leggera (non blocca: normalizza dove possibile).
  * @param {object} data
@@ -135,10 +127,10 @@ function buildProvvigioniSectionPayload(opts) {
       cliente: r.customer_name || '—',
       numPolizza: r.policy_number || '—',
       premio: Number(r.policy_premium) || 0,
-      provvigione: (() => {
-        const raw = strutturaCommissionAmountFromRow(r);
-        return raw === null || raw === undefined ? null : Number(raw);
-      })(),
+      provvigione:
+        r.structure_commission_amount === null || r.structure_commission_amount === undefined
+          ? null
+          : Number(r.structure_commission_amount),
       stato: commissionListStatusLabel(r.commission_status),
       _rawStatus: r.commission_status,
     };
@@ -162,8 +154,10 @@ function buildProvvigioniSectionPayload(opts) {
       const raw =
         variant === 'struttura'
           ? rows.reduce((acc, r) => {
-              const amt = strutturaCommissionAmountFromRow(r);
-              const n = amt === null || amt === undefined ? 0 : Number(amt);
+              const n =
+                r.structure_commission_amount === null || r.structure_commission_amount === undefined
+                  ? 0
+                  : Number(r.structure_commission_amount);
               return acc + (Number.isFinite(n) ? n : 0);
             }, 0)
           : Number(summary.totale_provigioni_strutture) || 0;
