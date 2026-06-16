@@ -115,12 +115,14 @@ export function formatCommissionEuro(value: number | null | undefined): string {
 /** % provvigione struttura sulla provv. broker (colonna Tipo / % e importo struttura). */
 export function commissionPercentForType(type: string): number {
   if (type === 'PARTNER') return 50;
+  if (type === 'SPORTELLO_AMICO') return 20;
   return 30;
 }
 
 /** % quota S.A. sulla provvigione broker (colonna Quota S.A.). */
 export function sportelloAmicoQuotaPercentForType(type: string): number {
   if (type === 'PARTNER') return 15;
+  if (type === 'SPORTELLO_AMICO') return 45;
   return 35;
 }
 

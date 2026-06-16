@@ -25,12 +25,14 @@ const STRUCTURE_COMMISSION_LIQUIDABLE_TYPES = new Set(['SEGNALATORE', 'PARTNER']
 /** Quota S.A. (% sulla provvigione broker). */
 function quotaSaPctForType(t) {
   if (t === 'PARTNER') return 15;
+  if (t === 'SPORTELLO_AMICO') return 45;
   return 35;
 }
 
 /** Provvigione struttura (% sulla provvigione broker); coincide col campo Tipo / %. */
 function structurePctForType(t) {
   if (t === 'PARTNER') return 50;
+  if (t === 'SPORTELLO_AMICO') return 20;
   return 30;
 }
 
