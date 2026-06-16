@@ -297,7 +297,16 @@ function parseCommissionTypeFilter(raw) {
   return COMMISSION_TYPES.has(s) ? s : null;
 }
 
-function summarize(rows) {
+/** Tipi conteggiati nei totali provv. struttura liquidate/da liquidare. Con filtro Tipo attivo, solo quel tipo; altrimenti Segnalatore e Collaboratore IVASS (Sportello Amico resta in Quota S.A.). */
+function liquidableTypesForSummary(structureCommissionTypeFilter) {
+  if (structureCommissionTypeFilter && COMMISSION_TYPES.has(structureCommissionTypeFilter)) {
+    return new Set([structureCommissionTypeFilter]);
+  }
+  return STRUCTURE_COMMISSION_LIQUIDABLE_TYPES;
+}
+
+function summarize(rows, structureCommissionTypeFilter = null) {
+  const liquidableTypes = liquidableTypesForSummary(structureCommissionTypeFilter);
   let totalePremi = 0;
   let totaleBroker = 0;
   let totaleSa = 0;
@@ -310,7 +319,7 @@ function summarize(rows) {
     totaleBroker += Number(e.provvigioni_broker) || 0;
     totaleSa += Number(e.sportello_amico_commission) || 0;
     const strAmt = Number(e.structure_commission_amount) || 0;
-    const countsStruttura = STRUCTURE_COMMISSION_LIQUIDABLE_TYPES.has(e.structure_commission_type);
+    const countsStruttura = liquidableTypes.has(e.structure_commission_type);
     if (countsStruttura) {
       totaleStrutture += strAmt;
       if (e.commission_status === 'LIQUIDATA') {
@@ -379,7 +388,7 @@ router.get('/', authenticateToken, assertCommissionReader, (req, res) => {
       }),
     );
 
-    const fullSummary = summarize(rows);
+    const fullSummary = summarize(rows, structureCommissionType);
     const summary =
       req.user.role === 'struttura'
         ? {
@@ -440,7 +449,7 @@ router.get('/export-pdf', authenticateToken, assertCommissionReader, (req, res) 
       }),
     );
 
-    const fullSummary = summarize(rows);
+    const fullSummary = summarize(rows, structureCommissionType);
 
     const structureIdNum =
       structureId != null && String(structureId).trim() !== '' ? Number(structureId) : NaN;
