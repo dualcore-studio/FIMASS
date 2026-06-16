@@ -2,7 +2,13 @@ import { useCallback, useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Euro, FileDown, FilterX, Pencil, Plus, RefreshCw, Trash2, CheckCircle } from 'lucide-react';
 import { api, ApiError } from '../../utils/api';
-import type { Commission, CommissionValorizationStatus, CommissionsListResponse, StructureOption } from '../../types';
+import type {
+  Commission,
+  CommissionStructureType,
+  CommissionValorizationStatus,
+  CommissionsListResponse,
+  StructureOption,
+} from '../../types';
 import {
   formatDate,
   formatEuro,
@@ -27,6 +33,12 @@ const COMMISSION_STATUS_FILTER_OPTIONS: CommissionValorizationStatus[] = [
   'LIQUIDATA',
 ];
 
+const COMMISSION_TYPE_FILTER_OPTIONS: CommissionStructureType[] = [
+  'SEGNALATORE',
+  'SPORTELLO_AMICO',
+  'PARTNER',
+];
+
 function allowedCommissionStatusTargets(
   current: CommissionValorizationStatus | undefined,
 ): CommissionValorizationStatus[] {
@@ -45,7 +57,7 @@ function buildQuery(params: {
   search: string;
   structureId: string;
   company: string;
-  portal: string;
+  commissionType: string;
   dataDa: string;
   dataAl: string;
   commissionStatus: string;
@@ -58,7 +70,7 @@ function buildQuery(params: {
   if (params.search.trim()) qs.set('search', params.search.trim());
   if (params.structureId) qs.set('structure_id', params.structureId);
   if (params.company.trim()) qs.set('company', params.company.trim());
-  if (params.portal.trim()) qs.set('portal', params.portal.trim());
+  if (params.commissionType) qs.set('structure_commission_type', params.commissionType);
   if (params.dataDa) qs.set('data_da', params.dataDa);
   if (params.dataAl) qs.set('data_a', params.dataAl);
   if (params.commissionStatus) qs.set('commission_status', params.commissionStatus);
@@ -73,7 +85,7 @@ function buildExportPdfQuery(params: {
   search: string;
   structureId: string;
   company: string;
-  portal: string;
+  commissionType: string;
   dataDa: string;
   dataAl: string;
   commissionStatus: string;
@@ -84,7 +96,7 @@ function buildExportPdfQuery(params: {
   if (params.search.trim()) qs.set('search', params.search.trim());
   if (params.structureId) qs.set('structure_id', params.structureId);
   if (params.company.trim()) qs.set('company', params.company.trim());
-  if (params.portal.trim()) qs.set('portal', params.portal.trim());
+  if (params.commissionType) qs.set('structure_commission_type', params.commissionType);
   if (params.dataDa) qs.set('data_da', params.dataDa);
   if (params.dataAl) qs.set('data_a', params.dataAl);
   if (params.commissionStatus) qs.set('commission_status', params.commissionStatus);
@@ -198,7 +210,7 @@ export default function CommissionsPage() {
   const [debouncedSearch, setDebouncedSearch] = useState('');
   const [structureFilter, setStructureFilter] = useState('');
   const [companyFilter, setCompanyFilter] = useState('');
-  const [portalFilter, setPortalFilter] = useState('');
+  const [typeFilter, setTypeFilter] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
   const [dataDa, setDataDa] = useState('');
   const [dataAl, setDataAl] = useState('');
@@ -242,7 +254,7 @@ export default function CommissionsPage() {
     debouncedSearch,
     structureFilter,
     companyFilter,
-    portalFilter,
+    typeFilter,
     statusFilter,
     dataDa,
     dataAl,
@@ -259,7 +271,7 @@ export default function CommissionsPage() {
         search: debouncedSearch,
         structureId: isFullAccess ? structureFilter : '',
         company: companyFilter,
-        portal: portalFilter,
+        commissionType: typeFilter,
         dataDa,
         dataAl,
         commissionStatus: statusFilter,
@@ -279,7 +291,7 @@ export default function CommissionsPage() {
     debouncedSearch,
     structureFilter,
     companyFilter,
-    portalFilter,
+    typeFilter,
     statusFilter,
     dataDa,
     dataAl,
@@ -306,7 +318,7 @@ export default function CommissionsPage() {
         search: debouncedSearch,
         structureId: isFullAccess ? structureFilter : '',
         company: companyFilter,
-        portal: portalFilter,
+        commissionType: typeFilter,
         dataDa,
         dataAl,
         commissionStatus: statusFilter,
@@ -382,7 +394,7 @@ export default function CommissionsPage() {
     Boolean(searchInput.trim()) ||
     Boolean(isFullAccess && structureFilter) ||
     Boolean(companyFilter.trim()) ||
-    Boolean(portalFilter.trim()) ||
+    Boolean(typeFilter) ||
     Boolean(statusFilter) ||
     Boolean(dataDa) ||
     Boolean(dataAl);
@@ -392,7 +404,7 @@ export default function CommissionsPage() {
     setDebouncedSearch('');
     setStructureFilter('');
     setCompanyFilter('');
-    setPortalFilter('');
+    setTypeFilter('');
     setStatusFilter('');
     setDataDa('');
     setDataAl('');
@@ -536,10 +548,17 @@ export default function CommissionsPage() {
             />
           </div>
           <div className="flex min-w-[9rem] w-full flex-1 flex-col gap-px lg:min-w-0">
-            <label htmlFor="comm-portal" className="whitespace-nowrap text-[11px] font-normal text-gray-600">
-              Portale
+            <label htmlFor="comm-tipo" className="whitespace-nowrap text-[11px] font-normal text-gray-600">
+              Tipo
             </label>
-            <input id="comm-portal" value={portalFilter} onChange={(e) => setPortalFilter(e.target.value)} className={tf} />
+            <select id="comm-tipo" value={typeFilter} onChange={(e) => setTypeFilter(e.target.value)} className={tf}>
+              <option value="">Tutti</option>
+              {COMMISSION_TYPE_FILTER_OPTIONS.map((t) => (
+                <option key={t} value={t}>
+                  {getCommissionTypeLabel(t)}
+                </option>
+              ))}
+            </select>
           </div>
           <div className="flex min-w-[9rem] w-full flex-1 flex-col gap-px lg:min-w-0">
             <label htmlFor="comm-stato" className="whitespace-nowrap text-[11px] font-normal text-gray-600">

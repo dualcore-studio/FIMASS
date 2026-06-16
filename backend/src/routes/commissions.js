@@ -257,10 +257,16 @@ function normalizeDateInput(v) {
   return s;
 }
 
-function rowMatchesFilters(row, { search, structureId, company, portal, dataDa, dataAl, commissionStatus }) {
+function rowMatchesFilters(row, { search, structureId, company, structureCommissionType, dataDa, dataAl, commissionStatus }) {
   if (structureId && Number(row.structure_id) !== Number(structureId)) return false;
   if (company && !like(row.company, company)) return false;
-  if (portal && !like(row.portal, portal)) return false;
+  if (structureCommissionType) {
+    const t =
+      row.structure_commission_type && COMMISSION_TYPES.has(row.structure_commission_type)
+        ? row.structure_commission_type
+        : 'SEGNALATORE';
+    if (t !== structureCommissionType) return false;
+  }
   const d = row.date ? String(row.date).slice(0, 10) : '';
   if (dataDa && d && d < dataDa) return false;
   if (dataAl && d && d > dataAl) return false;
@@ -283,6 +289,12 @@ function parseCommissionStatusFilter(raw) {
   if (raw == null || raw === '') return null;
   const s = String(raw).trim().toUpperCase();
   return COMMISSION_STATUS_VALUES.has(s) ? s : null;
+}
+
+function parseCommissionTypeFilter(raw) {
+  if (raw == null || raw === '') return null;
+  const s = String(raw).trim().toUpperCase();
+  return COMMISSION_TYPES.has(s) ? s : null;
 }
 
 function summarize(rows) {
@@ -339,7 +351,7 @@ router.get('/', authenticateToken, assertCommissionReader, (req, res) => {
       search,
       structure_id: structureId,
       company,
-      portal,
+      structure_commission_type: structureCommissionTypeRaw,
       data_da: dataDa,
       data_a: dataAl,
       commission_status: commissionStatusRaw,
@@ -348,6 +360,7 @@ router.get('/', authenticateToken, assertCommissionReader, (req, res) => {
     } = req.query;
 
     const commissionStatus = parseCommissionStatusFilter(commissionStatusRaw);
+    const structureCommissionType = parseCommissionTypeFilter(structureCommissionTypeRaw);
 
     let rows = await list('commissions');
     if (req.user.role === 'struttura') {
@@ -359,7 +372,7 @@ router.get('/', authenticateToken, assertCommissionReader, (req, res) => {
         search,
         structureId: req.user.role === 'admin' || req.user.role === 'fornitore' ? structureId : null,
         company,
-        portal,
+        structureCommissionType,
         dataDa,
         dataAl,
         commissionStatus,
@@ -399,7 +412,7 @@ router.get('/export-pdf', authenticateToken, assertCommissionReader, (req, res) 
       search,
       structure_id: structureId,
       company,
-      portal,
+      structure_commission_type: structureCommissionTypeRaw,
       data_da: dataDa,
       data_a: dataAl,
       commission_status: commissionStatusRaw,
@@ -408,6 +421,7 @@ router.get('/export-pdf', authenticateToken, assertCommissionReader, (req, res) 
     } = req.query;
 
     const commissionStatus = parseCommissionStatusFilter(commissionStatusRaw);
+    const structureCommissionType = parseCommissionTypeFilter(structureCommissionTypeRaw);
 
     let rows = await list('commissions');
     if (req.user.role === 'struttura') {
@@ -419,7 +433,7 @@ router.get('/export-pdf', authenticateToken, assertCommissionReader, (req, res) 
         search,
         structureId: req.user.role === 'admin' || req.user.role === 'fornitore' ? structureId : null,
         company,
-        portal,
+        structureCommissionType,
         dataDa,
         dataAl,
         commissionStatus,
