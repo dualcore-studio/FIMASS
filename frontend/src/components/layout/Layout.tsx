@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { Suspense, useState } from 'react';
 import { Link, Outlet } from 'react-router-dom';
 import Sidebar from './Sidebar';
 import Topbar from './Topbar';
@@ -19,7 +19,15 @@ export default function Layout() {
           className={`flex min-h-dvh flex-col border-l border-t border-[var(--portal-border)]/80 bg-[var(--portal-main-content-bg)] px-4 pb-4 pt-[calc(3.5rem+1rem)] shadow-[inset_0_1px_0_rgba(255,255,255,0.75)] transition-[margin] duration-200 sm:px-6 sm:pb-6 sm:pt-[calc(3.5rem+1.5rem)] lg:rounded-tl-2xl lg:px-8 lg:pb-8 lg:pt-[calc(3.5rem+2rem)] xl:px-10 xl:pb-10 xl:pt-[calc(3.5rem+2.5rem)] ${sidebarCollapsed ? 'ml-16' : 'ml-48'}`}
         >
           <div className="flex-1">
-            <Outlet />
+            <Suspense
+              fallback={
+                <div className="flex min-h-[50vh] items-center justify-center">
+                  <div className="h-8 w-8 animate-spin rounded-full border-3 border-blue-200 border-t-blue-700" />
+                </div>
+              }
+            >
+              <Outlet />
+            </Suspense>
           </div>
           <footer
             className="mt-10 border-t border-slate-200/80 pt-6 text-center text-xs text-slate-500"

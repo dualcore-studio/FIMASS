@@ -1,48 +1,60 @@
+import { lazy, Suspense } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { UnreadMessagesProvider } from './context/UnreadMessagesContext';
 import Layout from './components/layout/Layout';
 import Login from './pages/auth/Login';
-import PrivacyPage from './pages/legal/PrivacyPage';
-import Dashboard from './pages/dashboard/Dashboard';
-import UsersList from './pages/users/UsersList';
-import UserCreate from './pages/users/UserCreate';
-import UserEdit from './pages/users/UserEdit';
-import QuotesList from './pages/quotes/QuotesList';
-import QuoteCreate from './pages/quotes/QuoteCreate';
-import QuoteDetail from './pages/quotes/QuoteDetail';
-import PoliciesList from './pages/policies/PoliciesList';
-import PolicyDetail from './pages/policies/PolicyDetail';
-import PolicyRequest from './pages/policies/PolicyRequest';
-import ScadenzePage from './pages/scadenze/ScadenzePage';
-import AssistedList from './pages/assisted/AssistedList';
-import AssistedDetail from './pages/assisted/AssistedDetail';
-import Reports from './pages/reports/Reports';
-import ActivityLogs from './pages/logs/ActivityLogs';
-import AuditPrivacyLogs from './pages/logs/AuditPrivacyLogs';
-import Settings from './pages/settings/Settings';
-import CommissionsPage from './pages/commissions/CommissionsPage';
-import CommissionForm from './pages/commissions/CommissionForm';
-import MessagesPage from './pages/messaging/MessagesPage';
-import AppointmentsList from './pages/appointments/AppointmentsList';
-import AppointmentDetail from './pages/appointments/AppointmentDetail';
 import type { ReactNode } from 'react';
 import { PortalBackgroundLayers } from './components/layout/PortalBackground';
 import { SCADENZE_ACCESS_ROLES } from './constants/scadenzeAccess';
 
+const loadDashboard = () => import('./pages/dashboard/Dashboard');
+
+const PrivacyPage = lazy(() => import('./pages/legal/PrivacyPage'));
+const Dashboard = lazy(loadDashboard);
+const UsersList = lazy(() => import('./pages/users/UsersList'));
+const UserCreate = lazy(() => import('./pages/users/UserCreate'));
+const UserEdit = lazy(() => import('./pages/users/UserEdit'));
+const QuotesList = lazy(() => import('./pages/quotes/QuotesList'));
+const QuoteCreate = lazy(() => import('./pages/quotes/QuoteCreate'));
+const QuoteDetail = lazy(() => import('./pages/quotes/QuoteDetail'));
+const PoliciesList = lazy(() => import('./pages/policies/PoliciesList'));
+const PolicyDetail = lazy(() => import('./pages/policies/PolicyDetail'));
+const PolicyRequest = lazy(() => import('./pages/policies/PolicyRequest'));
+const ScadenzePage = lazy(() => import('./pages/scadenze/ScadenzePage'));
+const AssistedList = lazy(() => import('./pages/assisted/AssistedList'));
+const AssistedDetail = lazy(() => import('./pages/assisted/AssistedDetail'));
+const Reports = lazy(() => import('./pages/reports/Reports'));
+const ActivityLogs = lazy(() => import('./pages/logs/ActivityLogs'));
+const AuditPrivacyLogs = lazy(() => import('./pages/logs/AuditPrivacyLogs'));
+const Settings = lazy(() => import('./pages/settings/Settings'));
+const CommissionsPage = lazy(() => import('./pages/commissions/CommissionsPage'));
+const CommissionForm = lazy(() => import('./pages/commissions/CommissionForm'));
+const MessagesPage = lazy(() => import('./pages/messaging/MessagesPage'));
+const AppointmentsList = lazy(() => import('./pages/appointments/AppointmentsList'));
+const AppointmentDetail = lazy(() => import('./pages/appointments/AppointmentDetail'));
+
+// La dashboard è la prima schermata di chi ha già una sessione: scaricarla
+// subito la mette in parallelo alla verifica del token invece che in coda.
+if (localStorage.getItem('token')) {
+  void loadDashboard();
+}
+
+function FullScreenSpinner() {
+  return (
+    <div className="relative min-h-screen flex items-center justify-center bg-[var(--portal-app-bg)]">
+      <div className="pointer-events-none absolute inset-0" aria-hidden>
+        <PortalBackgroundLayers />
+      </div>
+      <div className="relative z-10 w-8 h-8 border-3 border-blue-200 border-t-blue-700 rounded-full animate-spin" />
+    </div>
+  );
+}
+
 function ProtectedRoute({ children, roles }: { children: ReactNode; roles?: string[] }) {
   const { user, isLoading } = useAuth();
 
-  if (isLoading) {
-    return (
-      <div className="relative min-h-screen flex items-center justify-center bg-[var(--portal-app-bg)]">
-        <div className="pointer-events-none absolute inset-0" aria-hidden>
-          <PortalBackgroundLayers />
-        </div>
-        <div className="relative z-10 w-8 h-8 border-3 border-blue-200 border-t-blue-700 rounded-full animate-spin" />
-      </div>
-    );
-  }
+  if (isLoading) return <FullScreenSpinner />;
 
   if (!user) return <Navigate to="/login" replace />;
   if (roles && !roles.includes(user.role)) return <Navigate to="/" replace />;
@@ -153,7 +165,9 @@ export default function App() {
     <BrowserRouter>
       <AuthProvider>
         <UnreadMessagesProvider>
-          <AppRoutes />
+          <Suspense fallback={<FullScreenSpinner />}>
+            <AppRoutes />
+          </Suspense>
         </UnreadMessagesProvider>
       </AuthProvider>
     </BrowserRouter>

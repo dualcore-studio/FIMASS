@@ -45,10 +45,13 @@ export default function Login() {
                 <div className="mb-4 w-full shrink-0 flex justify-center px-2 sm:mb-5">
                   <div className="relative flex w-full max-w-md justify-center">
                     <img
-                      src="/fimass-logo-main.svg"
+                      src="/fimass-logo-main.webp"
                       alt="FIMASS by Sportello Amico — Servizi per la famiglia e l'azienda"
                       className="relative z-[1] h-auto w-full object-contain object-center bg-transparent [image-rendering:auto] transition-transform duration-300 ease-out motion-safe:hover:scale-[1.01]"
+                      width={900}
+                      height={342}
                       decoding="async"
+                      fetchPriority="high"
                     />
                   </div>
                 </div>
