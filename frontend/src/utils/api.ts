@@ -3,6 +3,10 @@ const API_BASE = envApiBase
   ? envApiBase.replace(/\/$/, '')
   : '/api';
 
+// Un 401 qui significa credenziali sbagliate, non sessione scaduta: il
+// redirect ricaricherebbe la pagina cancellando il messaggio d'errore.
+const NO_SESSION_REDIRECT = new Set(['/auth/login']);
+
 class ApiError extends Error {
   status: number;
   /** Payload JSON grezzo dal server (es. campi aggiuntivi su 409). */
@@ -34,7 +38,7 @@ async function request<T>(endpoint: string, options: RequestInit = {}): Promise<
     headers,
   });
 
-  if (response.status === 401) {
+  if (response.status === 401 && !NO_SESSION_REDIRECT.has(endpoint)) {
     localStorage.removeItem('token');
     localStorage.removeItem('user');
     window.location.href = '/login';
