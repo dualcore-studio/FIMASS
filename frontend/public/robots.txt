@@ -1,9 +1,12 @@
 # FIMASS by Sportello Amico — area riservata
 # Portale di gestione preventivi e polizze accessibile solo agli utenti
-# autorizzati. Nessun contenuto pubblico da indicizzare.
+# autorizzati. La pagina pubblica di accesso resta scansionabile perche'
+# Google possa leggerne il meta noindex e i dati del titolare; e' il tag
+# noindex, non questo file, a tenerla fuori dai risultati di ricerca.
 #
 # Titolare del servizio di intermediazione assicurativa:
 # Tuo Broker srls — RUI IVASS n. B000677151 — P.IVA 16028461008
 
 User-agent: *
-Disallow: /
+Allow: /
+Disallow: /api/
