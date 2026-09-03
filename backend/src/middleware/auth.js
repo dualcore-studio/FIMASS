@@ -24,16 +24,9 @@ async function authenticateToken(req, res, next) {
     return res.status(401).json({ error: 'Token di autenticazione richiesto' });
   }
 
+  let decoded;
   try {
-    const decoded = jwt.verify(token, JWT_SECRET);
-    const user = await getById('users', decoded.id);
-
-    if (!user || user.stato !== 'attivo') {
-      return res.status(401).json({ error: 'Account non valido o disattivato' });
-    }
-
-    req.user = user;
-    next();
+    decoded = jwt.verify(token, JWT_SECRET);
   } catch (err) {
     // 401 così il client (`api.ts`) invalida la sessione e reindirizza al login.
     // Prima era 403: l’utente restava “loggato” in UI ma ogni chiamata falliva (es. dopo deploy senza JWT_SECRET fisso).
@@ -43,6 +36,28 @@ async function authenticateToken(req, res, next) {
     }
     return res.status(401).json({ error: 'Token non valido o scaduto', code: 'TOKEN_INVALID' });
   }
+
+  // Il lookup sta FUORI dal catch del token: un errore del database (es. rate
+  // limit di InstantDB sulle chiamate in parallelo della dashboard) non deve
+  // diventare un 401, altrimenti il client butta via una sessione valida e
+  // rimbalza al login subito dopo l’accesso.
+  let user;
+  try {
+    user = await getById('users', decoded.id);
+  } catch (err) {
+    console.error('Auth lookup error:', err);
+    return res.status(503).json({
+      error: 'Servizio temporaneamente non disponibile. Riprova tra qualche istante.',
+      code: 'AUTH_BACKEND_UNAVAILABLE',
+    });
+  }
+
+  if (!user || user.stato !== 'attivo') {
+    return res.status(401).json({ error: 'Account non valido o disattivato' });
+  }
+
+  req.user = user;
+  next();
 }
 
 function authorizeRoles(...roles) {

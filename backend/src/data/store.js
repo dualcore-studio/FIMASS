@@ -1,3 +1,4 @@
+const { AsyncLocalStorage } = require('node:async_hooks');
 const { getInstantClient, instantId } = require('../lib/instantdb');
 
 const TABLES = [
@@ -24,13 +25,69 @@ const TABLES = [
   'appointment_status_history',
 ];
 
+// ── Rate limit InstantDB ───────────────────────────────────────────
+// Il piano admin di Instant limita le query al secondo: la dashboard admin ne
+// spara una raffica in parallelo e ne perdeva una parte con un 429. Ritentiamo
+// con backoff invece di propagare l'errore ai route handler.
+const MAX_RETRY_ATTEMPTS = 4;
+const MAX_RETRY_WAIT_MS = 2000;
+
+function isRateLimitError(err) {
+  return Boolean(err) && (err.status === 429 || err?.body?.type === 'rate-limited');
+}
+
+function sleep(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+async function withRateLimitRetry(run) {
+  let lastError;
+  for (let attempt = 0; attempt < MAX_RETRY_ATTEMPTS; attempt += 1) {
+    try {
+      return await run();
+    } catch (err) {
+      if (!isRateLimitError(err)) throw err;
+      lastError = err;
+      const retryAfter = Number(err?.body?.hint?.['retry-after']);
+      const base = Number.isFinite(retryAfter) && retryAfter > 0 ? retryAfter * 1000 : 150 * 2 ** attempt;
+      // Il jitter evita che le chiamate parallele della stessa pagina ripartano insieme.
+      await sleep(Math.min(base, MAX_RETRY_WAIT_MS) + Math.floor(Math.random() * 150));
+    }
+  }
+  throw lastError;
+}
+
+// ── Cache per singola richiesta HTTP ───────────────────────────────
+// Un handler può leggere la stessa tabella molte volte (auth, view, filtri):
+// senza cache ognuna è una query a Instant, e la raffica sfonda il rate limit.
+// Vive solo per la durata della richiesta e viene svuotata a ogni scrittura.
+const requestCacheStorage = new AsyncLocalStorage();
+
+function runWithRequestCache(fn) {
+  return requestCacheStorage.run({ tables: new Map(), pending: new Map(), generation: 0 }, fn);
+}
+
+function getRequestCache() {
+  return requestCacheStorage.getStore() || null;
+}
+
+function invalidateRequestCache() {
+  const cache = getRequestCache();
+  if (!cache) return;
+  cache.tables.clear();
+  cache.pending.clear();
+  // Le letture già in volo hanno dati anteriori alla scrittura: la generazione
+  // le fa scadere così non ripopolano la cache con righe superate.
+  cache.generation += 1;
+}
+
 function nowIso() {
   return new Date().toISOString().slice(0, 19).replace('T', ' ');
 }
 
-async function fetchTable(namespace) {
+async function queryTable(namespace) {
   const db = getInstantClient();
-  const payload = await db.query({ [namespace]: {} });
+  const payload = await withRateLimitRetry(() => db.query({ [namespace]: {} }));
   const rows = Array.isArray(payload?.[namespace]) ? payload[namespace] : [];
   return rows.map((row) => ({
     ...row,
@@ -39,13 +96,36 @@ async function fetchTable(namespace) {
   }));
 }
 
+async function fetchTable(namespace) {
+  const cache = getRequestCache();
+  if (!cache) return queryTable(namespace);
+
+  // Copia dell'array a ogni lettura: i chiamanti ordinano in place, la cache no.
+  if (cache.tables.has(namespace)) return cache.tables.get(namespace).slice();
+  if (cache.pending.has(namespace)) return (await cache.pending.get(namespace)).slice();
+
+  const generation = cache.generation;
+  const pending = queryTable(namespace)
+    .then((rows) => {
+      if (cache.generation === generation) cache.tables.set(namespace, rows);
+      return rows;
+    })
+    .finally(() => {
+      cache.pending.delete(namespace);
+    });
+  cache.pending.set(namespace, pending);
+  return (await pending).slice();
+}
+
 async function fetchAllTables() {
   const db = getInstantClient();
   const query = TABLES.reduce((acc, t) => {
     acc[t] = {};
     return acc;
   }, {});
-  const payload = await db.query(query);
+  const cache = getRequestCache();
+  const generation = cache ? cache.generation : 0;
+  const payload = await withRateLimitRetry(() => db.query(query));
   const tables = {};
   for (const table of TABLES) {
     tables[table] = Array.isArray(payload?.[table])
@@ -55,6 +135,11 @@ async function fetchAllTables() {
           id: Number(r.db_id ?? r.id),
         }))
       : [];
+    // Abbiamo già i dati: le fetchTable successive nella stessa richiesta
+    // non devono tornare a interrogare Instant.
+    if (cache && cache.generation === generation && !cache.tables.has(table)) {
+      cache.tables.set(table, tables[table]);
+    }
   }
   return tables;
 }
@@ -84,7 +169,8 @@ async function insert(namespace, data) {
     updated_at: data.updated_at || nowIso(),
   });
   delete row.id;
-  await db.transact([db.tx[namespace][instantEntityId].update(row)]);
+  await withRateLimitRetry(() => db.transact([db.tx[namespace][instantEntityId].update(row)]));
+  invalidateRequestCache();
   return { ...row, id: logicalId, _instant_id: instantEntityId };
 }
 
@@ -103,7 +189,8 @@ async function upsertById(namespace, id, patch) {
   });
   delete row.id;
   delete row._instant_id;
-  await db.transact([db.tx[namespace][current._instant_id].update(row)]);
+  await withRateLimitRetry(() => db.transact([db.tx[namespace][current._instant_id].update(row)]));
+  invalidateRequestCache();
   return { ...row, id: Number(id), _instant_id: current._instant_id };
 }
 
@@ -116,7 +203,8 @@ async function removeById(namespace, id) {
   if (!current._instant_id) {
     throw new Error(`removeById: missing Instant id for ${namespace}#${id}`);
   }
-  await db.transact([db.tx[namespace][current._instant_id].delete()]);
+  await withRateLimitRetry(() => db.transact([db.tx[namespace][current._instant_id].delete()]));
+  invalidateRequestCache();
 }
 
 async function getById(namespace, id) {
@@ -174,6 +262,7 @@ module.exports = {
   paginate,
   fetchTable,
   fetchAllTables,
+  runWithRequestCache,
   insert,
   upsertById,
   removeById,

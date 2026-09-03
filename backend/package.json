@@ -7,7 +7,7 @@
   },
   "main": "src/server.js",
   "scripts": {
-    "test": "node --test src/lib/rcAutoGaranzie.test.js src/data/views.test.js src/lib/scadenzeReminders.test.js",
+    "test": "node --test src/lib/rcAutoGaranzie.test.js src/data/views.test.js src/data/store.test.js src/middleware/auth.test.js src/lib/scadenzeReminders.test.js",
     "start": "node src/server.js",
     "dev": "node --watch src/server.js",
     "seed": "node src/seed/seed.js",
