@@ -117,17 +117,30 @@ async function fetchTable(namespace) {
   return (await pending).slice();
 }
 
-async function fetchAllTables() {
+async function fetchAllTables(tableNames = TABLES) {
   const db = getInstantClient();
-  const query = TABLES.reduce((acc, t) => {
+  const cache = getRequestCache();
+  const generation = cache ? cache.generation : 0;
+
+  // Quello che è già in cache non va richiesto di nuovo a Instant.
+  const missing = cache ? tableNames.filter((t) => !cache.tables.has(t)) : tableNames;
+  if (!missing.length) {
+    const cached = {};
+    for (const table of tableNames) cached[table] = cache.tables.get(table).slice();
+    return cached;
+  }
+
+  const query = missing.reduce((acc, t) => {
     acc[t] = {};
     return acc;
   }, {});
-  const cache = getRequestCache();
-  const generation = cache ? cache.generation : 0;
   const payload = await withRateLimitRetry(() => db.query(query));
   const tables = {};
-  for (const table of TABLES) {
+  for (const table of tableNames) {
+    if (cache && cache.tables.has(table) && !(table in payload)) {
+      tables[table] = cache.tables.get(table).slice();
+      continue;
+    }
     tables[table] = Array.isArray(payload?.[table])
       ? payload[table].map((r) => ({
           ...r,
@@ -152,7 +165,34 @@ function normalizeInput(data) {
   return out;
 }
 
+// Instant accetta una proiezione dei campi; se questa app girasse su una
+// versione che non la supporta si torna alla lettura completa.
+let supportsFieldProjection = true;
+
 async function nextNumericId(namespace) {
+  // Serve solo il massimo di db_id: chiedere le righe intere voleva dire
+  // scaricare tutta activity_logs (o audit_logs) a ogni inserimento, e sono
+  // le tabelle che crescono a ogni login.
+  if (supportsFieldProjection) {
+    try {
+      const db = getInstantClient();
+      const payload = await withRateLimitRetry(() => db.query({ [namespace]: { $: { fields: ['db_id'] } } }));
+      const rows = Array.isArray(payload?.[namespace]) ? payload[namespace] : [];
+      const max = rows.reduce((acc, row) => Math.max(acc, Number(row.db_id ?? row.id) || 0), 0);
+      // Se ci sono righe ma nessun db_id, la proiezione ha scartato il campo:
+      // restituire 1 qui vorrebbe dire assegnare un id già in uso.
+      if (rows.length && max === 0) {
+        throw new Error(`nextNumericId: nessun db_id nella proiezione di ${namespace}`);
+      }
+      return max + 1;
+    } catch (err) {
+      if (isRateLimitError(err)) throw err;
+      // Un id sbagliato creerebbe duplicati: meglio pagare la lettura intera.
+      console.warn('nextNumericId: proiezione non disponibile, uso la lettura completa:', err?.message || err);
+      supportsFieldProjection = false;
+    }
+  }
+
   const rows = await fetchTable(namespace);
   const max = rows.reduce((acc, row) => Math.max(acc, Number(row.id) || 0), 0);
   return max + 1;

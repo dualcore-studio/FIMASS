@@ -31,28 +31,31 @@ router.post('/login', (req, res) => {
       return res.status(401).json({ error: 'Credenziali non valide' });
     }
 
-    await upsertById('users', user.id, { last_login: new Date().toISOString().slice(0, 19).replace('T', ' ') });
-
     const token = generateToken(user);
 
     const displayName = user.role === 'struttura' ? user.denominazione : `${user.nome} ${user.cognome}`;
 
-    await logActivity({
-      utente_id: user.id,
-      utente_nome: displayName,
-      ruolo: user.role,
-      azione: 'LOGIN',
-      modulo: 'auth',
-      dettaglio: `Login effettuato da ${user.username}`
-    });
-    await writeAuditLog({
-      userId: user.id,
-      action: AUDIT_ACTIONS.LOGIN,
-      entityType: 'user',
-      entityId: user.id,
-      metadata: { username: user.username, role: user.role },
-      ipAddress: getClientIp(req),
-    });
+    // Tre scritture su tabelle diverse: in sequenza sommavano i rispettivi
+    // tempi di andata e ritorno prima ancora di rispondere all'utente.
+    await Promise.all([
+      upsertById('users', user.id, { last_login: new Date().toISOString().slice(0, 19).replace('T', ' ') }),
+      logActivity({
+        utente_id: user.id,
+        utente_nome: displayName,
+        ruolo: user.role,
+        azione: 'LOGIN',
+        modulo: 'auth',
+        dettaglio: `Login effettuato da ${user.username}`
+      }),
+      writeAuditLog({
+        userId: user.id,
+        action: AUDIT_ACTIONS.LOGIN,
+        entityType: 'user',
+        entityId: user.id,
+        metadata: { username: user.username, role: user.role },
+        ipAddress: getClientIp(req),
+      }),
+    ]);
 
     res.json({
       token,

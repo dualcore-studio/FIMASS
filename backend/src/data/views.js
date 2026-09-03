@@ -26,8 +26,25 @@ function mapById(rows) {
   return map;
 }
 
+// Il contesto arricchisce preventivi e polizze: sono queste le uniche tabelle
+// che i chiamanti leggono da `ctx`. Prima ne scaricava 22, comprese
+// activity_logs, audit_logs e conversation_messages — quelle che crescono di
+// piu' e che qui non servono a nulla.
+const CONTEXT_TABLES = [
+  'users',
+  'quotes',
+  'policies',
+  'insurance_types',
+  'assisted_people',
+  'attachments',
+  'quote_status_history',
+  'policy_status_history',
+  'quote_reminders',
+  'quote_notes',
+];
+
 async function loadContext() {
-  const tables = await fetchAllTables();
+  const tables = await fetchAllTables(CONTEXT_TABLES);
   return {
     ...tables,
     usersById: mapById(tables.users),
@@ -116,4 +133,5 @@ function enrichPolicy(policy, ctx) {
   };
 }
 
-module.exports = { loadContext, enrichQuote, enrichPolicy, parseMaybeJson, normalizeDatiPreventivoForMerge };
+module.exports = {
+  CONTEXT_TABLES, loadContext, enrichQuote, enrichPolicy, parseMaybeJson, normalizeDatiPreventivoForMerge };

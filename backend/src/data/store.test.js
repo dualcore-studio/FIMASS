@@ -4,7 +4,7 @@ const assert = require('node:assert');
 // Lo store parla con InstantDB al primo require: sostituiamo il client prima
 // di caricarlo, così i test contano le query senza toccare la rete.
 const instantPath = require.resolve('../lib/instantdb');
-const calls = { query: 0 };
+const calls = { query: 0, transact: 0 };
 let queryImpl = async () => ({});
 
 require.cache[instantPath] = {
@@ -17,16 +17,23 @@ require.cache[instantPath] = {
         calls.query += 1;
         return queryImpl(...args);
       },
+      transact: async () => {
+        calls.transact += 1;
+      },
+      tx: new Proxy({}, {
+        get: () => new Proxy({}, { get: () => ({ update: (row) => row, delete: () => ({}) }) }),
+      }),
     }),
     isInstantConfigured: () => true,
     instantId: () => 'instant-id',
   },
 };
 
-const { fetchTable, fetchAllTables, runWithRequestCache } = require('./store');
+const { fetchTable, fetchAllTables, insert, runWithRequestCache } = require('./store');
 
 function reset(impl) {
   calls.query = 0;
+  calls.transact = 0;
   queryImpl = impl;
 }
 
@@ -93,6 +100,36 @@ test('fetchAllTables primes the cache for later single-table reads', async () =>
   assert.strictEqual(calls.query, 1);
 });
 
+test('fetchAllTables only asks for the tables it was given', async () => {
+  let asked = null;
+  reset(async (query) => {
+    asked = Object.keys(query);
+    return { users: [], quotes: [] };
+  });
+
+  const tables = await fetchAllTables(['users', 'quotes']);
+
+  assert.deepStrictEqual(asked.sort(), ['quotes', 'users']);
+  assert.deepStrictEqual(Object.keys(tables).sort(), ['quotes', 'users']);
+});
+
+test('fetchAllTables reuses what the request already cached', async () => {
+  let asked = null;
+  reset(async (query) => {
+    asked = Object.keys(query);
+    return { users: [{ id: 'a', db_id: 1 }], quotes: [] };
+  });
+
+  await runWithRequestCache(async () => {
+    await fetchTable('users');
+    await fetchAllTables(['users', 'quotes']);
+  });
+
+  // La seconda chiamata chiede solo quotes: users era già in cache.
+  assert.deepStrictEqual(asked, ['quotes']);
+  assert.strictEqual(calls.query, 2);
+});
+
 test('a rate-limited query is retried instead of failing', async () => {
   let attempts = 0;
   reset(async () => {
@@ -118,4 +155,31 @@ test('non-rate-limit errors are not retried', async () => {
 
   await assert.rejects(() => fetchTable('users'), /boom/);
   assert.strictEqual(attempts, 1);
+});
+
+test('the next id is computed without downloading whole rows', async () => {
+  let asked = null;
+  reset(async (query) => {
+    asked = query;
+    return { activity_logs: [{ id: 'a', db_id: 4 }, { id: 'b', db_id: 9 }] };
+  });
+
+  const inserted = await insert('activity_logs', { azione: 'LOGIN' });
+
+  assert.deepStrictEqual(asked, { activity_logs: { $: { fields: ['db_id'] } } });
+  assert.strictEqual(inserted.id, 10);
+});
+
+test('a projection that drops db_id falls back instead of reusing ids', async () => {
+  // Se la proiezione tornasse righe senza db_id, il massimo sarebbe 0 e il
+  // prossimo inserimento riuserebbe un id già assegnato.
+  const full = [{ id: 'a', db_id: 41 }, { id: 'b', db_id: 42 }];
+  reset(async (query) => {
+    const projected = Boolean(query.audit_logs?.$);
+    return { audit_logs: projected ? [{ id: 'a' }, { id: 'b' }] : full };
+  });
+
+  const inserted = await insert('audit_logs', { action: 'login' });
+
+  assert.strictEqual(inserted.id, 43);
 });
